@@ -7,7 +7,7 @@ set -o pipefail
 
 train_set="train_all"
 val_set="dev"
-test_sets="test"
+test_sets="so762_train so762_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml
@@ -16,7 +16,8 @@ inference_config=conf/decode_asr.yaml
     --lang en \
     --ngpu 8 \
     --max_wav_duration 30 \
-    --inference_nj 100 \
+    --gpu_inference true \
+    --inference_nj 1 \
     --speed_perturb_factors "0.9 1.0 1.1" \
     --asr_config "${asr_config}" \
     --inference_config "${inference_config}" \
