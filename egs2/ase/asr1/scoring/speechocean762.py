@@ -1,6 +1,6 @@
 import os
 import json
-import regex
+from utils import convert_to_pure_phones
 
 
 def load_phone_symbol_table(filename):
@@ -28,13 +28,12 @@ def load_human_scores(filename, floor=0.1):
     score_of = {}
     phone_of = {}
     for utt in info:
-        phone_num = 0
+        phone_of[utt] = []
+        score_of[utt] = []
         for word in info[utt]['words']:
             assert len(word['phones']) == len(word['phones-accuracy'])
-            phone_of[utt] = []
-            score_of[utt] = []
             for i, phone in enumerate(word['phones']):
-                pure_phone = regex.sub(r'[_\d].*', '', phone)
+                pure_phone = convert_to_pure_phones(phone)
                 s = round_score(word['phones-accuracy'][i], floor)
                 phone_of[utt].append(pure_phone)
                 score_of[utt].append(s)
