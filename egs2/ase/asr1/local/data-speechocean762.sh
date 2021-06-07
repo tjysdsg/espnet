@@ -31,25 +31,15 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
-    local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/$part
+    local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part
   done
 
-  mkdir -p data/local
-  cp ${SPEECHOCEAN762}/resource/* data/local
-fi
-
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  text_phone="data/local/text-phone"
-  utt2phone="data/local/utt2phone"
-  python local/get_utt2phone.py ${text_phone} ${utt2phone}
-
-  for part in train test; do
-    cp ${utt2phone} data/$part/text
-  done
+  mkdir -p data/so762_resource
+  cp ${SPEECHOCEAN762}/resource/* data/so762_resource
 fi
 
 for part in train test; do
-  utils/fix_data_dir.sh data/$part || exit 1;
+  utils/fix_data_dir.sh data/so762_$part || exit 1;
 done
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
