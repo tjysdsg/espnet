@@ -6,6 +6,7 @@ Authors
 """
 import collections
 import json
+from typing import List
 
 EDIT_SYMBOLS = {
     "eq": "=",  # when tokens are equal
@@ -737,6 +738,23 @@ def top_wer_spks(details_by_speaker, top_k=10):
         return spks_by_wer
 
 
+def predict_scores(utts: List[str], wer_details: List[dict]) -> dict:
+    scores = {u: [] for u in utts}
+    for sentence in wer_details:
+        align = sentence['alignment']
+        utt = sentence['key']
+        for a in align:
+            op = a[0]
+            if op == '=':
+                scores[utt].append(2)
+            if op == 'S':
+                scores[utt].append(0)
+            if op == 'D':
+                scores[utt].append(0)
+
+    return scores
+
+
 def test():
     hyp = {}
     with open('tmp/hyp.txt') as f:
@@ -755,18 +773,23 @@ def test():
             if utt in hyp:
                 ref[utt] = phones
 
-    ids = list(range(len(ref)))
+    # ids = list(range(len(ref)))
 
     ref_list = []
     hyp_list = []
+    utts = []
     for utt, h in hyp.items():
+        utts.append(utt)
         hyp_list.append(h)
         ref_list.append(ref[utt])
 
-    details = wer_details_for_batch(ids, ref_list, hyp_list, compute_alignments=True)
+    details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
     json.dump(details, open('tmp/wer_alignment.json', 'w'), indent='\t')
 
     print(wer_summary(details))
+
+    scores = predict_scores(utts, details)
+    json.dump(scores, open('tmp/pred_scores.json', 'w'), indent='\t')
 
 
 if __name__ == '__main__':
