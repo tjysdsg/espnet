@@ -1,6 +1,7 @@
 # Set the path of your corpus
 # "downloads" means the corpus can be downloaded by the recipe automatically
 
+SPEECHOCEAN762=/home/storage07/zhangjunbo/data/speechocean762
 AISHELL=downloads
 AN4=downloads
 DIRHA_ENGLISH_PHDEV=

@@ -32,4 +32,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   local/data-librispeech.sh
 fi
 
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+  local/data-speechocean762.sh
+fi
+
 log "Data preparation completed"

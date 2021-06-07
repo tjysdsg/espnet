@@ -14,16 +14,15 @@ SECONDS=0
 
 stage=1
 stop_stage=100000
-data=/home/storage07/zhangjunbo/data
 
+
+. utils/parse_options.sh
+
+. ./db.sh
+. ./path.sh
+. ./cmd.sh
 
 log "$0 $*"
-# . utils/parse_options.sh
-
-# . ./db.sh
-# . ./path.sh
-# . ./cmd.sh
-
 
 if [ $# -ne 0 ]; then
     log "Error: No positional arguments are required."
@@ -32,11 +31,11 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
-    local/prep-speechocean762.sh $data/speechocean762/$part data/$part
+    local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/$part
   done
 
   mkdir -p data/local
-  cp $data/speechocean762/resource/* data/local
+  cp ${SPEECHOCEAN762}/resource/* data/local
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
