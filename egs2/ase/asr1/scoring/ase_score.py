@@ -21,7 +21,6 @@ def get_args():
         description='Calculate ASE correlation between predicted scores and annotated scores')
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
-    parser.add_argument('output', metavar='OUT', type=str, help='Output file path')
     parser.add_argument('--scores', type=str, default='data/local/scores.json', help='Path to scores.json')
     args = parser.parse_args()
     return args
