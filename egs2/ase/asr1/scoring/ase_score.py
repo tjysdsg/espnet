@@ -4,7 +4,7 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import regex
-from utils import remove_sil_from_phone_list
+from utils import remove_empty_phones
 from get_utt2phone import get_utt2phone
 from speechocean762 import load_human_scores
 from metrics import predict_scores, wer_details_for_batch
@@ -35,7 +35,7 @@ def load_hypothesis(path: str) -> Dict[str, List[str]]:
             tokens = line.strip('\n').split()
             utt = tokens[0]
             hyp = tokens[1:]
-            phones = remove_sil_from_phone_list(hyp)
+            phones = remove_empty_phones(hyp)
             hyps[utt] = phones
 
     return hyps

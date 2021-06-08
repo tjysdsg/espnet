@@ -756,7 +756,7 @@ def predict_scores(utts: List[str], wer_details: List[dict]) -> dict:
 
 
 def test():
-    from utils import remove_sil_from_phone_list, convert_to_pure_phones
+    from utils import remove_empty_phones, convert_to_pure_phones
     hyp = {}
     with open('tmp/hyp.txt') as f:
         for line in f:
@@ -780,8 +780,8 @@ def test():
     for utt, h in hyp.items():
         if utt in ref:
             utts.append(utt)
-            hyp_list.append(remove_sil_from_phone_list(h))
-            ref_list.append(remove_sil_from_phone_list(ref[utt]))
+            hyp_list.append(remove_empty_phones(h))
+            ref_list.append(remove_empty_phones(ref[utt]))
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
     json.dump(details, open('tmp/wer_alignment.json', 'w'), indent='\t')
