@@ -41,7 +41,7 @@ def load_hypothesis(path: str) -> Dict[str, List[str]]:
     return hyps
 
 
-def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> Dict[str, List[int]]:
+def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> (Dict[str, List[int]], Dict):
     ref_list = []
     hyp_list = []
     utts = []
@@ -51,9 +51,55 @@ def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> Dict[s
         ref_list.append(refs[utt])
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
-    # import json
-    # json.dump(details, open('tmp/wer_alignment.json', 'w'), indent='\t')
-    return predict_scores(utts, details)
+
+    # get utt -> wer alignments
+    wer_align = {}
+    for d in details:
+        wer_align[d['key']] = d['alignment']
+
+    import json
+    json.dump(wer_align, open('tmp/wer_alignment.json', 'w'), indent='\t')
+
+    return predict_scores(utts, details), wer_align
+
+
+def get_result_str(wer_align: List, hyp: List[str], ref: List[str], pred: List[float], label: List[float]) -> str:
+    pred = [str(int(score)) for score in pred]
+    label = [str(int(score)) for score in label]
+
+    n = len(wer_align)
+    lines = ['' for _ in range(4)]
+    indices = [0 for _ in range(3)]
+    for i in range(n):
+        err = wer_align[i][0]
+        if err == 'S' or err == '=':
+            lines[0] += '\t' + hyp[indices[0]]
+            lines[1] += '\t' + ref[indices[1]]
+            lines[2] += '\t' + pred[indices[2]]
+            lines[3] += '\t' + label[indices[2]]
+            indices[0] += 1
+            indices[1] += 1
+            indices[2] += 1
+        elif err == 'I':
+            lines[0] += '\t' + hyp[indices[0]]
+            lines[1] += '\t '
+            lines[2] += '\t '
+            lines[3] += '\t '
+            indices[0] += 1
+        elif err == 'D':
+            lines[0] += '\t '
+            lines[1] += '\t' + ref[indices[1]]
+            lines[2] += '\t' + pred[indices[2]]
+            lines[3] += '\t' + label[indices[2]]
+            indices[1] += 1
+            indices[2] += 1
+        else:
+            assert False
+
+    return f'pred_phones:\t{lines[0]}\n' \
+           f'true_phones:\t{lines[1]}\n' \
+           f'pred_scores:\t{lines[2]}\n' \
+           f'true_scores:\t{lines[3]}\n'
 
 
 def main():
@@ -61,7 +107,7 @@ def main():
 
     hyps = load_hypothesis(args.hyp)
     refs = get_utt2phone(args.ref)
-    preds = get_scores(hyps, refs)
+    preds, wer_align = get_scores(hyps, refs)
     labels, _ = load_human_scores(args.scores)
 
     f = open(args.output_path, 'w')
@@ -72,14 +118,9 @@ def main():
         hyp_scores += s
         if utt in labels:
             true_scores += labels[utt]
-
+            error_type = wer_align[utt]
             f.write(f'utt: {utt}\n')
-            f.write(f'pred_phones: {" ".join(hyps[utt])}\n')
-            f.write(f'true_phones: {" ".join(refs[utt])}\n')
-            ps = [str(int(score)) for score in preds[utt]]
-            ls = [str(int(score)) for score in labels[utt]]
-            f.write(f'pred_scores: {" ".join(ps)}\n')
-            f.write(f'true_scores: {" ".join(ls)}\n')
+            f.write(get_result_str(error_type, hyps[utt], refs[utt], preds[utt], labels[utt]))
         else:
             print(f'WARNING: Cannot find annotated score for {utt}')
 
