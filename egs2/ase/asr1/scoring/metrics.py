@@ -756,12 +756,13 @@ def predict_scores(utts: List[str], wer_details: List[dict]) -> dict:
 
 
 def test():
+    from utils import remove_sil_from_phone_list, convert_to_pure_phones
     hyp = {}
     with open('tmp/hyp.txt') as f:
         for line in f:
             tokens = line.strip('\n').split()
             utt = tokens[0]
-            phones = tokens[1:]
+            phones = [convert_to_pure_phones(p) for p in tokens[1:]]
             hyp[utt] = phones
 
     ref = {}
@@ -769,19 +770,18 @@ def test():
         for line in f:
             tokens = line.strip('\n').split()
             utt = tokens[0]
-            phones = tokens[1:]
+            phones = [convert_to_pure_phones(p) for p in tokens[1:]]
             if utt in hyp:
                 ref[utt] = phones
-
-    # ids = list(range(len(ref)))
 
     ref_list = []
     hyp_list = []
     utts = []
     for utt, h in hyp.items():
-        utts.append(utt)
-        hyp_list.append(h)
-        ref_list.append(ref[utt])
+        if utt in ref:
+            utts.append(utt)
+            hyp_list.append(remove_sil_from_phone_list(h))
+            ref_list.append(remove_sil_from_phone_list(ref[utt]))
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
     json.dump(details, open('tmp/wer_alignment.json', 'w'), indent='\t')
