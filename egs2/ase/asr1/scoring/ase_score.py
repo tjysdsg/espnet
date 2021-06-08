@@ -11,6 +11,7 @@ from metrics import predict_scores, wer_details_for_batch
 from typing import Dict, List
 import numpy as np
 from scipy.stats import pearsonr
+from sklearn.metrics import mean_squared_error
 
 trn_pat = r'([A-Za-z\s]+)\((\S+)-(\S+)\)'
 trn_matcher = regex.compile(trn_pat)
@@ -69,8 +70,12 @@ def main():
         else:
             print(f'WARNING: Cannot find annotated score for {utt}')
 
-    pcc, p_test = pearsonr(np.asarray(hyp_scores), np.asarray(true_scores))
+    x1 = np.asarray(hyp_scores)
+    x2 = np.asarray(true_scores)
+    pcc, p_test = pearsonr(x1, x2)
+    mse = mean_squared_error(x1, x2)
     print(f'Pearson Correlation Coefficient: {pcc:.4f}')
+    print(f'MSE: {mse:.4f}')
 
 
 if __name__ == '__main__':
