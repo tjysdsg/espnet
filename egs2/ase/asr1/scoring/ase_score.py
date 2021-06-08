@@ -23,6 +23,7 @@ def get_args():
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('--scores', type=str, default='data/local/scores.json', help='Path to scores.json')
+    parser.add_argument('--output-path', type=str, default='tmp/results.txt', help='Path to write results')
     args = parser.parse_args()
     return args
 
@@ -50,6 +51,8 @@ def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> Dict[s
         ref_list.append(refs[utt])
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
+    # import json
+    # json.dump(details, open('tmp/wer_alignment.json', 'w'), indent='\t')
     return predict_scores(utts, details)
 
 
@@ -61,14 +64,26 @@ def main():
     preds = get_scores(hyps, refs)
     labels, _ = load_human_scores(args.scores)
 
+    f = open(args.output_path, 'w')
+
     hyp_scores = []
     true_scores = []
     for utt, s in preds.items():
         hyp_scores += s
         if utt in labels:
             true_scores += labels[utt]
+
+            f.write(f'utt: {utt}\n')
+            f.write(f'pred_phones: {" ".join(hyps[utt])}\n')
+            f.write(f'true_phones: {" ".join(refs[utt])}\n')
+            ps = [str(int(score)) for score in preds[utt]]
+            ls = [str(int(score)) for score in labels[utt]]
+            f.write(f'pred_scores: {" ".join(ps)}\n')
+            f.write(f'true_scores: {" ".join(ls)}\n')
         else:
             print(f'WARNING: Cannot find annotated score for {utt}')
+
+    f.close()
 
     x1 = np.asarray(hyp_scores)
     x2 = np.asarray(true_scores)
