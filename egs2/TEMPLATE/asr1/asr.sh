@@ -1188,13 +1188,10 @@ if ! "${skip_eval}"; then
             _data="${data_feats}/${dset}"
             _dir="${asr_exp}/${inference_tag}/${dset}"
 
-            # prediction file
-            cat ${_scoredir}/output.*/1best_recog/token > ${_scoredir}/best
-
             # Calculate ASE metrics
             export PYTHONPATH=scoring/
-            ${python} scoring/ase_score.py "${_scoredir}/best" "data/local/text-phone" > ${_scoredir}/results.txt
-            done
+            ${python} scoring/ase_score.py "${_dir}/token" "data/local/text-phone" > ${_dir}/results.txt
+            cat ${_dir}/results.txt
         done
     fi
 else
