@@ -1,6 +1,7 @@
 # Set the path of your corpus
 # "downloads" means the corpus can be downloaded by the recipe automatically
 
+L2ARCTIC=/home/storage15/tangjiyang/data/l2arctic
 SPEECHOCEAN762=/home/storage07/zhangjunbo/data/speechocean762
 AISHELL=downloads
 AN4=downloads
