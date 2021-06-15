@@ -110,10 +110,14 @@ def main():
     hyps = load_hypothesis(args.hyp)
     refs = get_utt2phone(args.ref)
     wer, preds, wer_align = get_scores(hyps, refs)
-    labels, _ = load_human_scores(args.scores)
 
     logger.info(wer)
 
+    if args.scores is None:
+        logger.warning("Not evaluating pronunciation scores as --scores option is not given")
+        exit(0)
+
+    labels, _ = load_human_scores(args.scores)
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     hyp_scores = []
     true_scores = []
