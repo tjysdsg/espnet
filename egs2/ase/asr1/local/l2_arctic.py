@@ -1,3 +1,6 @@
+"""
+Based on https://github.com/cageyoko/CTC-Attention-Mispronunciation/blob/master/egs/attention_aug/local/l2arctic_prep.py
+"""
 import glob
 import os
 import string
@@ -24,8 +27,8 @@ os.makedirs(save_path, exist_ok=True)
 w = open(save_path + "/wrd_text", 'w')
 w1 = open(save_path + "/wav.scp", 'w')
 w2 = open(save_path + "/wav_sph.scp", 'w')
-w3 = open(save_path + "/phn_text", 'w')
-w4 = open(save_path + "/transcript_phn_text", 'w')
+w3 = open(save_path + "/phn_text", 'w')  # perceived phones
+w4 = open(save_path + "/transcript_phn_text", 'w')  # correct phones
 
 
 def del_repeat_sil(phn_lst):
@@ -80,7 +83,7 @@ def main():
                 transcript_phns.append("SIL")
                 cur_phns.append("SIL")
             else:
-                trans_human_type = i.mark.split(",")
+                trans_human_type = i.mark.split(",")  # 'CPL,PPL,s'
                 if len(trans_human_type) == 1:
                     phn = trans_human_type[0]
                 else:
