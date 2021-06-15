@@ -1190,8 +1190,8 @@ if ! "${skip_eval}"; then
 
             # Calculate ASE metrics
             export PYTHONPATH=scoring/
-            ${python} scoring/ase_score.py "${_dir}/token" "data/local/text-phone" > ${_dir}/results.txt
-            cat ${_dir}/results.txt
+            ${python} scoring/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" --scores=local/speechocean762/scores.json --output-path=${_dir}/results.txt
+            echo "Alignment results saved to ${_dir}/results.txt"
         done
     fi
 else
