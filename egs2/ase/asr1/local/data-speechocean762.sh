@@ -32,10 +32,8 @@ fi
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
     local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part
+    python3 scoring/get_ppl.py --scores=local/speechocean762/scores.json > data/so762_${part}/text
   done
-
-  mkdir -p data/so762_resource
-  cp ${SPEECHOCEAN762}/resource/* data/so762_resource
 fi
 
 for part in train test; do
