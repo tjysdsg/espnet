@@ -4,7 +4,6 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-import regex
 from utils import remove_empty_phones, create_logger
 from get_utt2phone import get_utt2phone
 from speechocean762 import load_human_scores
@@ -13,9 +12,6 @@ from typing import Dict, List
 import numpy as np
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
-
-trn_pat = r'([A-Za-z\s]+)\((\S+)-(\S+)\)'
-trn_matcher = regex.compile(trn_pat)
 
 
 def get_args():
@@ -112,10 +108,6 @@ def main():
     wer, preds, wer_align = get_scores(hyps, refs)
 
     logger.info(wer)
-
-    if args.scores is None:
-        logger.warning("Not evaluating pronunciation scores as --scores option is not given")
-        exit(0)
 
     labels, _ = load_human_scores(args.scores)
     f = open(f'{args.output_dir}/alignment.txt', 'w')
