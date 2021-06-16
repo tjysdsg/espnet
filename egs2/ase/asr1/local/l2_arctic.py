@@ -24,11 +24,11 @@ load_error_file = ["YDCK/annotation/arctic_a0209.TextGrid", "YDCK/annotation/arc
 wav_lst = glob.glob(path)
 save_path = args.save_path
 os.makedirs(save_path, exist_ok=True)
-w = open(save_path + "/wrd_text", 'w')
-w1 = open(save_path + "/wav.scp", 'w')
-w2 = open(save_path + "/wav_sph.scp", 'w')
-w3 = open(save_path + "/phn_text", 'w')  # perceived phones
-w4 = open(save_path + "/transcript_phn_text", 'w')  # correct phones
+wrd_text = open(save_path + "/wrd_text", 'w')
+wavscp = open(save_path + "/wav.scp", 'w')
+# w2 = open(save_path + "/wav_sph.scp", 'w')
+ppl = open(save_path + "/phn_text", 'w')  # perceived phones
+cpl = open(save_path + "/transcript_phn_text", 'w')  # correct phones
 
 
 def del_repeat_sil(phn_lst):
@@ -69,7 +69,7 @@ def main():
             continue
 
         spk_id = phn_path.split("/")[-3]
-        utt_id = spk_id + "_" + phn_path.split("/")[-1][:-9]
+        utt_id = spk_id + "-" + phn_path.split("/")[-1][:-9]
         tmp = re.sub("annotation", "wav", phn_path)
         wav_path = re.sub("TextGrid", "wav", tmp)
         tmp = re.sub("annotation", "transcript", phn_path)
@@ -101,18 +101,18 @@ def main():
 
         f = open(text_path, 'r')
         for line in f:
-            w.write(utt_id + " " + line.lower() + "\n")
+            wrd_text.write(utt_id + " " + line.lower() + "\n")
 
-        w1.write(utt_id + " " + wav_path + "\n")
+        wavscp.write(utt_id + " " + wav_path + "\n")
         w2.write(utt_id + " " + wav_path + "\n")
-        w3.write(utt_id + " " + " ".join(del_repeat_sil(cur_phns)) + "\n")
-        w4.write(utt_id + " " + " ".join(del_repeat_sil(transcript_phns)) + "\n")
+        ppl.write(utt_id + " " + " ".join(del_repeat_sil(cur_phns)) + "\n")
+        cpl.write(utt_id + " " + " ".join(del_repeat_sil(transcript_phns)) + "\n")
 
-    w.close()
-    w1.close()
+    wrd_text.close()
+    wavscp.close()
     w2.close()
-    w3.close()
-    w4.close()
+    ppl.close()
+    cpl.close()
 
 
 if __name__ == '__main__':
