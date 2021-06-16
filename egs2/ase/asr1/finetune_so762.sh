@@ -25,6 +25,6 @@ inference_config=conf/decode_asr.yaml
     --train_set "${train_set}" \
     --valid_set "${val_set}" \
     --test_sets "${test_sets}" \
-    --lm_train_text "data/${train_set}/text" \
+    --lm_train_text "data/train_all/text" \
     --local_data_opts "--stage 2" \
     "$@"
