@@ -45,13 +45,17 @@ def main():
             else:
                 return phones[idx]
 
-        def get_phone_grams(phones, idx: int, curr: str = None):
+        def get_phone_grams(phones, idx: int, is_deletion=False):
+            # if is_deletion is true, the current position between idx-1 and idx
             size = args.n
-            left = [try_get_phone(phones, i) for i in range(idx + size, idx, -1)]
-            right = [try_get_phone(phones, i) for i in range(idx + 1, idx + size + 1)]
+            left = [try_get_phone(phones, i) for i in range(idx - size, idx)]
+            if is_deletion:
+                right = [try_get_phone(phones, i) for i in range(idx, idx + size)]
+            else:
+                right = [try_get_phone(phones, i) for i in range(idx + 1, idx + size + 1)]
 
-            if curr is not None:
-                ret = left + [curr] + right
+            if is_deletion:
+                ret = left + ['SIL'] + right
             else:
                 ret = left + [try_get_phone(phones, idx)] + right
             return ret
@@ -77,7 +81,7 @@ def main():
             elif err == 'D':
                 assert i_l == i1
 
-                ppl = get_phone_grams(pred, i_l, curr='SIL')
+                ppl = get_phone_grams(pred, i_l, is_deletion=True)
                 cpl = get_phone_grams(label, i_p)
                 ppl = [ph2int[p] for p in ppl]
                 cpl = [ph2int[p] for p in cpl]
