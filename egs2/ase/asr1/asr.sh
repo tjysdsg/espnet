@@ -972,10 +972,10 @@ if ! "${skip_eval}"; then
         _dir="${asr_exp}/${inference_tag}/so762_train"
 
         export PYTHONPATH=ase/
-        ${python} train ase/train_scoring_model "${_dir}/token" "local/speechocean762/text-phone" \
+        ${python} ase/scoring_model.py train "${_dir}/token" "local/speechocean762/text-phone" \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
-          --output-dir=${_dir}
+          --model-path=${_dir}/scoring.mdl
     fi
 
     if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ]; then
@@ -986,10 +986,10 @@ if ! "${skip_eval}"; then
 
         # Calculate ASE metrics
         export PYTHONPATH=ase/
-        ${python} test ase/train_scoring_model "${_dir}/token" "local/speechocean762/text-phone" \
+        ${python} ase/scoring_model.py test "${_dir}/token" "local/speechocean762/text-phone" \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
-          --output-dir=${_dir}
+          --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
         # if [ "${dset}" = "test" ]; then  # librispeech test
         #   ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
         # else  # speechocean test

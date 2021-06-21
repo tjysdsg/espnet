@@ -1,6 +1,6 @@
 import argparse
 import os
-from utils import create_logger, load_utt2phones
+from utils import load_utt2phones
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
 import pickle
@@ -14,16 +14,13 @@ def get_args():
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
-    parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
+    parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
     args = parser.parse_args()
     return args
 
 
 def main():
     args = get_args()
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    logger = create_logger('train_scoring_model', f'{args.output_dir}/train_scoring_model.log')
 
     hyps = load_utt2phones(args.hyp)
     refs = load_so762_ref(args.ref)
@@ -60,17 +57,16 @@ def main():
             else:
                 assert False
 
-    logger.info(f'{len(x)} phones in data')
     if args.action == 'train':
         mdl = DecisionTreeRegressor(random_state=42)
         mdl.fit(x, y)
-        pickle.dump(mdl, open(os.path.join(args.output_dir, 'scoring.mdl'), 'wb'))
+        pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
-        mdl: DecisionTreeRegressor = pickle.load(open(os.path.join(args.output_dir, 'scoring.mdl'), 'rb'))
+        mdl: DecisionTreeRegressor = pickle.load(open(args.model_path, 'rb'))
         y_pred = mdl.predict(x, y)
         pcc, mse = eval_scoring(y_pred, y)
-        logger.info(f'Pearson Correlation Coefficient: {pcc:.4f}')
-        logger.info(f'MSE: {mse:.4f}')
+        print(f'Pearson Correlation Coefficient: {pcc:.4f}')
+        print(f'MSE: {mse:.4f}')
     else:
         assert False
 
