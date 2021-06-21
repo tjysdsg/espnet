@@ -1,20 +1,54 @@
 import os
 import json
 from utils import convert_to_pure_phones
+from typing import Dict, List
 
 
-def load_phone_symbol_table(filename):
+def load_phone_symbol_table(filename: str) -> (Dict[str, int], Dict[int, str]):
     if not os.path.isfile(filename):
         return None, None
     int2sym = {}
     sym2int = {}
     with open(filename, 'r') as f:
         for line in f:
-            sym, idx = line.strip('\n').split('\t')
+            sym, idx = line.strip('\n').split()
             idx = int(idx)
             int2sym[idx] = sym
             sym2int[sym] = idx
     return sym2int, int2sym
+
+
+def load_so762_ref(text_phone: str) -> Dict[str, List[str]]:
+    """
+    Return a dictionary containing the correct phone transcripts of speechocean762 utterances
+
+    :param text_phone The text-phone file in so762 dataset
+    :return {utt: [phone1, phone2, ...]}
+    """
+    u2t2p = {}
+    with open(text_phone) as f:
+        for line in f:
+            tokens = line.replace('\n', '').split()
+            assert len(tokens) > 1
+            utt = tokens[0]
+            trans = tokens[1:]
+
+            assert '.' in utt
+            utt, time = utt.split('.')
+            time = int(time)
+            if utt not in u2t2p:
+                u2t2p[utt] = {time: trans}
+            else:
+                u2t2p[utt][time] = trans
+
+    # sort phones by time
+    u2p = {}
+    for utt, t2p in u2t2p.items():
+        temporal = sorted(t2p.items(), key=lambda x: x[0])
+        phones = [p for _, ph in temporal for p in ph]
+        u2p[utt] = [convert_to_pure_phones(p) for p in phones]
+
+    return u2p
 
 
 def round_score(score, floor=0.1, min_val=0, max_val=2):

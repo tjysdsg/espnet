@@ -47,39 +47,6 @@ def load_utt2phones(path: str, del_empty_phones=True) -> Dict[str, List[str]]:
     return hyps
 
 
-def load_so762_ref(text_phone: str) -> Dict[str, List[str]]:
-    """
-    Return a dictionary containing the correct phone transcripts of speechocean762 utterances
-
-    :param text_phone The text-phone file in so762 dataset
-    :return {utt: [phone1, phone2, ...]}
-    """
-    u2t2p = {}
-    with open(text_phone) as f:
-        for line in f:
-            tokens = line.replace('\n', '').split()
-            assert len(tokens) > 1
-            utt = tokens[0]
-            trans = tokens[1:]
-
-            assert '.' in utt
-            utt, time = utt.split('.')
-            time = int(time)
-            if utt not in u2t2p:
-                u2t2p[utt] = {time: trans}
-            else:
-                u2t2p[utt][time] = trans
-
-    # sort phones by time
-    u2p = {}
-    for utt, t2p in u2t2p.items():
-        temporal = sorted(t2p.items(), key=lambda x: x[0])
-        phones = [p for _, ph in temporal for p in ph]
-        u2p[utt] = [convert_to_pure_phones(p) for p in phones]
-
-    return u2p
-
-
 def create_logger(name: str, log_file: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)

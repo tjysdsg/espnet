@@ -967,27 +967,36 @@ if ! "${skip_eval}"; then
 
 
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
-        log "Stage 12: Scoring"
-        if [ "${token_type}" = phn ]; then
-            log "Error: Not implemented for token_type=phn"
-            exit 1
-        fi
+        log "Stage 12: Training scoring model"
+        _data="${data_feats}/so762_train"
+        _dir="${asr_exp}/${inference_tag}/so762_train"
 
-        for dset in ${test_sets}; do
-            log "Testing the model on: ${dset}"
-            _data="${data_feats}/${dset}"
-            _dir="${asr_exp}/${inference_tag}/${dset}"
+        export PYTHONPATH=ase/
+        ${python} train ase/train_scoring_model "${_dir}/token" "local/speechocean762/text-phone" \
+          --phone-table=local/speechocean762/phones-pure.txt \
+          --scores=local/speechocean762/scores.json \
+          --output-dir=${_dir}
+    fi
 
-            # Calculate ASE metrics
-            export PYTHONPATH=ase/
-            if [ "${dset}" = "test" ]; then  # librispeech test
-              ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
-            else  # speechocean test
-              ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
-                --scores=local/speechocean762/scores.json --output-dir=${_dir}
-              echo "Alignment results saved to ${_dir}/alignment.txt"
-            fi
-        done
+    if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ]; then
+        log "Stage 13: Testing scoring model"
+
+        _data="${data_feats}/so762_test"
+        _dir="${asr_exp}/${inference_tag}/so762_test"
+
+        # Calculate ASE metrics
+        export PYTHONPATH=ase/
+        ${python} test ase/train_scoring_model "${_dir}/token" "local/speechocean762/text-phone" \
+          --phone-table=local/speechocean762/phones-pure.txt \
+          --scores=local/speechocean762/scores.json \
+          --output-dir=${_dir}
+        # if [ "${dset}" = "test" ]; then  # librispeech test
+        #   ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
+        # else  # speechocean test
+        #   ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
+        #     --scores=local/speechocean762/scores.json --output-dir=${_dir}
+        #   echo "Alignment results saved to ${_dir}/alignment.txt"
+        # fi
     fi
 else
     log "Skip the evaluation stages"

@@ -4,8 +4,8 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import load_utt2phones, create_logger, load_so762_ref
-from speechocean762 import load_human_scores
+from utils import load_utt2phones, create_logger
+from speechocean762 import load_human_scores, load_so762_ref
 from metrics import predict_scores, wer_details_for_batch, wer_summary
 from typing import Dict, List
 import numpy as np
@@ -22,6 +22,25 @@ def get_args():
     parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
     args = parser.parse_args()
     return args
+
+
+def get_wer_alignment(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> Dict:
+    ref_list = []
+    hyp_list = []
+    utts = []
+    for utt, h in hyps.items():
+        utts.append(utt)
+        hyp_list.append(h)
+        ref_list.append(refs[utt])
+
+    details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
+
+    # {utt -> wer alignments}
+    wer_align = {}
+    for d in details:
+        wer_align[d['key']] = d['alignment']
+
+    return wer_align
 
 
 def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> (Dict, Dict[str, List[int]], Dict):
@@ -83,6 +102,14 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], pred: List[f
            f'true_scores:\t{lines[3]}\n'
 
 
+def eval_scoring(score_pred: List[float], score_true: List[float]) -> (float, float):
+    x1 = np.asarray(score_pred)
+    x2 = np.asarray(score_true)
+    pcc, _ = pearsonr(x1, x2)
+    mse = mean_squared_error(x1, x2)
+    return pcc, mse
+
+
 def main():
     args = get_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -111,10 +138,7 @@ def main():
 
     f.close()
 
-    x1 = np.asarray(hyp_scores)
-    x2 = np.asarray(true_scores)
-    pcc, p_test = pearsonr(x1, x2)
-    mse = mean_squared_error(x1, x2)
+    pcc, mse = eval_scoring(hyp_scores, true_scores)
     logger.info(f'Pearson Correlation Coefficient: {pcc:.4f}')
     logger.info(f'MSE: {mse:.4f}')
 
