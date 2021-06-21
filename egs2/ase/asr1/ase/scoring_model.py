@@ -1,5 +1,4 @@
 import argparse
-import os
 from utils import load_utt2phones
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
@@ -12,6 +11,7 @@ def get_args():
     parser.add_argument('action', metavar='ACTION', choices=['train', 'test'], help='train or test')
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
+    parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
@@ -39,21 +39,56 @@ def main():
         pred = hyps[utt]
         sc = scores[utt]
 
+        def try_get_phone(phones, idx):
+            if idx < 0 or idx >= len(phones):
+                return 'SIL'
+            else:
+                return phones[idx]
+
+        def get_phone_grams(phones, idx: int, curr: str = None):
+            size = args.n
+            left = [try_get_phone(phones, i) for i in range(idx + size, idx, -1)]
+            right = [try_get_phone(phones, i) for i in range(idx + 1, idx + size + 1)]
+
+            if curr is not None:
+                ret = left + [curr] + right
+            else:
+                ret = left + [try_get_phone(phones, idx)] + right
+            return ret
+
         n = len(utt_align)
+        i_l = 0
+        i_p = 0
         for i in range(n):
-            err, i_l, i_p = utt_align[i]
+            err, i1, i2 = utt_align[i]
             if err == 'S' or err == '=':
-                ppl = ph2int[pred[i_p]]
-                cpl = ph2int[label[i_l]]
-                x.append([ppl, cpl])
+                assert i_l == i1
+                assert i_p == i2
+
+                ppl = get_phone_grams(pred, i_l)
+                cpl = get_phone_grams(label, i_p)
+                ppl = [ph2int[p] for p in ppl]
+                cpl = [ph2int[p] for p in cpl]
+
+                x.append(ppl + cpl)
                 y.append(sc[i_l])
+                i_p += 1
+                i_l += 1
             elif err == 'D':
-                ppl = ph2int['SIL']
-                cpl = ph2int[label[i_l]]
-                x.append([ppl, cpl])
+                assert i_l == i1
+
+                ppl = get_phone_grams(pred, i_l, curr='SIL')
+                cpl = get_phone_grams(label, i_p)
+                ppl = [ph2int[p] for p in ppl]
+                cpl = [ph2int[p] for p in cpl]
+
+                x.append(ppl + cpl)
                 y.append(sc[i_l])
+                i_l += 1
             elif err == 'I':
-                pass
+                assert i_p == i2
+
+                i_p += 1
             else:
                 assert False
 
