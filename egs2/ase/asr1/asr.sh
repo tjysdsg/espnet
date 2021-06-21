@@ -120,6 +120,8 @@ asr_speech_fold_length=800 # fold_length for speech data during ASR training.
 asr_text_fold_length=150   # fold_length for text data during ASR training.
 lm_fold_length=150         # fold_length for LM training.
 
+phone_gram_size=0  # number of neighboring phones to include in the scoring model
+
 help_message=$(cat << EOF
 Usage: $0 --train-set "<train_set_name>" --valid-set "<valid_set_name>" --test_sets "<test_set_names>"
 
@@ -973,6 +975,7 @@ if ! "${skip_eval}"; then
 
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py train "${_dir}/token" "local/speechocean762/text-phone" \
+          -n ${phone_gram_size} \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
@@ -987,6 +990,7 @@ if ! "${skip_eval}"; then
         # Calculate ASE metrics
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py test "${_dir}/token" "local/speechocean762/text-phone" \
+          -n ${phone_gram_size} \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
