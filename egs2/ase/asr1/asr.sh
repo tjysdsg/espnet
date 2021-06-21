@@ -979,11 +979,11 @@ if ! "${skip_eval}"; then
             _dir="${asr_exp}/${inference_tag}/${dset}"
 
             # Calculate ASE metrics
-            export PYTHONPATH=scoring/
+            export PYTHONPATH=ase/
             if [ "${dset}" = "test" ]; then  # librispeech test
-              ${python} scoring/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
+              ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
             else  # speechocean test
-              ${python} scoring/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
+              ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
                 --scores=local/speechocean762/scores.json --output-dir=${_dir}
               echo "Alignment results saved to ${_dir}/alignment.txt"
             fi

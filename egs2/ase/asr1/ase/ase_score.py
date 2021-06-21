@@ -4,8 +4,7 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import remove_empty_phones, create_logger
-from get_utt2phone import get_utt2phone
+from utils import load_utt2phones, create_logger, load_so762_ref
 from speechocean762 import load_human_scores
 from metrics import predict_scores, wer_details_for_batch, wer_summary
 from typing import Dict, List
@@ -23,19 +22,6 @@ def get_args():
     parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
     args = parser.parse_args()
     return args
-
-
-def load_hypothesis(path: str) -> Dict[str, List[str]]:
-    hyps = {}
-    with open(path) as f:
-        for line in f:
-            tokens = line.strip('\n').split()
-            utt = tokens[0]
-            hyp = tokens[1:]
-            phones = remove_empty_phones(hyp)
-            hyps[utt] = phones
-
-    return hyps
 
 
 def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> (Dict, Dict[str, List[int]], Dict):
@@ -103,8 +89,8 @@ def main():
 
     logger = create_logger('ase_score', f'{args.output_dir}/ase_score.log')
 
-    hyps = load_hypothesis(args.hyp)
-    refs = get_utt2phone(args.ref)
+    hyps = load_utt2phones(args.hyp)
+    refs = load_so762_ref(args.ref)
     wer, preds, wer_align = get_scores(hyps, refs)
 
     logger.info(wer)
