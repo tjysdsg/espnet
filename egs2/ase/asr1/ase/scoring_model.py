@@ -104,7 +104,7 @@ def main():
                 assert i_p == i2
 
                 ppl = get_phone_grams(pred, i_p)
-                cpl = label[i_l]
+                cpl = get_phone_grams(pred, i_l)
                 s = sc[i_l]
                 i_p += 1
                 i_l += 1
@@ -112,7 +112,7 @@ def main():
                 assert i_l == i1
 
                 ppl = get_phone_grams(pred, i_p, is_deletion=True)
-                cpl = label[i_l]
+                cpl = get_phone_grams(pred, i_l)
                 s = sc[i_l]
                 i_l += 1
             elif err == 'I':
@@ -125,8 +125,8 @@ def main():
 
             if not args.use_probs:
                 ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl]
-            cpl = onehot(N_PHONES, ph2int[cpl])
-            x.append(np.asarray(ppl + [cpl]).ravel())
+            cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl]
+            x.append(np.asarray(ppl + cpl).ravel())
             y.append(round(s))
 
     if args.action == 'train':
