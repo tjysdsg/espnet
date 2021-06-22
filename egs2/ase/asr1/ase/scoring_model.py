@@ -4,7 +4,8 @@ from speechocean762 import load_human_scores, load_phone_symbol_table, load_so76
 from ase_score import get_scores, eval_scoring
 from typing import Dict, List
 import pickle
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
 
@@ -126,18 +127,20 @@ def main():
                 ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl]
             cpl = onehot(N_PHONES, ph2int[cpl])
             x.append(np.asarray(ppl + [cpl]).ravel())
-            y.append(s)
+            y.append(round(s))
 
     if args.action == 'train':
-        mdl = DecisionTreeRegressor(random_state=42)
+        mdl = DecisionTreeClassifier(random_state=42)
         mdl.fit(x, y)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
-        mdl: DecisionTreeRegressor = pickle.load(open(args.model_path, 'rb'))
+        mdl: DecisionTreeClassifier = pickle.load(open(args.model_path, 'rb'))
         y_pred = mdl.predict(x, y)
         pcc, mse = eval_scoring(y_pred, y)
         print(f'Pearson Correlation Coefficient: {pcc:.4f}')
         print(f'MSE: {mse:.4f}')
+        print(f'Accuracy: {accuracy_score(y, y_pred)}')
+        print(confusion_matrix(y, y_pred))
     else:
         assert False
 
