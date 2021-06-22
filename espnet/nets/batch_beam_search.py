@@ -22,6 +22,7 @@ class BatchHypothesis(NamedTuple):
     length: torch.Tensor = torch.tensor([])  # (batch,)
     scores: Dict[str, torch.Tensor] = dict()  # values: (batch,)
     states: Dict[str, Dict] = dict()
+    prob: torch.Tensor = torch.tensor([])  # (batch, n_phones)
 
     def __len__(self) -> int:
         """Return a batch size."""
@@ -36,6 +37,7 @@ class BatchBeamSearch(BeamSearch):
         if len(hyps) == 0:
             return BatchHypothesis()
         return BatchHypothesis(
+            prob=torch.stack([h.prob for h in hyps]),
             yseq=pad_sequence(
                 [h.yseq for h in hyps], batch_first=True, padding_value=self.eos
             ),
@@ -47,6 +49,7 @@ class BatchBeamSearch(BeamSearch):
 
     def _batch_select(self, hyps: BatchHypothesis, ids: List[int]) -> BatchHypothesis:
         return BatchHypothesis(
+            prob=hyps.prob[ids],
             yseq=hyps.yseq[ids],
             score=hyps.score[ids],
             length=hyps.length[ids],
@@ -59,6 +62,7 @@ class BatchBeamSearch(BeamSearch):
 
     def _select(self, hyps: BatchHypothesis, i: int) -> Hypothesis:
         return Hypothesis(
+            prob=hyps.prob[i],
             yseq=hyps.yseq[i, : hyps.length[i]],
             score=hyps.score[i],
             scores={k: v[i] for k, v in hyps.scores.items()},
@@ -71,6 +75,7 @@ class BatchBeamSearch(BeamSearch):
         """Revert batch to list."""
         return [
             Hypothesis(
+                prob=batch_hyps.prob[i],
                 yseq=batch_hyps.yseq[i][: batch_hyps.length[i]],
                 score=batch_hyps.score[i],
                 scores={k: batch_hyps.scores[k][i] for k in self.scorers},
@@ -123,9 +128,13 @@ class BatchBeamSearch(BeamSearch):
         for k, d in self.scorers.items():
             init_states[k] = d.batch_init_state(x)
             init_scores[k] = 0.0
+
+        # FIXME: n_phones
+        n_phones = 44
         return self.batchfy(
             [
                 Hypothesis(
+                    prob=torch.zeros(n_phones, device=x.device),
                     score=0.0,
                     scores=init_scores,
                     states=init_states,
@@ -257,6 +266,7 @@ class BatchBeamSearch(BeamSearch):
             prev_hyp = prev_hyps[full_prev_hyp_id]
             best_hyps.append(
                 Hypothesis(
+                    prob=weighted_scores[full_prev_hyp_id],
                     score=weighted_scores[full_prev_hyp_id, full_new_token_id],
                     yseq=self.append_token(prev_hyp.yseq, full_new_token_id),
                     scores=self.merge_scores(
