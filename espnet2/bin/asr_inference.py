@@ -341,7 +341,8 @@ def inference(
                     ibest_writer["text"][key] = text
 
                 # prob matrix
-                probs = np.array2string(hyp.prob.detach().cpu().numpy())
+                probs = hyp.prob.detach().cpu().numpy().tolist()
+                probs = str(probs).replace('\n', ' ')
                 ibest_writer['probs'][key] = probs
 
 
