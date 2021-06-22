@@ -21,6 +21,7 @@ def get_args():
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--use-probs', action='store_true', default=False,
                         help='Whether HYP contains tokens or probability matrices')
+    parser.add_argument('--balance', action='store_true', default=True, help='Balance data, only used for training')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
@@ -45,6 +46,38 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             hyps[utt] = probs
 
     return hyps
+
+
+def balance_data(x: list, y: list, phone_size: int) -> (np.ndarray, np.ndarray):
+    ya = np.asarray(y)
+    twos = np.where(ya == 2)[0]
+    zeros = np.where(ya == 0)[0]
+
+    n = len(twos)
+
+    n_samples_needed = n - len(zeros)
+    for i in range(n_samples_needed):
+        # randomly choose an existing data sample, with a score of 2, to perform aug on
+        idx = twos[np.random.randint(0, n)]
+
+        # each element of x contains [p1_1, p1_2, ..., p2_1, p2_2, ..., p3_1, ..., label1_1, ..., label2_1, ...]
+        offset = N_PHONES * (2 * phone_size + 1)
+        feat = x[idx][:]  # copy
+
+        start = offset + phone_size * N_PHONES
+        end = offset + (phone_size + 1) * N_PHONES
+        label = np.argmax(feat[start:end])
+
+        # randomly find a new label that is different from the orig label
+        new_label = np.random.randint(0, N_PHONES)
+        while new_label == label:
+            new_label = np.random.randint(0, N_PHONES)
+
+        feat[start:end] = onehot(N_PHONES, new_label)
+        x.append(feat)
+        y.append(0.0)
+
+    return np.asarray(x), np.asarray(y)
 
 
 def main():
@@ -130,6 +163,8 @@ def main():
             y.append(round(s))
 
     if args.action == 'train':
+        if args.balance:
+            x, y = balance_data(x, y, args.n)
         mdl = DecisionTreeClassifier(random_state=42)
         mdl.fit(x, y)
         pickle.dump(mdl, open(args.model_path, 'wb'))
