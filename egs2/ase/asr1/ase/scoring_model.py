@@ -137,7 +137,7 @@ def main():
                 assert i_p == i2
 
                 ppl = get_phone_grams(pred, i_p)
-                cpl = get_phone_grams(pred, i_l)
+                cpl = get_phone_grams(label, i_l)
                 s = sc[i_l]
                 i_p += 1
                 i_l += 1
@@ -145,7 +145,7 @@ def main():
                 assert i_l == i1
 
                 ppl = get_phone_grams(pred, i_p, is_deletion=True)
-                cpl = get_phone_grams(pred, i_l)
+                cpl = get_phone_grams(label, i_l)
                 s = sc[i_l]
                 i_l += 1
             elif err == 'I':
