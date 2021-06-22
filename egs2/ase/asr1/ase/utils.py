@@ -1,3 +1,4 @@
+import numpy as np
 import regex
 from typing import List, Dict
 import logging
@@ -60,3 +61,9 @@ def create_logger(name: str, log_file: str) -> logging.Logger:
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
     return logger
+
+
+def onehot(n: int, idx: int) -> np.ndarray:
+    ret = np.zeros(n, dtype='float32')
+    ret[idx] = 1.0
+    return ret

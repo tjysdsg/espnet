@@ -1,9 +1,15 @@
 import argparse
-from utils import load_utt2phones
+from utils import load_utt2phones, onehot
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
+from typing import Dict, List
 import pickle
 from sklearn.tree import DecisionTreeRegressor
+import numpy as np
+import json
+
+N_PHONES = 44
+SIL_VEC = np.zeros(N_PHONES)  # FIXME
 
 
 def get_args():
@@ -12,6 +18,8 @@ def get_args():
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
+    parser.add_argument('--use-probs', action='store_true',
+                        help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
@@ -19,10 +27,35 @@ def get_args():
     return args
 
 
+def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
+    """
+    Load utt2phones into a dictionary
+
+    :return {utt: [phone1, phone2, ...]}
+    """
+    hyps = {}
+    with open(path) as f:
+        for line in f:
+            tokens = line.strip('\n').split(maxsplit=1)
+            utt = tokens[0]
+            s = tokens[1]
+            probs = json.loads(s)[1:]  # FIXME: the first one is always <sos>
+            probs = np.asarray(probs)
+            hyps[utt] = probs
+
+    return hyps
+
+
 def main():
     args = get_args()
 
-    hyps = load_utt2phones(args.hyp)
+    if args.use_probs:
+        hyps = load_utt2probs(args.hyp)
+        SIL = SIL_VEC
+    else:
+        hyps = load_utt2phones(args.hyp)
+        SIL = 'SIL'
+
     refs = load_so762_ref(args.ref)
     ph2int, _ = load_phone_symbol_table(args.phone_table)
     scores, _ = load_human_scores(args.scores)
@@ -41,7 +74,7 @@ def main():
 
         def try_get_phone(phones, idx):
             if idx < 0 or idx >= len(phones):
-                return 'SIL'
+                return SIL if args.use_probs else 'SIL'
             else:
                 return phones[idx]
 
@@ -55,7 +88,7 @@ def main():
                 right = [try_get_phone(phones, i) for i in range(idx + 1, idx + size + 1)]
 
             if is_deletion:
-                ret = left + ['SIL'] + right
+                ret = left + [SIL] + right
             else:
                 ret = left + [try_get_phone(phones, idx)] + right
             return ret
@@ -70,31 +103,30 @@ def main():
                 assert i_p == i2
 
                 ppl = get_phone_grams(pred, i_p)
-                ppl = [ph2int[p] for p in ppl]
                 cpl = label[i_l]
-                cpl = ph2int[cpl]
-
-                x.append(ppl + [cpl])
-                y.append(sc[i_l])
+                s = sc[i_l]
                 i_p += 1
                 i_l += 1
             elif err == 'D':
                 assert i_l == i1
 
                 ppl = get_phone_grams(pred, i_p, is_deletion=True)
-                ppl = [ph2int[p] for p in ppl]
                 cpl = label[i_l]
-                cpl = ph2int[cpl]
-
-                x.append(ppl + [cpl])
-                y.append(sc[i_l])
+                s = sc[i_l]
                 i_l += 1
             elif err == 'I':
                 assert i_p == i2
 
                 i_p += 1
+                continue
             else:
                 assert False
+
+            if not args.use_probs:
+                ppl = [ph2int[p] for p in ppl]
+            cpl = onehot(N_PHONES, ph2int[cpl])
+            x.append(np.asarray(ppl + [cpl]).ravel())
+            y.append(s)
 
     if args.action == 'train':
         mdl = DecisionTreeRegressor(random_state=42)
