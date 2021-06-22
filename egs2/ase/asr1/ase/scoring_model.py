@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
-    parser.add_argument('--use-probs', action='store_true',
+    parser.add_argument('--use-probs', action='store_true', default=False,
                         help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
@@ -123,7 +123,7 @@ def main():
                 assert False
 
             if not args.use_probs:
-                ppl = [ph2int[p] for p in ppl]
+                ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl]
             cpl = onehot(N_PHONES, ph2int[cpl])
             x.append(np.asarray(ppl + [cpl]).ravel())
             y.append(s)
