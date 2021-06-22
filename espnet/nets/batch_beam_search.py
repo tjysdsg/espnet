@@ -22,7 +22,7 @@ class BatchHypothesis(NamedTuple):
     length: torch.Tensor = torch.tensor([])  # (batch,)
     scores: Dict[str, torch.Tensor] = dict()  # values: (batch,)
     states: Dict[str, Dict] = dict()
-    prob: torch.Tensor = torch.tensor([])  # (batch, n_phones)
+    prob: List[torch.Tensor] = []  # (batch, n_phones)
 
     def __len__(self) -> int:
         """Return a batch size."""
@@ -37,7 +37,7 @@ class BatchBeamSearch(BeamSearch):
         if len(hyps) == 0:
             return BatchHypothesis()
         return BatchHypothesis(
-            prob=torch.stack([h.prob for h in hyps]),
+            prob=[h.prob for h in hyps],
             yseq=pad_sequence(
                 [h.yseq for h in hyps], batch_first=True, padding_value=self.eos
             ),
@@ -48,8 +48,11 @@ class BatchBeamSearch(BeamSearch):
         )
 
     def _batch_select(self, hyps: BatchHypothesis, ids: List[int]) -> BatchHypothesis:
+        if not isinstance(ids, list):
+            ids = ids.detach().cpu().numpy().tolist()
+
         return BatchHypothesis(
-            prob=hyps.prob[ids],
+            prob=[hyps.prob[i] for i in ids],
             yseq=hyps.yseq[ids],
             score=hyps.score[ids],
             length=hyps.length[ids],
@@ -134,7 +137,7 @@ class BatchBeamSearch(BeamSearch):
         return self.batchfy(
             [
                 Hypothesis(
-                    prob=torch.zeros(n_phones, device=x.device),
+                    prob=torch.zeros(1, n_phones, device=x.device),
                     score=0.0,
                     scores=init_scores,
                     states=init_states,
@@ -264,9 +267,14 @@ class BatchBeamSearch(BeamSearch):
             part_new_token_id,
         ) in zip(*self.batch_beam(weighted_scores, part_ids)):
             prev_hyp = prev_hyps[full_prev_hyp_id]
+
+            # append the current prob to the previous path
+            prob = [prev_hyp.prob, weighted_scores[full_prev_hyp_id].unsqueeze(0)]
+            prob = torch.cat(prob)
+
             best_hyps.append(
                 Hypothesis(
-                    prob=weighted_scores[full_prev_hyp_id],
+                    prob=prob,
                     score=weighted_scores[full_prev_hyp_id, full_new_token_id],
                     yseq=self.append_token(prev_hyp.yseq, full_new_token_id),
                     scores=self.merge_scores(
