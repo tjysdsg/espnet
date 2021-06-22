@@ -120,7 +120,8 @@ asr_speech_fold_length=800 # fold_length for speech data during ASR training.
 asr_text_fold_length=150   # fold_length for text data during ASR training.
 lm_fold_length=150         # fold_length for LM training.
 
-phone_gram_size=0  # number of neighboring phones to include in the scoring model
+use_probs=false  # whether to use probability matrix for scoring model
+phone_size=0  # number of neighboring phones to include in the scoring model
 
 help_message=$(cat << EOF
 Usage: $0 --train-set "<train_set_name>" --valid-set "<valid_set_name>" --test_sets "<test_set_names>"
@@ -967,15 +968,23 @@ if ! "${skip_eval}"; then
         done
     fi
 
+    use_probs_opt=
+    if [ "${use_probs}" = "true" ]; then
+        use_probs_opt="--use-probs"
+    fi
 
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
         log "Stage 12: Training scoring model"
         _data="${data_feats}/so762_train"
         _dir="${asr_exp}/${inference_tag}/so762_train"
+        hyp="${_dir}/token"
+        if [ "${use_probs}" = "true" ]; then
+            hyp="${_dir}/probs"
+        fi
 
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py train "${_dir}/token" "local/speechocean762/text-phone" \
-          -n ${phone_gram_size} \
+        ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
+          -n ${phone_size} ${use_probs_opt} \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
@@ -986,11 +995,15 @@ if ! "${skip_eval}"; then
 
         _data="${data_feats}/so762_test"
         _dir="${asr_exp}/${inference_tag}/so762_test"
+        hyp="${_dir}/token"
+        if [ "${use_probs}" = "true" ]; then
+            hyp="${_dir}/probs"
+        fi
 
         # Calculate ASE metrics
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py test "${_dir}/token" "local/speechocean762/text-phone" \
-          -n ${phone_gram_size} \
+        ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
+          -n ${phone_size} ${use_probs_opt} \
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
