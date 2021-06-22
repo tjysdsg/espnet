@@ -69,24 +69,24 @@ def main():
                 assert i_l == i1
                 assert i_p == i2
 
-                ppl = get_phone_grams(pred, i_l)
-                cpl = get_phone_grams(label, i_p)
+                ppl = get_phone_grams(pred, i_p)
                 ppl = [ph2int[p] for p in ppl]
-                cpl = [ph2int[p] for p in cpl]
+                cpl = label[i_l]
+                cpl = ph2int[cpl]
 
-                x.append(ppl + cpl)
+                x.append(ppl + [cpl])
                 y.append(sc[i_l])
                 i_p += 1
                 i_l += 1
             elif err == 'D':
                 assert i_l == i1
 
-                ppl = get_phone_grams(pred, i_l, is_deletion=True)
-                cpl = get_phone_grams(label, i_p)
+                ppl = get_phone_grams(pred, i_p, is_deletion=True)
                 ppl = [ph2int[p] for p in ppl]
-                cpl = [ph2int[p] for p in cpl]
+                cpl = label[i_l]
+                cpl = ph2int[cpl]
 
-                x.append(ppl + cpl)
+                x.append(ppl + [cpl])
                 y.append(sc[i_l])
                 i_l += 1
             elif err == 'I':
