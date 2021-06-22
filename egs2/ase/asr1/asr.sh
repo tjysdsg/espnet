@@ -994,13 +994,22 @@ if ! "${skip_eval}"; then
           --phone-table=local/speechocean762/phones-pure.txt \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
-        # if [ "${dset}" = "test" ]; then  # librispeech test
-        #   ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
-        # else  # speechocean test
-        #   ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
-        #     --scores=local/speechocean762/scores.json --output-dir=${_dir}
-        #   echo "Alignment results saved to ${_dir}/alignment.txt"
-        # fi
+    fi
+
+
+    if [ ${stage} -ge 20 ]; then
+        for dset in ${test_sets}; do
+            _data="${data_feats}/${dset}"
+            _dir="${asr_exp}/${inference_tag}/${dset}"
+
+            if [ "${dset}" = "test" ]; then  # librispeech test
+              ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
+            else  # speechocean test
+              ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
+                --scores=local/speechocean762/scores.json --output-dir=${_dir}
+              echo "Alignment results saved to ${_dir}/alignment.txt"
+            fi
+        done
     fi
 else
     log "Skip the evaluation stages"
