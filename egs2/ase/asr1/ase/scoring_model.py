@@ -211,6 +211,15 @@ def main():
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
         mdl: DecisionTreeClassifier = pickle.load(open(args.model_path, 'rb'))
+
+        # plot decision tree
+        from sklearn import tree
+        from matplotlib import pyplot as plt
+        plt.figure(figsize=(19, 10), dpi=130)
+        tree.plot_tree(mdl)
+        plt.savefig('exp/tree.svg')
+        plt.close('all')
+
         y_pred = mdl.predict(x)
         pcc, mse = eval_scoring(y_pred, y)
         print(f'Pearson Correlation Coefficient: {pcc:.4f}')
