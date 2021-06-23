@@ -10,11 +10,10 @@ def load_phone_symbol_table(filename: str) -> (Dict[str, int], Dict[int, str]):
     int2sym = {}
     sym2int = {}
     with open(filename, 'r') as f:
-        for line in f:
-            sym, idx = line.strip('\n').split()
-            idx = int(idx)
-            int2sym[idx] = sym
-            sym2int[sym] = idx
+        for i, line in enumerate(f):
+            sym = line.strip('\n')
+            int2sym[i] = sym
+            sym2int[sym] = i
     return sym2int, int2sym
 
 

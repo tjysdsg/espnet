@@ -985,7 +985,7 @@ if ! "${skip_eval}"; then
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
           -n ${phone_size} ${use_probs_opt} \
-          --phone-table=local/speechocean762/phones-pure.txt \
+          --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
     fi
@@ -1004,7 +1004,7 @@ if ! "${skip_eval}"; then
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
           -n ${phone_size} ${use_probs_opt} \
-          --phone-table=local/speechocean762/phones-pure.txt \
+          --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
     fi

@@ -13,7 +13,7 @@ import json
 
 N_PHONES = 44
 SIL_VEC = np.full(N_PHONES, -100)  # FIXME
-SIL_VEC[1] = 0
+SIL_VEC[0] = 0
 
 
 class NPhone:
@@ -57,7 +57,7 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             tokens = line.strip('\n').split(maxsplit=1)
             utt = tokens[0]
             s = tokens[1]
-            probs = json.loads(s)[1:]  # FIXME: the first one is always <sos>
+            probs = json.loads(s)[1:]  # FIXME: the first one is always invalid because of modified batch_beam_search.py
             probs = np.asarray(probs)
             hyps[utt] = probs
 
@@ -102,10 +102,16 @@ def to_data_samples(ph2data: Dict[str, List], ph2int: Dict[str, int], use_probs:
 
 
 def load_data(
-        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int
+        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int, int2ph: Dict[int, str] = None
 ) -> Dict[str, List]:
     if use_probs:
         hyps = load_utt2probs(hyp_path)
+        assert int2ph
+        # remove empty phones
+        for utt in hyps.keys():
+            phones = hyps[utt]
+            phones = [p for p in phones if int2ph[np.argmax(p)] not in ['<sos/eos>', '<blank>', '<unk>']]
+            hyps[utt] = np.asarray(phones)
     else:
         hyps = load_utt2phones(hyp_path)
 
@@ -129,7 +135,7 @@ def load_data(
             else:
                 return phones[idx]
 
-        def get_nphone(phones, idx: int, is_deletion=False, sil: Any = 'SIL') -> NPhone:
+        def get_nphone(phones, idx: int, is_deletion=False, sil: Any = '<blank>') -> NPhone:
             # if is_deletion is true, the current position between idx-1 and idx
             left = [try_get_phone(phones, i, sil) for i in range(idx - phone_size, idx)]
             if is_deletion:
@@ -153,7 +159,7 @@ def load_data(
                 assert i_l == i1
                 assert i_p == i2
 
-                ppl = get_nphone(pred, i_p, sil=SIL_VEC if use_probs else 'SIL')
+                ppl = get_nphone(pred, i_p, sil=SIL_VEC if use_probs else '<blank>')
                 cpl = get_nphone(label, i_l)
                 s = sc[i_l]
                 i_p += 1
@@ -161,7 +167,7 @@ def load_data(
             elif err == 'D':
                 assert i_l == i1
 
-                ppl = get_nphone(pred, i_p, is_deletion=True, sil=SIL_VEC if use_probs else 'SIL')
+                ppl = get_nphone(pred, i_p, is_deletion=True, sil=SIL_VEC if use_probs else '<blank>')
                 cpl = get_nphone(label, i_l)
                 s = sc[i_l]
                 i_l += 1
@@ -181,8 +187,19 @@ def load_data(
 def main():
     args = get_args()
 
-    ph2data = load_data(args.hyp, args.ref, args.scores, args.use_probs, args.n)
-    ph2int, _ = load_phone_symbol_table(args.phone_table, )
+    ph2int, int2ph = load_phone_symbol_table(args.phone_table)
+
+    # of = open('D:/repos/espnet/tmp/hyp_prob_tokens.txt', 'w')
+    # hyp_probs = load_utt2probs(args.hyp)
+    # for utt in hyp_probs.keys():
+    #     phones = hyp_probs[utt]
+    #     phones = [int2ph[np.argmax(h)] for h in phones]
+    #     phones = [h for h in phones if h not in ['<sos/eos>', '<blank>', '<unk>']]
+    #     phones = " ".join(phones)
+    #     of.write(f'{utt}\t{phones}\n')
+    # of.close()
+
+    ph2data = load_data(args.hyp, args.ref, args.scores, args.use_probs, args.n, int2ph=int2ph)
 
     if args.action == 'train' and args.balance:
         ph2data = add_more_negative_data(ph2data)
