@@ -1,8 +1,10 @@
 import argparse
+import random
+from collections import Counter
 from utils import load_utt2phones, onehot
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
-from typing import Dict, List
+from typing import Dict, List, Any
 import pickle
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
@@ -10,7 +12,21 @@ import numpy as np
 import json
 
 N_PHONES = 44
-SIL_VEC = np.zeros(N_PHONES)  # FIXME
+SIL_VEC = np.full(N_PHONES, -100)  # FIXME
+SIL_VEC[1] = 0
+
+
+class NPhone:
+    def __init__(self, curr: str, left: List[str], right: List[str]):
+        self.left = left
+        self.right = right
+        self.curr = curr
+
+    def __repr__(self):
+        return f'{self.curr}, {self.left}, {self.right}'
+
+    def tolist(self):
+        return self.left + [self.curr] + self.right
 
 
 def get_args():
@@ -48,84 +64,85 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
     return hyps
 
 
-def balance_data(x: list, y: list, phone_size: int) -> (np.ndarray, np.ndarray):
-    ya = np.asarray(y)
-    twos = np.where(ya == 2)[0]
-    zeros = np.where(ya == 0)[0]
+def add_more_negative_data(data: Dict[str, List]):
+    ph2other_ph = {}  # {ph: [samples that contains phone != ph]
+    for curr_ph in data.keys():
+        for ph, feats in data.items():
+            if ph != curr_ph:
+                ph2other_ph[curr_ph] = [[f[0], f[1], 0] for f in feats if f[-1] == 2]
 
-    n = len(twos)
+    # take the 2-score examples of other phones as the negative examples
+    for curr_ph in data:
+        ppls, cpls, scores = list(zip(*data[curr_ph]))
+        labels = [cpl.curr for cpl in cpls]
+        count_of_label = Counter(labels)
+        example_number_needed = 2 * count_of_label[2] - len(labels)
+        if example_number_needed > 0:
+            data[curr_ph] += random.sample(ph2other_ph[curr_ph], example_number_needed)
 
-    n_samples_needed = n - len(zeros)
-    for i in range(n_samples_needed):
-        # randomly choose an existing data sample, with a score of 2, to perform aug on
-        idx = twos[np.random.randint(0, n)]
+    return data
 
-        # each element of x contains [p1_1, p1_2, ..., p2_1, p2_2, ..., p3_1, ..., label1_1, ..., label2_1, ...]
-        offset = N_PHONES * (2 * phone_size + 1)
-        feat = x[idx][:]  # copy
 
-        start = offset + phone_size * N_PHONES
-        end = offset + (phone_size + 1) * N_PHONES
-        label = np.argmax(feat[start:end])
+def to_data_samples(ph2data: Dict[str, List], ph2int: Dict[str, int], use_probs: bool) -> (np.ndarray, np.ndarray):
+    x = []
+    y = []
+    for data in ph2data.values():
+        for d in data:
+            ppl, cpl, s = d
+            if not use_probs:  # if not using probs, the tokens should be converted to onehot encoded vectors
+                ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl.tolist()]
+            else:
+                ppl = ppl.tolist()
+            cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl.tolist()]
 
-        # randomly find a new label that is different from the orig label
-        new_label = np.random.randint(0, N_PHONES)
-        while new_label == label:
-            new_label = np.random.randint(0, N_PHONES)
-
-        feat[start:end] = onehot(N_PHONES, new_label)
-        x.append(feat)
-        y.append(0.0)
+            x.append(np.asarray(ppl + cpl).ravel())
+            y.append(s)
 
     return np.asarray(x), np.asarray(y)
 
 
-def main():
-    args = get_args()
-
-    if args.use_probs:
-        hyps = load_utt2probs(args.hyp)
-        SIL = SIL_VEC
+def load_data(
+        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int
+) -> Dict[str, List]:
+    if use_probs:
+        hyps = load_utt2probs(hyp_path)
     else:
-        hyps = load_utt2phones(args.hyp)
-        SIL = 'SIL'
+        hyps = load_utt2phones(hyp_path)
 
-    refs = load_so762_ref(args.ref)
-    ph2int, _ = load_phone_symbol_table(args.phone_table)
-    scores, _ = load_human_scores(args.scores)
+    refs = load_so762_ref(ref_path)
+    scores_path, _ = load_human_scores(scores_path, floor=1)
 
     _, _, alignment = get_scores(hyps, refs)
 
-    x = []
-    y = []
+    ph2data = {}
     for utt in hyps.keys():
-        assert utt in refs and utt in alignment and utt in scores
+        assert utt in refs and utt in alignment and utt in scores_path
 
         label = refs[utt]
         utt_align = alignment[utt]
         pred = hyps[utt]
-        sc = scores[utt]
+        sc = scores_path[utt]
 
-        def try_get_phone(phones, idx):
+        def try_get_phone(phones: List[str], idx, sil: str):
             if idx < 0 or idx >= len(phones):
-                return SIL if args.use_probs else 'SIL'
+                return sil
             else:
                 return phones[idx]
 
-        def get_phone_grams(phones, idx: int, is_deletion=False):
+        def get_nphone(phones, idx: int, is_deletion=False, sil: Any = 'SIL') -> NPhone:
             # if is_deletion is true, the current position between idx-1 and idx
-            size = args.n
-            left = [try_get_phone(phones, i) for i in range(idx - size, idx)]
+            left = [try_get_phone(phones, i, sil) for i in range(idx - phone_size, idx)]
             if is_deletion:
-                right = [try_get_phone(phones, i) for i in range(idx, idx + size)]
+                right = [try_get_phone(phones, i, sil) for i in range(idx, idx + phone_size)]
             else:
-                right = [try_get_phone(phones, i) for i in range(idx + 1, idx + size + 1)]
+                right = [try_get_phone(phones, i, sil) for i in range(idx + 1, idx + phone_size + 1)]
 
             if is_deletion:
-                ret = left + [SIL] + right
+                curr = sil
             else:
-                ret = left + [try_get_phone(phones, idx)] + right
-            return ret
+                curr = try_get_phone(phones, idx, sil)
+
+            return NPhone(curr, left, right)
 
         n = len(utt_align)
         i_l = 0
@@ -136,16 +153,16 @@ def main():
                 assert i_l == i1
                 assert i_p == i2
 
-                ppl = get_phone_grams(pred, i_p)
-                cpl = get_phone_grams(label, i_l)
+                ppl = get_nphone(pred, i_p, sil=SIL_VEC if use_probs else 'SIL')
+                cpl = get_nphone(label, i_l)
                 s = sc[i_l]
                 i_p += 1
                 i_l += 1
             elif err == 'D':
                 assert i_l == i1
 
-                ppl = get_phone_grams(pred, i_p, is_deletion=True)
-                cpl = get_phone_grams(label, i_l)
+                ppl = get_nphone(pred, i_p, is_deletion=True, sil=SIL_VEC if use_probs else 'SIL')
+                cpl = get_nphone(label, i_l)
                 s = sc[i_l]
                 i_l += 1
             elif err == 'I':
@@ -156,21 +173,28 @@ def main():
             else:
                 assert False
 
-            if not args.use_probs:
-                ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl]
-            cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl]
-            x.append(np.asarray(ppl + cpl).ravel())
-            y.append(round(s))
+            ph2data.setdefault(cpl.curr, []).append([ppl, cpl, s])  # [perceived nphone, correct nphone, score]
 
+    return ph2data
+
+
+def main():
+    args = get_args()
+
+    ph2data = load_data(args.hyp, args.ref, args.scores, args.use_probs, args.n)
+    ph2int, _ = load_phone_symbol_table(args.phone_table, )
+
+    if args.action == 'train' and args.balance:
+        ph2data = add_more_negative_data(ph2data)
+
+    x, y = to_data_samples(ph2data, ph2int, args.use_probs)
     if args.action == 'train':
-        if args.balance:
-            x, y = balance_data(x, y, args.n)
         mdl = DecisionTreeClassifier(random_state=42)
         mdl.fit(x, y)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
         mdl: DecisionTreeClassifier = pickle.load(open(args.model_path, 'rb'))
-        y_pred = mdl.predict(x, y)
+        y_pred = mdl.predict(x)
         pcc, mse = eval_scoring(y_pred, y)
         print(f'Pearson Correlation Coefficient: {pcc:.4f}')
         print(f'MSE: {mse:.4f}')
