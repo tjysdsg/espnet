@@ -1,4 +1,5 @@
 import argparse
+import os
 import random
 from collections import Counter
 from utils import load_utt2phones, onehot
@@ -41,6 +42,7 @@ def get_args():
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
+    parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
     args = parser.parse_args()
     return args
 
@@ -101,8 +103,20 @@ def to_data_samples(ph2data: Dict[str, List], ph2int: Dict[str, int], use_probs:
     return np.asarray(x), np.asarray(y)
 
 
+def plot_probmat(prob: np.ndarray, int2ph: Dict[int, str], output_path: str):
+    from matplotlib import pyplot as plt
+    labels = np.argmax(prob, axis=1)
+    labels = [int2ph[i] for i in labels]
+
+    prob = np.clip(prob, -10, 10)
+    plt.imshow(prob)
+    plt.savefig(os.path.join(output_path))
+    plt.close('all')
+
+
 def load_data(
-        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int, int2ph: Dict[int, str] = None
+        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int,
+        int2ph: Dict[int, str] = None, plot_probs=False
 ) -> Dict[str, List]:
     if use_probs:
         hyps = load_utt2probs(hyp_path)
@@ -128,6 +142,12 @@ def load_data(
         utt_align = alignment[utt]
         pred = hyps[utt]
         sc = scores_path[utt]
+
+        if use_probs and plot_probs:
+            output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, f'{utt}.png')
+            plot_probmat(np.asarray(pred), int2ph, output_path)
 
         def try_get_phone(phones: List[str], idx, sil: str):
             if idx < 0 or idx >= len(phones):
@@ -199,7 +219,10 @@ def main():
     #     of.write(f'{utt}\t{phones}\n')
     # of.close()
 
-    ph2data = load_data(args.hyp, args.ref, args.scores, args.use_probs, args.n, int2ph=int2ph)
+    ph2data = load_data(
+        args.hyp, args.ref, args.scores, args.use_probs, args.n, int2ph=int2ph,
+        plot_probs=args.plot_probs
+    )
 
     if args.action == 'train' and args.balance:
         ph2data = add_more_negative_data(ph2data)

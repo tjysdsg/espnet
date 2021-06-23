@@ -120,8 +120,11 @@ asr_speech_fold_length=800 # fold_length for speech data during ASR training.
 asr_text_fold_length=150   # fold_length for text data during ASR training.
 lm_fold_length=150         # fold_length for LM training.
 
+# Scoring task dependent
 use_probs=false  # whether to use probability matrix for scoring model
-phone_size=0  # number of neighboring phones to include in the scoring model
+phone_size=0     # number of neighboring phones to include in the scoring model
+plot_probs=false # plot probability matrices
+
 
 help_message=$(cat << EOF
 Usage: $0 --train-set "<train_set_name>" --valid-set "<valid_set_name>" --test_sets "<test_set_names>"
@@ -973,6 +976,10 @@ if ! "${skip_eval}"; then
         use_probs_opt="--use-probs"
     fi
 
+    if [ "${plot_probs}" = "true" ]; then
+        plot_probs_opt="--plot-probs"
+    fi
+
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
         log "Stage 12: Training scoring model"
         _data="${data_feats}/so762_train"
@@ -984,7 +991,7 @@ if ! "${skip_eval}"; then
 
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} \
+          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
@@ -1003,7 +1010,7 @@ if ! "${skip_eval}"; then
         # Calculate ASE metrics
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} \
+          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
