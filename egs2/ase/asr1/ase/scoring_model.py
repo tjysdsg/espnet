@@ -13,7 +13,7 @@ import numpy as np
 import json
 
 N_PHONES = 44
-SIL_VEC = np.full(N_PHONES, -100)  # FIXME
+SIL_VEC = np.full(N_PHONES, -100)  # <blank>
 SIL_VEC[0] = 0
 
 
@@ -204,6 +204,18 @@ def load_data(
     return ph2data
 
 
+def plot_decision_tree(mdl, output_path: str):
+    """
+    Plot decision tree structure into an svg file
+    """
+    from sklearn import tree
+    from matplotlib import pyplot as plt
+    plt.figure(figsize=(19, 10), dpi=130)
+    tree.plot_tree(mdl)
+    plt.savefig(output_path)
+    plt.close('all')
+
+
 def main():
     args = get_args()
 
@@ -235,13 +247,7 @@ def main():
     elif args.action == 'test':
         mdl: DecisionTreeClassifier = pickle.load(open(args.model_path, 'rb'))
 
-        # plot decision tree
-        from sklearn import tree
-        from matplotlib import pyplot as plt
-        plt.figure(figsize=(19, 10), dpi=130)
-        tree.plot_tree(mdl)
-        plt.savefig('exp/tree.svg')
-        plt.close('all')
+        plot_decision_tree(mdl, 'exp/tree.svg')
 
         y_pred = mdl.predict(x)
         pcc, mse = eval_scoring(y_pred, y)
