@@ -107,9 +107,19 @@ def plot_probmat(prob: np.ndarray, int2ph: Dict[int, str], output_path: str):
     from matplotlib import pyplot as plt
     labels = np.argmax(prob, axis=1)
     labels = [int2ph[i] for i in labels]
+    phones = list(int2ph.values())
 
-    prob = np.clip(prob, -10, 10)
-    plt.imshow(prob)
+    prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
+
+    fig, ax = plt.subplots()
+    ax.set_xticks(np.arange(len(phones)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(phones)
+    ax.set_yticklabels(labels)
+    plt.setp(ax.get_xticklabels(), rotation='vertical')
+    ax.margins(0.2)
+
+    ax.imshow(prob)
     plt.savefig(os.path.join(output_path))
     plt.close('all')
 
