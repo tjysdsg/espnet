@@ -976,6 +976,7 @@ if ! "${skip_eval}"; then
         use_probs_opt="--use-probs"
     fi
 
+    plot_probs_opt=
     if [ "${plot_probs}" = "true" ]; then
         plot_probs_opt="--plot-probs"
     fi

@@ -258,8 +258,12 @@ class Scorer:
         y_pred_all = np.concatenate(y_pred_all)
         y_all = np.concatenate(y_all)
         pcc, mse = eval_scoring(y_pred_all, y_all)
+        print('=' * 40)
         print(f'Overall Pearson Correlation Coefficient: {pcc:.4f}')
         print(f'Overall MSE: {mse:.4f}')
+        print(f'Overall Accuracy: {accuracy_score(y_all, y_pred_all)}')
+        print(f'Overall confusion matrix:\n{confusion_matrix(y_all, y_pred_all)}')
+        print('=' * 40)
 
     def plot(self, plot_dir: str):
         for phone, clf in self.clfs.items():
