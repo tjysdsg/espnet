@@ -102,11 +102,9 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], pred: List[f
            f'true_scores:\t{lines[3]}\n'
 
 
-def eval_scoring(score_pred: List[float], score_true: List[float]) -> (float, float):
-    x1 = np.asarray(score_pred)
-    x2 = np.asarray(score_true)
-    pcc, _ = pearsonr(x1, x2)
-    mse = mean_squared_error(x1, x2)
+def eval_scoring(pred: np.ndarray, true: np.ndarray) -> (float, float):
+    pcc, _ = pearsonr(pred, true)
+    mse = mean_squared_error(pred, true)
     return pcc, mse
 
 

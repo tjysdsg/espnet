@@ -5,7 +5,7 @@ from collections import Counter
 from utils import load_utt2phones, onehot
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 import pickle
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
@@ -85,20 +85,21 @@ def add_more_negative_data(data: Dict[str, List]):
     return data
 
 
-def to_data_samples(ph2data: Dict[str, List], ph2int: Dict[str, int], use_probs: bool) -> (np.ndarray, np.ndarray):
+def to_data_samples(
+        phone_data: List[NPhone or int], ph2int: Dict[str, int], use_probs: bool
+) -> (np.ndarray, np.ndarray):
     x = []
     y = []
-    for data in ph2data.values():
-        for d in data:
-            ppl, cpl, s = d
-            if not use_probs:  # if not using probs, the tokens should be converted to onehot encoded vectors
-                ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl.tolist()]
-            else:
-                ppl = ppl.tolist()
-            cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl.tolist()]
+    for d in phone_data:
+        ppl, cpl, s = d
+        if not use_probs:  # if not using probs, the tokens should be converted to onehot encoded vectors
+            ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl.tolist()]
+        else:
+            ppl = ppl.tolist()
+        cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl.tolist()]
 
-            x.append(np.asarray(ppl + cpl).ravel())
-            y.append(s)
+        x.append(np.asarray(ppl + cpl).ravel())
+        y.append(s)
 
     return np.asarray(x), np.asarray(y)
 
@@ -106,7 +107,7 @@ def to_data_samples(ph2data: Dict[str, List], ph2int: Dict[str, int], use_probs:
 def plot_probmat(prob: np.ndarray, int2ph: Dict[int, str], output_path: str):
     from matplotlib import pyplot as plt
     labels = np.argmax(prob, axis=1)
-    labels = [int2ph[i] for i in labels]
+    labels = [int2ph[i] for i in labels]  # FIXME: use cpl
     phones = list(int2ph.values())
 
     prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
@@ -226,6 +227,46 @@ def plot_decision_tree(mdl, output_path: str):
     plt.close('all')
 
 
+class Scorer:
+    def __init__(self, phone_names: List[str], *args, **kwargs):
+        self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
+
+    def __getitem__(self, phone: str):
+        return self.clfs[phone]
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
+
+    def fit(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+        for phone, samples in ph2samples.items():
+            x, y = samples
+            self.clfs[phone].fit(x, y)
+
+    def test(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+        y_pred_all = []
+        y_all = []
+        for phone, samples in ph2samples.items():
+            x, y = samples
+            y_pred = self.clfs[phone].predict(x)
+
+            print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred)}')
+            print(f'Confusion matrix of phone {phone}:\n{confusion_matrix(y, y_pred)}')
+
+            y_pred_all.append(y_pred)
+            y_all.append(y)
+
+        y_pred_all = np.concatenate(y_pred_all)
+        y_all = np.concatenate(y_all)
+        pcc, mse = eval_scoring(y_pred_all, y_all)
+        print(f'Overall Pearson Correlation Coefficient: {pcc:.4f}')
+        print(f'Overall MSE: {mse:.4f}')
+
+    def plot(self, plot_dir: str):
+        for phone, clf in self.clfs.items():
+            output_path = os.path.join(plot_dir, f'{phone}.svg')
+            plot_decision_tree(clf, output_path)
+
+
 def main():
     args = get_args()
 
@@ -249,22 +290,25 @@ def main():
     if args.action == 'train' and args.balance:
         ph2data = add_more_negative_data(ph2data)
 
-    x, y = to_data_samples(ph2data, ph2int, args.use_probs)
+    ph2samples = {}
+    for ph, data in ph2data.items():
+        x, y = to_data_samples(data, ph2int, args.use_probs)
+        ph2samples[ph] = (x, y)
+
+    phone_names = list(ph2samples.keys())
     if args.action == 'train':
-        mdl = DecisionTreeClassifier(random_state=42)
-        mdl.fit(x, y)
+        mdl = Scorer(phone_names, random_state=42)
+        mdl.fit(ph2samples)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
-        mdl: DecisionTreeClassifier = pickle.load(open(args.model_path, 'rb'))
+        mdl: Scorer = pickle.load(open(args.model_path, 'rb'))
+        mdl.test(ph2samples)
 
-        plot_decision_tree(mdl, 'exp/tree.svg')
-
-        y_pred = mdl.predict(x)
-        pcc, mse = eval_scoring(y_pred, y)
-        print(f'Pearson Correlation Coefficient: {pcc:.4f}')
-        print(f'MSE: {mse:.4f}')
-        print(f'Accuracy: {accuracy_score(y, y_pred)}')
-        print(confusion_matrix(y, y_pred))
+        # plot decision trees into svg files
+        model_dir = os.path.dirname(args.model_path)
+        tree_plot_dir = os.path.join(model_dir, 'tree_plots')
+        os.makedirs(tree_plot_dir, exist_ok=True)
+        mdl.plot(tree_plot_dir)
     else:
         assert False
 
