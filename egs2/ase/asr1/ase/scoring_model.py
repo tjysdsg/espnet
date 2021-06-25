@@ -299,12 +299,19 @@ def main():
     )
 
     if args.action == 'train' and args.balance:
+        print('Performing data augmentation')
         ph2data = add_more_negative_data(ph2data)
 
     ph2samples = {}
+    score_count = {}
     for ph, data in ph2data.items():
         x, y = to_data_samples(data, ph2int, args.use_probs)
         ph2samples[ph] = (x, y)
+        for s in y:
+            score_count.setdefault(s, 0)
+            score_count[s] += 1
+
+    print(f'Score counts: {score_count}')
 
     phone_names = list(ph2samples.keys())
     if args.action == 'train':
@@ -312,7 +319,8 @@ def main():
         os.makedirs(model_dir, exist_ok=True)
 
         mlp_args = dict(
-            early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[128], alpha=0.3
+            early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
+            # verbose=True,
         )
         mdl = Scorer(phone_names, use_mlp=args.use_mlp, random_state=42, **mlp_args)
         mdl.fit(ph2samples)
