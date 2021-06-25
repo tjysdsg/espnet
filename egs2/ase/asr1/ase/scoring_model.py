@@ -323,7 +323,10 @@ def main():
             early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
             # verbose=True,
         )
-        mdl = Scorer(phone_names, use_mlp=args.use_mlp, random_state=42, **mlp_args)
+        if args.use_mlp:
+            mdl = Scorer(phone_names, random_state=42, use_mlp=True, **mlp_args)
+        else:
+            mdl = Scorer(phone_names, random_state=42, use_mlp=False)
         mdl.fit(ph2samples)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
