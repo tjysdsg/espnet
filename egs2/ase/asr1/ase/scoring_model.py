@@ -8,6 +8,7 @@ from ase_score import get_scores, eval_scoring
 from typing import Dict, List, Any, Tuple
 import pickle
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
@@ -43,6 +44,7 @@ def get_args():
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
     parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
+    parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
     args = parser.parse_args()
     return args
 
@@ -228,8 +230,12 @@ def plot_decision_tree(mdl, output_path: str):
 
 
 class Scorer:
-    def __init__(self, phone_names: List[str], *args, **kwargs):
-        self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
+    def __init__(self, phone_names: List[str], use_mlp: bool, *args, **kwargs):
+        self.use_mlp = use_mlp
+        if use_mlp:
+            self.clfs = {p: MLPClassifier(*args, **kwargs) for p in phone_names}
+        else:
+            self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
 
     def __getitem__(self, phone: str):
         return self.clfs[phone]
@@ -266,9 +272,10 @@ class Scorer:
         print('=' * 40)
 
     def plot(self, plot_dir: str):
-        for phone, clf in self.clfs.items():
-            output_path = os.path.join(plot_dir, f'{phone}.svg')
-            plot_decision_tree(clf, output_path)
+        if not self.use_mlp:
+            for phone, clf in self.clfs.items():
+                output_path = os.path.join(plot_dir, f'{phone}.svg')
+                plot_decision_tree(clf, output_path)
 
 
 def main():
@@ -301,7 +308,13 @@ def main():
 
     phone_names = list(ph2samples.keys())
     if args.action == 'train':
-        mdl = Scorer(phone_names, random_state=42)
+        model_dir = os.path.dirname(args.model_path)
+        os.makedirs(model_dir, exist_ok=True)
+
+        mlp_args = dict(
+            early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[128], alpha=0.3
+        )
+        mdl = Scorer(phone_names, use_mlp=args.use_mlp, random_state=42, **mlp_args)
         mdl.fit(ph2samples)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':

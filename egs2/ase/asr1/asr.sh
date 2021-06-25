@@ -124,6 +124,7 @@ lm_fold_length=150         # fold_length for LM training.
 use_probs=false  # whether to use probability matrix for scoring model
 phone_size=0     # number of neighboring phones to include in the scoring model
 plot_probs=false # plot probability matrices
+use_mlp=false    # use mlp as the scoring model
 
 
 help_message=$(cat << EOF
@@ -981,6 +982,11 @@ if ! "${skip_eval}"; then
         plot_probs_opt="--plot-probs"
     fi
 
+    use_mlp_opt=
+    if [ "${use_mlp}" = "true" ]; then
+        use_mlp_opt="--use-mlp"
+    fi
+
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
         log "Stage 12: Training scoring model"
         _data="${data_feats}/so762_train"
@@ -992,7 +998,7 @@ if ! "${skip_eval}"; then
 
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} \
+          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} ${use_mlp_opt} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
@@ -1011,7 +1017,7 @@ if ! "${skip_eval}"; then
         # Calculate ASE metrics
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} \
+          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} ${use_mlp_opt} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
