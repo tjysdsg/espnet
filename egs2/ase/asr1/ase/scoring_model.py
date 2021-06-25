@@ -73,14 +73,15 @@ def add_more_negative_data(data: Dict[str, List]):
     for curr_ph in data.keys():
         for ph, feats in data.items():
             if ph != curr_ph:
-                ph2other_ph[curr_ph] = [[f[0], f[1], 0] for f in feats if f[-1] == 2]
+                ph2other_ph.setdefault(curr_ph, [])
+                ph2other_ph[curr_ph] += [[f[0], f[1], 0] for f in feats if f[-1] == 2]
 
     # take the 2-score examples of other phones as the negative examples
     for curr_ph in data:
         ppls, cpls, scores = list(zip(*data[curr_ph]))
-        labels = [cpl.curr for cpl in cpls]
-        count_of_label = Counter(labels)
-        example_number_needed = 2 * count_of_label[2] - len(labels)
+        count_of_label = Counter(scores)
+        example_number_needed = 2 * count_of_label[2] - len(cpls)
+
         if example_number_needed > 0:
             data[curr_ph] += random.sample(ph2other_ph[curr_ph], example_number_needed)
 
