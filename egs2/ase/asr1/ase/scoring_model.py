@@ -12,6 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
+# TODO: refactor
 
 N_PHONES = 44
 SIL_VEC = np.full(N_PHONES, -100)  # <blank>
@@ -36,15 +37,18 @@ def get_args():
     parser.add_argument('action', metavar='ACTION', choices=['train', 'test'], help='train or test')
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
-    parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
-    parser.add_argument('--use-probs', action='store_true', default=False,
-                        help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--balance', action='store_true', default=True, help='Balance data, only used for training')
     parser.add_argument('--scores', type=str, help='Path to scores.json')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
+
+    parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
+    parser.add_argument('--use-probs', action='store_true', default=False,
+                        help='Whether HYP contains tokens or probability matrices')
+
     parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
     parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
+    parser.add_argument('--per-phone-clf', action='store_true', default=False, help='Use a model per phone')
     args = parser.parse_args()
     return args
 
@@ -231,12 +235,19 @@ def plot_decision_tree(mdl, output_path: str):
 
 
 class Scorer:
-    def __init__(self, phone_names: List[str], use_mlp: bool, *args, **kwargs):
+    def __init__(self, phone_names: List[str], use_mlp: bool, per_phone: bool, *args, **kwargs):
         self.use_mlp = use_mlp
-        if use_mlp:
-            self.clfs = {p: MLPClassifier(*args, **kwargs) for p in phone_names}
+        self.per_phone = per_phone
+        if per_phone:
+            if use_mlp:
+                self.clfs = {p: MLPClassifier(*args, **kwargs) for p in phone_names}
+            else:
+                self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
         else:
-            self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
+            if use_mlp:
+                self.clfs = MLPClassifier(*args, **kwargs)
+            else:
+                self.clfs = DecisionTreeClassifier(*args, **kwargs)
 
     def __getitem__(self, phone: str):
         return self.clfs[phone]
@@ -244,19 +255,23 @@ class Scorer:
     def __setitem__(self, key, value):
         raise NotImplementedError()
 
-    def fit(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
-        for phone, samples in ph2samples.items():
-            x, y = samples
-            self.clfs[phone].fit(x, y)
+    def fit(self, data):
+        if self.per_phone:
+            for phone, samples in data.items():
+                x, y = samples
+                self.clfs[phone].fit(x, y)
+        else:
+            x, y = data
+            self.clfs.fit(x, y)
 
-    def test(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+    def test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
         y_pred_all = []
         y_all = []
         for phone, samples in ph2samples.items():
             x, y = samples
             y_pred = self.clfs[phone].predict(x)
 
-            print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred)}')
+            print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred):.4f}')
             print(f'Confusion matrix of phone {phone}:\n{confusion_matrix(y, y_pred)}')
 
             y_pred_all.append(y_pred)
@@ -268,12 +283,30 @@ class Scorer:
         print('=' * 40)
         print(f'Overall Pearson Correlation Coefficient: {pcc:.4f}')
         print(f'Overall MSE: {mse:.4f}')
-        print(f'Overall Accuracy: {accuracy_score(y_all, y_pred_all)}')
+        print(f'Overall Accuracy: {accuracy_score(y_all, y_pred_all):.4f}')
         print(f'Overall confusion matrix:\n{confusion_matrix(y_all, y_pred_all)}')
         print('=' * 40)
 
+    def test_one(self, data):
+        x, y = data
+        y_pred = self.clfs.predict(x)
+
+        pcc, mse = eval_scoring(y_pred, y)
+        print('=' * 40)
+        print(f'Pearson Correlation Coefficient: {pcc:.4f}')
+        print(f'MSE: {mse:.4f}')
+        print(f'Accuracy: {accuracy_score(y, y_pred):.4f}')
+        print(f'Confusion matrix:\n{confusion_matrix(y, y_pred)}')
+        print('=' * 40)
+
+    def test(self, data):
+        if self.per_phone:
+            self.test_per_phone(data)
+        else:
+            self.test_one(data)
+
     def plot(self, plot_dir: str):
-        if not self.use_mlp:
+        if not self.use_mlp and self.per_phone:
             for phone, clf in self.clfs.items():
                 output_path = os.path.join(plot_dir, f'{phone}.svg')
                 plot_decision_tree(clf, output_path)
@@ -303,35 +336,51 @@ def main():
         print('Performing data augmentation')
         ph2data = add_more_negative_data(ph2data)
 
-    ph2samples = {}
+    if args.per_phone_clf:
+        print('Using per-phone classsifiers')
+        data = {}
+    else:
+        data = [[], []]
+
     score_count = {}
-    for ph, data in ph2data.items():
-        x, y = to_data_samples(data, ph2int, args.use_probs)
-        ph2samples[ph] = (x, y)
+    for ph, d in ph2data.items():
+        x, y = to_data_samples(d, ph2int, args.use_probs)
+
+        if args.per_phone_clf:
+            data[ph] = (x, y)
+        else:
+            data[0].append(x)
+            data[1].append(y)
+
         for s in y:
             score_count.setdefault(s, 0)
             score_count[s] += 1
 
+    if not args.per_phone_clf:
+        data[0] = np.vstack(data[0])
+        data[1] = np.concatenate(data[1])
+
     print(f'Score counts: {score_count}')
 
-    phone_names = list(ph2samples.keys())
-    if args.action == 'train':
-        model_dir = os.path.dirname(args.model_path)
-        os.makedirs(model_dir, exist_ok=True)
+    model_dir = os.path.dirname(args.model_path)
+    os.makedirs(model_dir, exist_ok=True)
 
+    phone_names = list(ph2data.keys())
+    if args.action == 'train':
         mlp_args = dict(
             early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
             # verbose=True,
         )
         if args.use_mlp:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=True, **mlp_args)
+            mdl = Scorer(phone_names, random_state=42, use_mlp=True, per_phone=args.per_phone_clf, **mlp_args)
         else:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=False)
-        mdl.fit(ph2samples)
+            mdl = Scorer(phone_names, random_state=42, use_mlp=False, per_phone=args.per_phone_clf)
+
+        mdl.fit(data)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
         mdl: Scorer = pickle.load(open(args.model_path, 'rb'))
-        mdl.test(ph2samples)
+        mdl.test(data)
 
         # plot decision trees into svg files
         model_dir = os.path.dirname(args.model_path)

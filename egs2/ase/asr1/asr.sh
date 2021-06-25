@@ -114,17 +114,12 @@ nlsyms_txt=none  # Non-linguistic symbol list if existing.
 cleaner=none     # Text cleaner.
 g2p=none         # g2p method (needed if token_type=phn).
 lang=noinfo      # The language type of corpus.
-score_opts=                # The options given to sclite scoring
-local_score_opts=          # The options given to local/score.sh.
 asr_speech_fold_length=800 # fold_length for speech data during ASR training.
 asr_text_fold_length=150   # fold_length for text data during ASR training.
 lm_fold_length=150         # fold_length for LM training.
 
 # Scoring task dependent
-use_probs=false  # whether to use probability matrix for scoring model
-phone_size=0     # number of neighboring phones to include in the scoring model
-plot_probs=false # plot probability matrices
-use_mlp=false    # use mlp as the scoring model
+scoring_opts=
 
 
 help_message=$(cat << EOF
@@ -219,8 +214,6 @@ Options:
     --cleaner       # Text cleaner (default="${cleaner}").
     --g2p           # g2p method (default="${g2p}").
     --lang          # The language type of corpus (default=${lang}).
-    --score_opts             # The options given to sclite scoring (default="{score_opts}").
-    --local_score_opts       # The options given to local/score.sh (default="{local_score_opts}").
     --asr_speech_fold_length # fold_length for speech data during ASR training (default="${asr_speech_fold_length}").
     --asr_text_fold_length   # fold_length for text data during ASR training (default="${asr_text_fold_length}").
     --lm_fold_length         # fold_length for LM training (default="${lm_fold_length}").
@@ -972,33 +965,18 @@ if ! "${skip_eval}"; then
         done
     fi
 
-    use_probs_opt=
-    if [ "${use_probs}" = "true" ]; then
-        use_probs_opt="--use-probs"
-    fi
-
-    plot_probs_opt=
-    if [ "${plot_probs}" = "true" ]; then
-        plot_probs_opt="--plot-probs"
-    fi
-
-    use_mlp_opt=
-    if [ "${use_mlp}" = "true" ]; then
-        use_mlp_opt="--use-mlp"
-    fi
-
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
         log "Stage 12: Training scoring model"
         _data="${data_feats}/so762_train"
         _dir="${asr_exp}/${inference_tag}/so762_train"
         hyp="${_dir}/token"
-        if [ "${use_probs}" = "true" ]; then
+        if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
             hyp="${_dir}/probs"
         fi
 
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} ${use_mlp_opt} \
+          ${scoring_opts} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${_dir}/scoring.mdl
@@ -1010,14 +988,14 @@ if ! "${skip_eval}"; then
         _data="${data_feats}/so762_test"
         _dir="${asr_exp}/${inference_tag}/so762_test"
         hyp="${_dir}/token"
-        if [ "${use_probs}" = "true" ]; then
+        if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
             hyp="${_dir}/probs"
         fi
 
         # Calculate ASE metrics
         export PYTHONPATH=ase/
         ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
-          -n ${phone_size} ${use_probs_opt} ${plot_probs_opt} ${use_mlp_opt} \
+          ${scoring_opts} \
           --phone-table=${token_list} \
           --scores=local/speechocean762/scores.json \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
