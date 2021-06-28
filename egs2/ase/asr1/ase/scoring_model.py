@@ -2,7 +2,7 @@ import argparse
 import os
 from aug import add_more_negative_data
 from utils import load_utt2phones, onehot, load_utt2seq
-from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
+from speechocean762 import load_phone_symbol_table
 from ase_score import get_scores, eval_scoring
 from typing import Dict, List, Any, Tuple
 import pickle
@@ -11,8 +11,6 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
-
-# TODO: refactor
 
 N_PHONES = 44
 SIL_VEC = np.full(N_PHONES, -100)  # <blank>

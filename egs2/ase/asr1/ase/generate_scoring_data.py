@@ -103,8 +103,8 @@ def main():
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
-    ref_file = open(os.path.join(output_dir, 'ref.txt'), 'w')
-    score_file = open(os.path.join(output_dir, 'scores.txt'), 'w')
+    ref_file = open(os.path.join(output_dir, 'text'), 'w')
+    score_file = open(os.path.join(output_dir, 'utt2scores'), 'w')
     for utt_id, phones in utt2phones.items():
         # due to data aug, an utterance id could corresponds to multiple data samples
         # so utt_id is appended by '#n'

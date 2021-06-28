@@ -967,25 +967,32 @@ if ! "${skip_eval}"; then
 
     if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
         log "Stage 12: Training scoring model"
-        _data="${data_feats}/so762_train"
-        _dir="${asr_exp}/${inference_tag}/so762_train"
-        hyp="${_dir}/token"
+
+        _decode_dir=${asr_exp}/${inference_tag}
+
+        # combine libri_scoring and so762_train
+        _dir=data/scoring_train
+        mkdir -p ${_dir}
+        cat data/so762_train/text data/libri_scoring/text > ${_dir}/ref.txt
+        cat data/so762_train/utt2scores data/libri_scoring/utt2scores > ${_dir}/utt2scores
         if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
-            hyp="${_dir}/probs"
+            cat ${_decode_dir}/so762_train/token ${_decode_dir}/libri_scoring/token \
+              > ${_dir}/hyp.txt
+        else
+            cat ${_decode_dir}/so762_train/probs ${_decode_dir}/libri_scoring/probs \
+              > ${_dir}/hyp.txt
         fi
 
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py train $hyp data/so762/text \
-          ${scoring_opts} \
+        ${python} ase/scoring_model.py train ${_dir}/hyp.txt ${_dir}/ref.txt ${scoring_opts} \
           --phone-table=${token_list} \
-          --scores=data/so762/utt2scores \
+          --scores=${_dir}/utt2scores \
           --model-path=${_dir}/scoring.mdl
     fi
 
     if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ]; then
         log "Stage 13: Testing scoring model"
 
-        _data="${data_feats}/so762_test"
         _dir="${asr_exp}/${inference_tag}/so762_test"
         hyp="${_dir}/token"
         if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
@@ -994,11 +1001,10 @@ if ! "${skip_eval}"; then
 
         # Calculate ASE metrics
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py test $hyp data/so762/text \
-          ${scoring_opts} \
+        ${python} ase/scoring_model.py test $hyp data/so762/text ${scoring_opts} \
           --phone-table=${token_list} \
           --scores=data/so762/utt2scores \
-          --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
+          --model-path=data/scoring_train/scoring.mdl
     fi
 
 
