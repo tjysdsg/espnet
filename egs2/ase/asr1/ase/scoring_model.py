@@ -12,6 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
+
 # TODO: refactor
 
 N_PHONES = 44
@@ -111,11 +112,8 @@ def to_data_samples(
     return np.asarray(x), np.asarray(y)
 
 
-def plot_probmat(prob: np.ndarray, int2ph: Dict[int, str], output_path: str):
+def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
     from matplotlib import pyplot as plt
-    labels = np.argmax(prob, axis=1)
-    labels = [int2ph[i] for i in labels]  # FIXME: use cpl
-    phones = list(int2ph.values())
 
     prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
 
@@ -165,7 +163,8 @@ def load_data(
             output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f'{utt}.png')
-            plot_probmat(np.asarray(pred), int2ph, output_path)
+            phones = [int2ph[i] for i in sorted(list(int2ph.keys()))]
+            plot_probmat(np.asarray(pred), label, phones, output_path)
 
         def try_get_phone(phones: List[str], idx, sil: str):
             if idx < 0 or idx >= len(phones):
