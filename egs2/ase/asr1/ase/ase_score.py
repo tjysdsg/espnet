@@ -43,14 +43,20 @@ def get_wer_alignment(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) ->
     return wer_align
 
 
-def get_scores(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> (Dict, Dict[str, List[int]], Dict):
+def get_scores(
+        hyps: Dict[str, List[str]], refs: Dict[str, List[str]]
+) -> (Dict, Dict[str, List[int]], Dict):
     ref_list = []
     hyp_list = []
     utts = []
-    for utt, h in hyps.items():
+    for utt, r in refs.items():
+        hyp_utt = utt.split('#')[0]  # remove suffix
+        if hyp_utt not in hyps:
+            continue
+
         utts.append(utt)
-        hyp_list.append(h)
-        ref_list.append(refs[utt])
+        hyp_list.append(hyps[hyp_utt])
+        ref_list.append(r)
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
     wer = wer_summary(details)

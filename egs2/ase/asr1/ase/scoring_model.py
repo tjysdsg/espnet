@@ -130,18 +130,22 @@ def load_data(
     _, _, alignment = get_scores(hyps, refs)
 
     ph2data = {}
-    for utt in hyps.keys():
-        assert utt in refs and utt in alignment and utt in scores
+    for ref_utt in refs.keys():
+        # a single hypothesis utt can corresponds to multiple ref utts due to data aug
+        hyp_utt = ref_utt.split('#')[0]
+        if hyp_utt not in hyps:
+            continue
 
-        label = refs[utt]
-        utt_align = alignment[utt]
-        pred = hyps[utt]
-        sc = scores[utt]
+        assert ref_utt in alignment and ref_utt in scores
+        label = refs[ref_utt]
+        utt_align = alignment[ref_utt]
+        pred = hyps[hyp_utt]
+        sc = scores[ref_utt]
 
         if use_probs and plot_probs:
             output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
             os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f'{utt}.png')
+            output_path = os.path.join(output_dir, f'{hyp_utt}.png')
             phones = [int2ph[i] for i in sorted(list(int2ph.keys()))]
             plot_probmat(np.asarray(pred), label, phones, output_path)
 
