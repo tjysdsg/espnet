@@ -1,7 +1,6 @@
 import argparse
 import os
-import random
-from collections import Counter
+from aug import add_more_negative_data
 from utils import load_utt2phones, onehot
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
@@ -71,26 +70,6 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             hyps[utt] = probs
 
     return hyps
-
-
-def add_more_negative_data(data: Dict[str, List]):
-    ph2other_ph = {}  # {ph: [samples that contains phone != ph]
-    for curr_ph in data.keys():
-        for ph, feats in data.items():
-            if ph != curr_ph:
-                ph2other_ph.setdefault(curr_ph, [])
-                ph2other_ph[curr_ph] += [[f[0], f[1], 0] for f in feats if f[-1] == 2]
-
-    # take the 2-score examples of other phones as the negative examples
-    for curr_ph in data:
-        ppls, cpls, scores = list(zip(*data[curr_ph]))
-        count_of_label = Counter(scores)
-        example_number_needed = 2 * count_of_label[2] - len(cpls)
-
-        if example_number_needed > 0:
-            data[curr_ph] += random.sample(ph2other_ph[curr_ph], example_number_needed)
-
-    return data
 
 
 def to_data_samples(
