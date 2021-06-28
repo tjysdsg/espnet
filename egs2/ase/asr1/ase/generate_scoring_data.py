@@ -105,12 +105,18 @@ def main():
 
     ref_file = open(os.path.join(output_dir, 'ref.txt'), 'w')
     score_file = open(os.path.join(output_dir, 'scores.txt'), 'w')
-    for utt, phones in utt2phones.items():
+    for utt_id, phones in utt2phones.items():
+        # due to data aug, an utterance id could corresponds to multiple data samples
+        # so utt_id is appended by '#n'
+        utt = f'{utt_id}#0'
+
         # generate 0-score samples
         new_phones, scores = generate_sample_phones(phones, random_phone, new_score=0)
         scores = [str(s) for s in scores]
         ref_file.write(f'{utt}\t{" ".join(new_phones)}\n')
         score_file.write(f'{utt}\t{" ".join(scores)}\n')
+
+        utt = f'{utt_id}#1'
 
         # generate 1-score samples
         new_phones, scores = generate_sample_phones(phones, random_similar_phone, new_score=1)
