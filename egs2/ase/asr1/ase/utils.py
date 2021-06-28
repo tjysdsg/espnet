@@ -1,6 +1,6 @@
 import numpy as np
 import regex
-from typing import List, Dict
+from typing import List, Dict, Any
 import logging
 import sys
 
@@ -29,23 +29,36 @@ def remove_consecutive_phone(phones: List[str], val: str):
     return ret
 
 
+def write_utt2seq(path: str, utt2seq: Dict[str, List[Any]]):
+    with open(path, 'w') as f:
+        for utt, seq in utt2seq.items():
+            s = ' '.join([str(e) for e in seq])
+            f.write(f'{utt}\t{s}\n')
+
+
+def load_utt2seq(path: str, formatter=str) -> Dict[str, List[Any]]:
+    ret = {}
+    with open(path) as f:
+        for line in f:
+            tokens = line.strip('\n').split()
+            utt = tokens[0]
+            ret[utt] = [formatter(e) for e in tokens[1:]]
+
+    return ret
+
+
 def load_utt2phones(path: str, del_empty_phones=True) -> Dict[str, List[str]]:
     """
     Load utt2phones into a dictionary
 
     :return {utt: [phone1, phone2, ...]}
     """
-    hyps = {}
-    with open(path) as f:
-        for line in f:
-            tokens = line.strip('\n').split()
-            utt = tokens[0]
-            hyp = tokens[1:]
-            if del_empty_phones:
-                phones = remove_empty_phones(hyp)
-            hyps[utt] = phones
+    ret = load_utt2seq(path)
+    for utt in ret.keys():
+        if del_empty_phones:
+            ret[utt] = remove_empty_phones(ret[utt])
 
-    return hyps
+    return ret
 
 
 def create_logger(name: str, log_file: str) -> logging.Logger:

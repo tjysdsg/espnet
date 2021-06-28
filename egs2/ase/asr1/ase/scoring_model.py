@@ -1,7 +1,7 @@
 import argparse
 import os
 from aug import add_more_negative_data
-from utils import load_utt2phones, onehot
+from utils import load_utt2phones, onehot, load_utt2seq
 from speechocean762 import load_human_scores, load_phone_symbol_table, load_so762_ref
 from ase_score import get_scores, eval_scoring
 from typing import Dict, List, Any, Tuple
@@ -38,9 +38,9 @@ def get_args():
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('--balance', action='store_true', default=True, help='Balance data, only used for training')
-    parser.add_argument('--scores', type=str, help='Path to scores.json')
+    parser.add_argument('--scores', type=str, help='Path to utt2scores')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
-    parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the results')
+    parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
 
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--use-probs', action='store_true', default=False,
@@ -124,19 +124,19 @@ def load_data(
     else:
         hyps = load_utt2phones(hyp_path)
 
-    refs = load_so762_ref(ref_path)
-    scores_path, _ = load_human_scores(scores_path, floor=1)
+    refs = load_utt2phones(ref_path)
+    scores = load_utt2seq(scores_path, formatter=int)
 
     _, _, alignment = get_scores(hyps, refs)
 
     ph2data = {}
     for utt in hyps.keys():
-        assert utt in refs and utt in alignment and utt in scores_path
+        assert utt in refs and utt in alignment and utt in scores
 
         label = refs[utt]
         utt_align = alignment[utt]
         pred = hyps[utt]
-        sc = scores_path[utt]
+        sc = scores[utt]
 
         if use_probs and plot_probs:
             output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')

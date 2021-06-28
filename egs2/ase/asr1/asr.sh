@@ -975,10 +975,10 @@ if ! "${skip_eval}"; then
         fi
 
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py train $hyp "local/speechocean762/text-phone" \
+        ${python} ase/scoring_model.py train $hyp data/so762/utt2cpl \
           ${scoring_opts} \
           --phone-table=${token_list} \
-          --scores=local/speechocean762/scores.json \
+          --scores=data/so762/utt2scores \
           --model-path=${_dir}/scoring.mdl
     fi
 
@@ -994,10 +994,10 @@ if ! "${skip_eval}"; then
 
         # Calculate ASE metrics
         export PYTHONPATH=ase/
-        ${python} ase/scoring_model.py test $hyp "local/speechocean762/text-phone" \
+        ${python} ase/scoring_model.py test $hyp data/so762/utt2cpl \
           ${scoring_opts} \
           --phone-table=${token_list} \
-          --scores=local/speechocean762/scores.json \
+          --scores=data/so762/utt2scores \
           --model-path=${asr_exp}/${inference_tag}/so762_train/scoring.mdl
     fi
 
@@ -1010,6 +1010,7 @@ if ! "${skip_eval}"; then
             if [ "${dset}" = "test" ]; then  # librispeech test
               ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
             else  # speechocean test
+              # TODO: use data/so762/utt2scores and data/so762/utt2cpl
               ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
                 --scores=local/speechocean762/scores.json --output-dir=${_dir}
               echo "Alignment results saved to ${_dir}/alignment.txt"
