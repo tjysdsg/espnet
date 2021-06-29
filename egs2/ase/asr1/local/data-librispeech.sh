@@ -88,7 +88,9 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   cp -r data/${test_set} data/libri_scoring
   cp data/test_clean/wav.scp data/libri_scoring/wav.scp
   utils/fix_data_dir.sh data/libri_scoring
-  python3 ase/generate_scoring_data.py --text=data/libri_scoring/text --output-dir=data/libri_scoring
+  python3 ase/generate_scoring_data.py --input-dir=data/libri_scoring --output-dir=data/libri_scoring_clean
+  utils/fix_data_dir.sh data/libri_scoring_clean
+  mv data/libri_scoring_clean data/libri_scoring
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"

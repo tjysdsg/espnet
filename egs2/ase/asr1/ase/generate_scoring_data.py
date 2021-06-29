@@ -5,7 +5,7 @@ import argparse
 import copy
 import random
 import os
-from utils import load_utt2phones
+from utils import load_utt2phones, load_utt2seq, write_utt2seq
 from typing import List
 
 VOWELS = [
@@ -56,7 +56,7 @@ CONSONANTS = [
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--text', type=str, help='Kaldi text data file')
+    parser.add_argument('--input-dir', type=str, help='Kaldi-format data dir')
     parser.add_argument('--output-dir', type=str, help='Output dir')
     args = parser.parse_args()
     return args
@@ -98,7 +98,7 @@ def generate_sample_phones(phones: List[str], randomizer, new_score: int) -> (Li
 
 def main():
     args = get_args()
-    utt2phones = load_utt2phones(args.text)
+    utt2phones = load_utt2phones(os.path.join(args.input_dir, 'text'))
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -123,8 +123,27 @@ def main():
         scores = [str(s) for s in scores]
         ref_file.write(f'{utt}\t{" ".join(new_phones)}\n')
         score_file.write(f'{utt}\t{" ".join(scores)}\n')
-
     ref_file.close()
+
+    # add new utts into utt2* files
+    for file in ['utt2spk', 'wav.scp']:
+        utt2blah = load_utt2seq(os.path.join(args.input_dir, file))
+
+        for utt in list(utt2blah.keys()):
+            utt2blah[f'{utt}#0'] = utt2blah[utt]
+            utt2blah[f'{utt}#1'] = utt2blah[utt]
+
+        write_utt2seq(os.path.join(args.output_dir, file), utt2blah)
+
+    # add new utts into spk2utt
+    spk2utt = load_utt2seq(os.path.join(args.input_dir, 'spk2utt'))
+
+    for spk in spk2utt.keys():
+        utts = spk2utt[spk]
+        new_utts = [f'{u}#{i}' for u in utts for i in range(2)]
+        utts += new_utts
+        spk2utt[spk] = utts
+    write_utt2seq(os.path.join(args.output_dir, 'spk2utt'), spk2utt)
 
 
 if __name__ == '__main__':
