@@ -976,10 +976,10 @@ if ! "${skip_eval}"; then
         cat data/so762/text data/libri_scoring/text > ${_dir}/ref.txt
         cat data/so762/utt2scores data/libri_scoring/utt2scores > ${_dir}/utt2scores
         if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
-            cat ${_decode_dir}/so762_train/token ${_decode_dir}/libri_scoring/token \
+            cat ${_decode_dir}/so762_train/probs ${_decode_dir}/libri_scoring/probs \
               > ${_dir}/hyp.txt
         else
-            cat ${_decode_dir}/so762_train/probs ${_decode_dir}/libri_scoring/probs \
+            cat ${_decode_dir}/so762_train/token ${_decode_dir}/libri_scoring/token \
               > ${_dir}/hyp.txt
         fi
 
