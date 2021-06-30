@@ -50,12 +50,11 @@ def get_scores(
     hyp_list = []
     utts = []
     for utt, r in refs.items():
-        hyp_utt = utt.split('#')[0]  # remove suffix
-        if hyp_utt not in hyps:
+        if utt not in hyps:
             continue
 
         utts.append(utt)
-        hyp_list.append(hyps[hyp_utt])
+        hyp_list.append(hyps[utt])
         ref_list.append(r)
 
     details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)

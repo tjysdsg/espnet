@@ -35,7 +35,7 @@ def get_args():
     parser.add_argument('action', metavar='ACTION', choices=['train', 'test'], help='train or test')
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
-    parser.add_argument('--balance', action='store_true', default=True, help='Balance data, only used for training')
+    parser.add_argument('--balance', type=bool, default=True, help='Balance data, only used for training')
     parser.add_argument('--scores', type=str, help='Path to utt2scores')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
@@ -128,22 +128,20 @@ def load_data(
     _, _, alignment = get_scores(hyps, refs)
 
     ph2data = {}
-    for ref_utt in refs.keys():
-        # a single hypothesis utt can corresponds to multiple ref utts due to data aug
-        hyp_utt = ref_utt.split('#')[0]
-        if hyp_utt not in hyps:
+    for utt in refs.keys():
+        if utt not in hyps:
             continue
 
-        assert ref_utt in alignment and ref_utt in scores
-        label = refs[ref_utt]
-        utt_align = alignment[ref_utt]
-        pred = hyps[hyp_utt]
-        sc = scores[ref_utt]
+        assert utt in alignment and utt in scores, utt
+        label = refs[utt]
+        utt_align = alignment[utt]
+        pred = hyps[utt]
+        sc = scores[utt]
 
         if use_probs and plot_probs:
             output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
             os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f'{hyp_utt}.png')
+            output_path = os.path.join(output_dir, f'{utt}.png')
             phones = [int2ph[i] for i in sorted(list(int2ph.keys()))]
             plot_probmat(np.asarray(pred), label, phones, output_path)
 
