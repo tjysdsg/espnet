@@ -973,8 +973,8 @@ if ! "${skip_eval}"; then
         # combine libri_scoring and so762_train
         _dir=data/scoring_train
         mkdir -p ${_dir}
-        cat data/so762_train/text data/libri_scoring/text > ${_dir}/ref.txt
-        cat data/so762_train/utt2scores data/libri_scoring/utt2scores > ${_dir}/utt2scores
+        cat data/so762/text data/libri_scoring/text > ${_dir}/ref.txt
+        cat data/so762/utt2scores data/libri_scoring/utt2scores > ${_dir}/utt2scores
         if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
             cat ${_decode_dir}/so762_train/token ${_decode_dir}/libri_scoring/token \
               > ${_dir}/hyp.txt
