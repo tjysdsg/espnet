@@ -33,7 +33,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   mkdir -p data/local/l2arctic
   mkdir -p data/l2arctic
 
-  python3 local/l2-arctic.py --l2-path=${L2ARCTIC} --save-path=data/local/l2arctic
+  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --save-path=data/local/l2arctic
 
   cp data/local/l2arctic/wav.scp data/l2arctic/
   cp data/local/l2arctic/phn_text data/l2arctic/text

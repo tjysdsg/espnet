@@ -26,7 +26,6 @@ save_path = args.save_path
 os.makedirs(save_path, exist_ok=True)
 wrd_text = open(save_path + "/wrd_text", 'w')
 wavscp = open(save_path + "/wav.scp", 'w')
-# w2 = open(save_path + "/wav_sph.scp", 'w')
 ppl = open(save_path + "/phn_text", 'w')  # perceived phones
 cpl = open(save_path + "/transcript_phn_text", 'w')  # correct phones
 
@@ -104,13 +103,11 @@ def main():
             wrd_text.write(utt_id + " " + line.lower() + "\n")
 
         wavscp.write(utt_id + " " + wav_path + "\n")
-        w2.write(utt_id + " " + wav_path + "\n")
         ppl.write(utt_id + " " + " ".join(del_repeat_sil(cur_phns)) + "\n")
         cpl.write(utt_id + " " + " ".join(del_repeat_sil(transcript_phns)) + "\n")
 
     wrd_text.close()
     wavscp.close()
-    w2.close()
     ppl.close()
     cpl.close()
 
