@@ -30,16 +30,15 @@ fi
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
     local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part
-    # python3 ase/get_ppl.py --scores=local/speechocean762/scores.json > data/so762_${part}/text
+    python3 ase/get_ppl.py --scores=local/speechocean762/scores.json > data/so762_${part}/ppl_text
   done
+
   python3 ase/fix_so762_format.py \
     --text-phone=local/speechocean762/text-phone \
     --scores=local/speechocean762/scores.json \
     --output-dir=data/so762
-fi
 
-for part in train test; do
   utils/fix_data_dir.sh data/so762_$part || exit 1
-done
+fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
