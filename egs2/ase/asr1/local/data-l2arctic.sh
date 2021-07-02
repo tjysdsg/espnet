@@ -33,14 +33,12 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   mkdir -p data/local/l2arctic
   mkdir -p data/l2arctic
 
-  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --save-path=data/local/l2arctic
+  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --output-dir=data/local/l2arctic
 
-  cp data/local/l2arctic/wav.scp data/l2arctic/
   cp data/local/l2arctic/phn_text data/l2arctic/text
+  cp data/local/l2arctic/{wav.scp,utt2spk} data/l2arctic/
 fi
 
-for part in train test; do
-  utils/fix_data_dir.sh data/so762_$part || exit 1;
-done
+utils/fix_data_dir.sh data/l2arctic || exit 1;
 
 log "Successfully finished. [elapsed=${SECONDS}s]"

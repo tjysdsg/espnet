@@ -9,8 +9,8 @@ import re
 import argparse
 
 parser = argparse.ArgumentParser(description="Prepare L2 data")
-parser.add_argument("--l2_path", help="l2-Arctic path")
-parser.add_argument("--save_path", help="l2-Arctic path")
+parser.add_argument("--l2-path", help="l2-Arctic path")
+parser.add_argument("--output-dir", help="l2-Arctic path")
 
 args = parser.parse_args()
 
@@ -22,12 +22,13 @@ test_spk = ["NJS", "TLV", "TNI", "TXHC", "YKWK", "ZHAA"]
 load_error_file = ["YDCK/annotation/arctic_a0209.TextGrid", "YDCK/annotation/arctic_a0272.TextGrid"]
 
 wav_lst = glob.glob(path)
-save_path = args.save_path
-os.makedirs(save_path, exist_ok=True)
-wrd_text = open(save_path + "/wrd_text", 'w')
-wavscp = open(save_path + "/wav.scp", 'w')
-ppl = open(save_path + "/phn_text", 'w')  # perceived phones
-cpl = open(save_path + "/transcript_phn_text", 'w')  # correct phones
+output_dir = args.output_dir
+os.makedirs(output_dir, exist_ok=True)
+wrd_text = open(output_dir + "/wrd_text", 'w')
+wavscp = open(output_dir + "/wav.scp", 'w')
+ppl = open(output_dir + "/phn_text", 'w')  # perceived phones
+cpl = open(output_dir + "/transcript_phn_text", 'w')  # correct phones
+utt2spk = open(output_dir + "/utt2spk", 'w')
 
 
 def del_repeat_sil(phn_lst):
@@ -105,11 +106,13 @@ def main():
         wavscp.write(utt_id + " " + wav_path + "\n")
         ppl.write(utt_id + " " + " ".join(del_repeat_sil(cur_phns)) + "\n")
         cpl.write(utt_id + " " + " ".join(del_repeat_sil(transcript_phns)) + "\n")
+        utt2spk.write(f'{utt_id}\t{spk_id}\n')
 
     wrd_text.close()
     wavscp.close()
     ppl.close()
     cpl.close()
+    utt2spk.close()
 
 
 if __name__ == '__main__':
