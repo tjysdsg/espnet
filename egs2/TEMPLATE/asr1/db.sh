@@ -1,8 +1,6 @@
 # Set the path of your corpus
 # "downloads" means the corpus can be downloaded by the recipe automatically
 
-L2ARCTIC=/home/storage15/tangjiyang/data/l2arctic
-SPEECHOCEAN762=/home/storage07/zhangjunbo/data/speechocean762
 AISHELL=downloads
 AN4=downloads
 DIRHA_ENGLISH_PHDEV=
@@ -31,7 +29,7 @@ HKUST1=
 HKUST2=
 LABOROTV=
 TEDXJP=
-LIBRISPEECH=/home/storage07/zhangjunbo/data/librispeech
+LIBRISPEECH=
 MINI_LIBRISPEECH=downloads
 LIBRITTS=
 LJSPEECH=downloads
@@ -40,7 +38,8 @@ JSSS=downloads
 JSUT=downloads
 JVS=downloads
 SPGISPEECH=
-TIMIT=/home/storage15/tangjiyang/data/TIMIT
+SWBD=
+TIMIT=$(realpath ../../../../TIMIT)
 VOXFORGE=downloads
 AMI=
 COMMONVOICE=downloads
