@@ -1,5 +1,7 @@
 import argparse
 import os
+import random
+
 from aug import add_more_negative_data
 from utils import load_utt2phones, onehot, load_utt2seq
 from speechocean762 import load_phone_symbol_table
@@ -341,31 +343,45 @@ def main():
         print('Performing data augmentation')
         ph2data = add_more_negative_data(ph2data)
 
+    score_count = {i: 0 for i in range(3)}
+    score2data = {}
+    for ph in ph2data.keys():
+        x, y = to_data_samples(ph2data[ph], ph2int, args.use_probs)
+        for i, s in enumerate(y):
+            score2data.setdefault(s, []).append((ph, x[i], y[i]))
+            score_count[s] += 1
+    print(f'Score counts: {score_count}')
+
+    # downsample some of the data so that the number of samples with different scores are the same
+    N = np.min(list(score_count.values()))
+    ph2data = {}
+    for s in score2data.keys():
+        d = score2data[s]
+        nd = len(d)
+        idx = list(range(nd))
+        idx = random.sample(idx, N)
+        d = [d[i] for i in idx]
+
+        for ph, x, y in d:
+            ph2data.setdefault(ph, []).append((x, y))
+
+    # flatten ph2data
     if args.per_phone_clf:
         print('Using per-phone classsifiers')
         data = {}
     else:
         data = [[], []]
-
-    score_count = {}
     for ph, d in ph2data.items():
-        x, y = to_data_samples(d, ph2int, args.use_probs)
-
+        xs = np.asarray([_d[0] for _d in d])
+        ys = np.asarray([_d[1] for _d in d])
         if args.per_phone_clf:
-            data[ph] = (x, y)
+            data[ph] = (xs, ys)
         else:
-            data[0].append(x)
-            data[1].append(y)
-
-        for s in y:
-            score_count.setdefault(s, 0)
-            score_count[s] += 1
-
+            data[0].append(xs)
+            data[1].append(ys)
     if not args.per_phone_clf:
         data[0] = np.vstack(data[0])
         data[1] = np.concatenate(data[1])
-
-    print(f'Score counts: {score_count}')
 
     model_dir = os.path.dirname(args.model_path)
     os.makedirs(model_dir, exist_ok=True)
