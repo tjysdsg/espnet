@@ -48,6 +48,7 @@ def get_args():
                         help='Whether HYP contains tokens or probability matrices')
 
     parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
+    parser.add_argument('--downsample-extra-data', action='store_true', default=False, help='Plot prob matrices')
     parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
     parser.add_argument('--per-phone-clf', action='store_true', default=False, help='Use a model per phone')
     args = parser.parse_args()
@@ -350,17 +351,18 @@ def main():
         for i, s in enumerate(y):
             score2data.setdefault(s, []).append((ph, x[i], y[i]))
             score_count[s] += 1
-    print(f'Score counts: {score_count}')
 
     # downsample some of the data so that the number of samples with different scores are the same
     N = np.min(list(score_count.values()))
     ph2data = {}
     for s in score2data.keys():
         d = score2data[s]
-        nd = len(d)
-        idx = list(range(nd))
-        idx = random.sample(idx, N)
-        d = [d[i] for i in idx]
+
+        if args.downsample_extra_data:
+            nd = len(d)
+            idx = list(range(nd))
+            idx = random.sample(idx, N)
+            d = [d[i] for i in idx]
 
         for ph, x, y in d:
             ph2data.setdefault(ph, []).append((x, y))
@@ -382,7 +384,7 @@ def main():
             data[1].append(ys)
         for s in ys:
             score_count[s] += 1
-    print(f'Score counts after downsampling: {score_count}')
+    print(f'Score counts: {score_count}')
     if not args.per_phone_clf:
         data[0] = np.vstack(data[0])
         data[1] = np.concatenate(data[1])
