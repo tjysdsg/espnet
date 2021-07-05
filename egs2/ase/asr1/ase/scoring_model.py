@@ -9,6 +9,7 @@ import pickle
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 import json
 
@@ -213,19 +214,23 @@ def plot_decision_tree(mdl, output_path: str):
 
 
 class Scorer:
-    def __init__(self, phone_names: List[str], use_mlp: bool, per_phone: bool, *args, **kwargs):
+    def __init__(self, phone_names: List[str], use_mlp: bool, per_phone: bool, use_probs: bool, *args, **kwargs):
         self.use_mlp = use_mlp
         self.per_phone = per_phone
+        self.use_probs = use_probs
         if per_phone:
+            self.scalers = {p: StandardScaler() for p in phone_names}
             if use_mlp:
                 self.clfs = {p: MLPClassifier(*args, **kwargs) for p in phone_names}
             else:
                 self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
         else:
+            self.scalers = StandardScaler()
             if use_mlp:
                 self.clfs = MLPClassifier(*args, **kwargs)
             else:
                 self.clfs = DecisionTreeClassifier(*args, **kwargs)
+
 
     def __getitem__(self, phone: str):
         return self.clfs[phone]
@@ -237,9 +242,13 @@ class Scorer:
         if self.per_phone:
             for phone, samples in data.items():
                 x, y = samples
+                if self.use_probs:
+                    x = self.scalers[phone].fit_transform(x)
                 self.clfs[phone].fit(x, y)
         else:
             x, y = data
+            if self.use_probs:
+                x = self.scalers.fit_transform(x)
             self.clfs.fit(x, y)
 
     def test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
@@ -247,6 +256,8 @@ class Scorer:
         y_all = []
         for phone, samples in ph2samples.items():
             x, y = samples
+            if self.use_probs:
+                x = self.scalers[phone].transform(x)
             y_pred = self.clfs[phone].predict(x)
 
             print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred):.4f}')
@@ -267,6 +278,8 @@ class Scorer:
 
     def test_one(self, data):
         x, y = data
+        if self.use_probs:
+            x = self.scalers.transform(x)
         y_pred = self.clfs.predict(x)
 
         pcc, mse = eval_scoring(y_pred, y)
@@ -350,9 +363,9 @@ def main():
             # verbose=True,
         )
         if args.use_mlp:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=True, per_phone=args.per_phone_clf, **mlp_args)
+            mdl = Scorer(phone_names, random_state=42, use_mlp=True, per_phone=args.per_phone_clf, use_probs=args.use_probs, **mlp_args)
         else:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=False, per_phone=args.per_phone_clf)
+            mdl = Scorer(phone_names, random_state=42, use_mlp=False, per_phone=args.per_phone_clf, use_probs=args.use_probs)
 
         mdl.fit(data)
         pickle.dump(mdl, open(args.model_path, 'wb'))
