@@ -238,17 +238,28 @@ class Scorer:
     def __setitem__(self, key, value):
         raise NotImplementedError()
 
+    def preprocess_probs(self, probs, phone: str, train_mode: bool):
+        if self.per_phone:
+            scaler = self.scalers[phone]
+        else:
+            scaler = self.scalers
+
+        if train_mode:
+            return scaler.fit_transform(np.exp(probs))
+        else:
+            return scaler.transform(np.exp(probs))
+
     def fit(self, data):
         if self.per_phone:
             for phone, samples in data.items():
                 x, y = samples
                 if self.use_probs:
-                    x = self.scalers[phone].fit_transform(x)
+                    x = self.preprocess_probs(x, phone, True)
                 self.clfs[phone].fit(x, y)
         else:
             x, y = data
             if self.use_probs:
-                x = self.scalers.fit_transform(x)
+                x = self.preprocess_probs(x, None, True)
             self.clfs.fit(x, y)
 
     def test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
@@ -257,7 +268,7 @@ class Scorer:
         for phone, samples in ph2samples.items():
             x, y = samples
             if self.use_probs:
-                x = self.scalers[phone].transform(x)
+                x = self.preprocess_probs(x, phone, False)
             y_pred = self.clfs[phone].predict(x)
 
             print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred):.4f}')
@@ -279,7 +290,7 @@ class Scorer:
     def test_one(self, data):
         x, y = data
         if self.use_probs:
-            x = self.scalers.transform(x)
+            x = self.preprocess_probs(x, None, False)
         y_pred = self.clfs.predict(x)
 
         pcc, mse = eval_scoring(y_pred, y)
