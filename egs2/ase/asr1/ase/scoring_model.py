@@ -367,10 +367,11 @@ def main():
 
     # flatten ph2data
     if args.per_phone_clf:
-        print('Using per-phone classsifiers')
+        print('Using per-phone classifiers')
         data = {}
     else:
         data = [[], []]
+    score_count = {i: 0 for i in range(3)}
     for ph, d in ph2data.items():
         xs = np.asarray([_d[0] for _d in d])
         ys = np.asarray([_d[1] for _d in d])
@@ -379,6 +380,9 @@ def main():
         else:
             data[0].append(xs)
             data[1].append(ys)
+        for s in ys:
+            score_count[s] += 1
+    print(f'Score counts after downsampling: {score_count}')
     if not args.per_phone_clf:
         data[0] = np.vstack(data[0])
         data[1] = np.concatenate(data[1])
