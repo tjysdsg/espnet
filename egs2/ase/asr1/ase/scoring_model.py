@@ -4,7 +4,7 @@ from aug import add_more_negative_data
 from utils import load_utt2phones, onehot, load_utt2seq
 from speechocean762 import load_phone_symbol_table
 from ase_score import get_scores, eval_scoring
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Callable
 import pickle
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
@@ -231,35 +231,38 @@ class Scorer:
             else:
                 self.clfs = DecisionTreeClassifier(*args, **kwargs)
 
-
     def __getitem__(self, phone: str):
         return self.clfs[phone]
 
     def __setitem__(self, key, value):
         raise NotImplementedError()
 
-    def preprocess_probs(self, probs, phone: str, train_mode: bool):
+    def preprocess_probs(self, probs, train_mode: bool, phone: str = None):
         if self.per_phone:
             scaler = self.scalers[phone]
         else:
             scaler = self.scalers
 
         if train_mode:
-            return scaler.fit_transform(np.exp(probs))
+            ret = scaler.fit_transform(np.exp(probs))
         else:
-            return scaler.transform(np.exp(probs))
+            ret = scaler.transform(np.exp(probs))
+
+        print(f'Mean of prob matrix of phone {phone}: {np.mean(probs, axis=0)}')
+        print(f'Std of prob matrix of phone {phone}: {np.std(probs, axis=0)}')
+        return ret
 
     def fit(self, data):
         if self.per_phone:
             for phone, samples in data.items():
                 x, y = samples
                 if self.use_probs:
-                    x = self.preprocess_probs(x, phone, True)
+                    x = self.preprocess_probs(x, True, phone)
                 self.clfs[phone].fit(x, y)
         else:
             x, y = data
             if self.use_probs:
-                x = self.preprocess_probs(x, None, True)
+                x = self.preprocess_probs(x, True)
             self.clfs.fit(x, y)
 
     def test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
@@ -268,7 +271,7 @@ class Scorer:
         for phone, samples in ph2samples.items():
             x, y = samples
             if self.use_probs:
-                x = self.preprocess_probs(x, phone, False)
+                x = self.preprocess_probs(x, False, phone)
             y_pred = self.clfs[phone].predict(x)
 
             print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred):.4f}')
@@ -290,7 +293,7 @@ class Scorer:
     def test_one(self, data):
         x, y = data
         if self.use_probs:
-            x = self.preprocess_probs(x, None, False)
+            x = self.preprocess_probs(x, False)
         y_pred = self.clfs.predict(x)
 
         pcc, mse = eval_scoring(y_pred, y)
@@ -369,15 +372,17 @@ def main():
 
     phone_names = list(ph2data.keys())
     if args.action == 'train':
-        mlp_args = dict(
-            early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
-            # verbose=True,
-        )
+        other_args = {}
         if args.use_mlp:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=True, per_phone=args.per_phone_clf, use_probs=args.use_probs, **mlp_args)
-        else:
-            mdl = Scorer(phone_names, random_state=42, use_mlp=False, per_phone=args.per_phone_clf, use_probs=args.use_probs)
+            other_args = dict(
+                early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
+                # verbose=True,
+            )
 
+        mdl = Scorer(
+            phone_names, random_state=42, use_mlp=args.use_mlp, per_phone=args.per_phone_clf,
+            use_probs=args.use_probs, **other_args
+        )
         mdl.fit(data)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
