@@ -365,21 +365,18 @@ class Scorer:
         self.clfs = {}
         self.model_args = model_args
 
-    def preprocess_probs(self, probs: np.ndarray, train_mode: bool, phone: str = None):
+    def preprocess_probs(self, key: str, probs: np.ndarray, train_mode: bool):
         from sklearn.preprocessing import StandardScaler
 
-        key = 'all'
-        if self.per_phone:
-            key = phone
-        scaler = self.scalers[key] = StandardScaler()
-
+        probs = np.exp(probs)
         if train_mode:
-            ret = scaler.fit_transform(np.exp(probs))
+            self.scalers[key] = StandardScaler()
+            ret = self.scalers[key].fit_transform(probs)
         else:
-            ret = scaler.transform(np.exp(probs))
+            ret = self.scalers[key].transform(probs)
 
-        print(f'Mean of prob matrix of phone {phone}: {np.mean(probs, axis=0)}')
-        print(f'Std of prob matrix of phone {phone}: {np.std(probs, axis=0)}')
+        print(f'Mean of prob matrix of {key}: {np.mean(probs, axis=0)}')
+        print(f'Std of prob matrix of {key}: {np.std(probs, axis=0)}')
         return ret
 
     def _fit_clf(self, key: str, x: np.ndarray, y: np.ndarray):
@@ -412,13 +409,13 @@ class Scorer:
         for phone, samples in ph2samples.items():
             x, y = data2array(samples, self.ph2int, self.use_probs)
             if self.use_probs:
-                x = self.preprocess_probs(x, True, phone)
+                x = self.preprocess_probs(phone, x, True)
             self._fit_clf(phone, x, y)
 
     def _fit_all(self, data: List[Sample]):
         x, y = data2array(data, self.ph2int, self.use_probs)
         if self.use_probs:
-            x = self.preprocess_probs(x, True)
+            x = self.preprocess_probs('all', x, True)
         self._fit_clf('all', x, y)
 
     def fit(self, data):
@@ -433,7 +430,7 @@ class Scorer:
         for phone, samples in ph2samples.items():
             x, y = data2array(samples, self.ph2int, self.use_probs)
             if self.use_probs:
-                x = self.preprocess_probs(x, False, phone)
+                x = self.preprocess_probs(phone, x, False)
             preds = self._test_clf(phone, x, y)[0]
 
             y_pred_all.append(preds)
@@ -446,7 +443,7 @@ class Scorer:
     def test_one(self, data):
         x, y = data2array(data, self.ph2int, self.use_probs)
         if self.use_probs:
-            x = self.preprocess_probs(x, False)
+            x = self.preprocess_probs('all', x, False)
         self._test_clf('all', x, y)
 
     def test(self, data):
