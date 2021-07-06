@@ -385,7 +385,7 @@ def main():
     for s in score2data.keys():
         d = score2data[s]
 
-        if args.downsample_extra_data:
+        if args.downsample_extra_data and args.action == 'train':
             nd = len(d)
             idx = list(range(nd))
             idx = random.sample(idx, N)
