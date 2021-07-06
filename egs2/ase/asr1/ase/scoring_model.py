@@ -26,8 +26,17 @@ class NPhone:
         self.right = right
         self.curr = curr
 
+    def __str__(self):
+        return "{" + f'{self.curr}, {self.left}, {self.right}' + "}"
+
     def __repr__(self):
-        return f'{self.curr}, {self.left}, {self.right}'
+        return self.__str__()
+
+    def __eq__(self, other):
+        return self.__str__() == other.__str__()
+
+    def __hash__(self):
+        return hash(self.__str__())
 
     def tolist(self):
         return self.left + [self.curr] + self.right
@@ -42,11 +51,10 @@ def get_args():
     parser.add_argument('--scores', type=str, help='Path to utt2scores')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
-
+    parser.add_argument('--output-dir', type=str, default='tmp', help='Output directory')
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--use-probs', action='store_true', default=False,
                         help='Whether HYP contains tokens or probability matrices')
-
     parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
     parser.add_argument('--downsample-extra-data', action='store_true', default=False, help='Plot prob matrices')
     parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
@@ -344,6 +352,18 @@ def main():
         print('Performing data augmentation')
         ph2data = add_more_negative_data(ph2data)
 
+    # remove duplicates from data
+    for ph in ph2data.keys():
+        phonedata = [tuple(d) for d in ph2data[ph]]
+        ph2data[ph] = list(set(phonedata))
+
+    # save ph2data to file
+    of = open(os.path.join(args.output_dir, 'ph2data'), 'w')
+    for ph, d in ph2data.items():
+        for ppl, cpl, s in d:
+            of.write(f'CPL {cpl}\tPPL: {ppl}\tScore: {s}\n')
+    of.close()
+
     score_count = {i: 0 for i in range(3)}
     score2data = {}
     for ph in ph2data.keys():
@@ -351,6 +371,13 @@ def main():
         for i, s in enumerate(y):
             score2data.setdefault(s, []).append((ph, x[i], y[i]))
             score_count[s] += 1
+
+    # save score2data to file, with phone index converted to phone names
+    of = open(os.path.join(args.output_dir, 'score2data'), 'w')
+    for s, d in score2data.items():
+        for p, x, _ in d:
+            of.write(f'CPL: {p}\tPPL: {int2ph[np.argmax(x)]}\tScore: {s}\n')
+    of.close()
 
     # downsample some of the data so that the number of samples with different scores are the same
     N = np.min(list(score_count.values()))
