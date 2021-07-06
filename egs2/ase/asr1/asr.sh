@@ -1001,17 +1001,26 @@ if ! "${skip_eval}"; then
     if [ "${use_libri_scoring}" = "true" ]; then
       cat data/so762/text data/libri_scoring/text >${_dir}/ref.txt
       cat data/so762/utt2scores data/libri_scoring/utt2scores >${_dir}/utt2scores
-      cat ${_decode_dir}/so762_train/${hyp_file} ${_decode_dir}/libri_scoring/${hyp_file} > ${_dir}/hyp.txt
+      cat ${_decode_dir}/so762_train/${hyp_file} ${_decode_dir}/libri_scoring/${hyp_file} >${_dir}/hyp.txt
     else
       cp data/so762/text ${_dir}/ref.txt
       cp data/so762/utt2scores ${_dir}/utt2scores
       cp ${_decode_dir}/so762_train/${hyp_file} ${_dir}/hyp.txt
     fi
 
-    export PYTHONPATH=ase/
-    ${python} ase/scoring_model.py train ${_dir}/hyp.txt ${_dir}/ref.txt ${scoring_opts} \
-      --phone-table=${token_list} \
+    # perform data aug
+    ${python} ase/aug_scoring_data.py \
+      --text=${_dir}/ref.txt \
       --scores=${_dir}/utt2scores \
+      --output-dir=${_dir}
+
+    export PYTHONPATH=ase/
+    ${python} ase/scoring_model.py train \
+      ${_dir}/hyp.txt \
+      ${_dir}/ref_aug.txt \
+      ${scoring_opts} \
+      --phone-table=${token_list} \
+      --scores=${_dir}/utt2scores_aug \
       --model-path=${_dir}/scoring.mdl \
       --output-dir=${_dir}
   fi

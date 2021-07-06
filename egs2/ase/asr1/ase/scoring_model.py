@@ -1,11 +1,9 @@
 import argparse
 import os
-import random
-from collections import Counter
 from utils import onehot, load_utt2seq
 from speechocean762 import load_phone_symbol_table
 from ase_score import get_scores, eval_scoring
-from typing import Dict, List, Any, Tuple, Callable
+from typing import Dict, List, Tuple
 import pickle
 from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
@@ -70,7 +68,6 @@ def get_args():
     parser.add_argument('action', metavar='ACTION', choices=['train', 'test'], help='train or test')
     parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
-    parser.add_argument('--balance', type=bool, default=True, help='Balance data, only used for training')
     parser.add_argument('--scores', type=str, help='Path to utt2scores')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
@@ -79,7 +76,6 @@ def get_args():
     parser.add_argument('--use-probs', action='store_true', default=False,
                         help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
-    parser.add_argument('--downsample-extra-data', action='store_true', default=False, help='Plot prob matrices')
     parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
     parser.add_argument('--per-phone-clf', action='store_true', default=False, help='Use a model per phone')
     args = parser.parse_args()
@@ -133,10 +129,6 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             hyps[utt] = probs
 
     return hyps
-
-
-def remove_duplicated_samples(samples: List[Sample]) -> List[Sample]:
-    return list(set(samples))
 
 
 def load_utt2phones(path: str) -> Dict[str, List[Phone]]:
@@ -261,71 +253,6 @@ def load_data(
     return ret
 
 
-def samples_to_ph2samples(data: List[Sample]) -> Dict[str, List[Sample]]:
-    ph2samples: Dict[str, List[Sample]] = {}
-    for sam in data:
-        phone = sam.cpl.name
-        ph2samples.setdefault(phone, []).append(sam)
-
-    return ph2samples
-
-
-def add_more_negative_data(data: List[Sample]) -> List[Sample]:
-    """
-    Take the 2-score samples of other phones as new 0-score samples, and take the 2-score samples of
-    other similar phones as new 1-score samples
-    """
-
-    def valid_candidate(sample: Sample) -> bool:
-        from utils import EMPTY_PHONES
-        return sample.score == 2 and sample.ppl.name not in EMPTY_PHONES
-
-    ph2samples = samples_to_ph2samples(data)
-
-    # prepare samples that could be generated
-    ph2different_samples = {}  # {ph: [samples that contains phone != ph]
-    ph2similar_samples = {}  # {ph: [samples that contains phone that is similar to ph]
-    for curr_ph in ph2samples.keys():
-        ph2different_samples.setdefault(curr_ph, [])
-        ph2similar_samples.setdefault(curr_ph, [])
-        for ph, samples in ph2samples.items():
-            if ph != curr_ph:
-                sam = [Sample(cpl=sam.cpl, ppl=sam.ppl, score=0) for sam in samples if valid_candidate(sam)]
-                ph2different_samples[curr_ph] += sam
-
-                if ph in ph2similar.get(curr_ph, []):
-                    sam = [Sample(cpl=sam.cpl, ppl=sam.ppl, score=1) for sam in samples if valid_candidate(sam)]
-                    ph2similar_samples[curr_ph] += sam
-
-    for ph in ph2samples.keys():
-        ph2different_samples[ph] = remove_duplicated_samples(ph2different_samples[ph])
-        ph2similar_samples[ph] = remove_duplicated_samples(ph2similar_samples[ph])
-
-    ret = []
-    for ph, samples in ph2samples.items():
-        scores = [sam.score for sam in samples]
-        score_counts = Counter(scores)
-        n_samples_needed = 2 * score_counts[2] - len(samples)
-
-        # generate 0-score samples
-        if n_samples_needed > 0:
-            different_samples = ph2different_samples[ph]
-            ret += random.sample(
-                different_samples,
-                min(n_samples_needed, len(different_samples))
-            )
-
-        # generate 1-score samples
-        if 0 < n_samples_needed:
-            similar_samples = ph2similar_samples[ph]
-            ret += random.sample(
-                similar_samples,
-                min(n_samples_needed, len(similar_samples))
-            )
-
-    return ret
-
-
 def data2array(
         data: List[Sample], ph2int: Dict[str, int], use_probs: bool
 ) -> (np.ndarray, np.ndarray):
@@ -424,7 +351,7 @@ class Scorer:
         else:
             self._fit_all(data)
 
-    def _test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+    def _test_per_phone(self, ph2samples: Dict[str, List[Sample]]):
         y_pred_all = []
         y_all = []
         for phone, samples in ph2samples.items():
@@ -471,12 +398,8 @@ def main():
         plot_probs=args.plot_probs
     )
 
-    if args.action == 'train' and args.balance:
-        print('Performing data augmentation')
-        data = add_more_negative_data(data)
-
     # remove duplicates from data
-    data = remove_duplicated_samples(data)
+    data = list(set(data))
 
     # save samples to file
     of = open(os.path.join(args.output_dir, 'samples'), 'w')
