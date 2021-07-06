@@ -48,7 +48,6 @@ def load_into_phones(text_path: str, score_path: str) -> List[Phone]:
     utt2scores = load_utt2seq(score_path, formatter=int)
     for utt in utt2phones.keys():
         phones = [p for p in utt2phones[utt] if p not in EMPTY_PHONES]
-
         scores = utt2scores[utt]
         assert len(scores) == len(phones)
 

@@ -8,6 +8,7 @@ impure_pat = r'[_\d].*'
 impure_matcher = regex.compile(impure_pat)
 
 EMPTY_PHONES = ['sil', 'spn', 'eps', '<blank>', '<sos/eos>', '<unk>']
+EMPTY_PHONES += [ep.upper() for ep in EMPTY_PHONES]
 
 
 def convert_to_pure_phones(phone: str) -> str:
