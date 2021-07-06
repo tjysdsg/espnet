@@ -1,45 +1,68 @@
 import argparse
 import os
 import random
-
-from aug import add_more_negative_data
-from utils import load_utt2phones, onehot, load_utt2seq
+from collections import Counter
+from utils import onehot, load_utt2seq
 from speechocean762 import load_phone_symbol_table
 from ase_score import get_scores, eval_scoring
 from typing import Dict, List, Any, Tuple, Callable
 import pickle
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
-from sklearn.preprocessing import StandardScaler
 import numpy as np
 import json
+from dataclasses import dataclass
+
+# TODO: fix triphone
 
 N_PHONES = 44
-SIL_VEC = np.full(N_PHONES, -100)  # <blank>
-SIL_VEC[0] = 0
+SIMILAR_PHONES = [
+    ['AA', 'AH'],
+    ['AE', 'EH'],
+    ['IY', 'IH'],
+    ['UH', 'UW'],
+]
+ph2similar = {}
+for group in SIMILAR_PHONES:
+    for curr in group:
+        ph2similar[curr] = [p for p in group if p != curr]
 
 
-class NPhone:
-    def __init__(self, curr: str, left: List[str], right: List[str]):
-        self.left = left
-        self.right = right
-        self.curr = curr
+@dataclass(frozen=True)
+class Phone:
+    name: str
+    probs: np.ndarray = None
+
+    def __hash__(self):
+        tup = (self.name, self.probs.tostring() if self.probs is not None else 'None')
+        return tup.__hash__()
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
 
     def __str__(self):
-        return "{" + f'{self.curr}, {self.left}, {self.right}' + "}"
+        return f'Phone({self.name})'
 
     def __repr__(self):
         return self.__str__()
 
-    def __eq__(self, other):
-        return self.__str__() == other.__str__()
+    @staticmethod
+    def get_sil_phone() -> 'Phone':
+        sil_vec = np.full(N_PHONES, -100)
+        sil_vec[0] = 0  # <blank>
+        return Phone(name='<blank>', probs=sil_vec)
 
-    def __hash__(self):
-        return hash(self.__str__())
 
-    def tolist(self):
-        return self.left + [self.curr] + self.right
+@dataclass(frozen=True)
+class Sample:
+    cpl: Phone  # correct phone label
+    ppl: Phone  # perceived phone label
+    score: int
+
+    def __str__(self):
+        return f'{{cpl={self.cpl}, ppl={self.ppl}, score={self.score}}}'
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def get_args():
@@ -63,6 +86,36 @@ def get_args():
     return args
 
 
+def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
+    from matplotlib import pyplot as plt
+
+    prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
+
+    fig, ax = plt.subplots()
+    ax.set_xticks(np.arange(len(phones)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(phones)
+    ax.set_yticklabels(labels)
+    plt.setp(ax.get_xticklabels(), rotation='vertical')
+    ax.margins(0.2)
+
+    ax.imshow(prob)
+    plt.savefig(os.path.join(output_path))
+    plt.close('all')
+
+
+def plot_decision_tree(mdl, output_path: str):
+    """
+    Plot decision tree structure into an svg file
+    """
+    from sklearn import tree
+    from matplotlib import pyplot as plt
+    plt.figure(figsize=(19, 10), dpi=130)
+    tree.plot_tree(mdl)
+    plt.savefig(output_path)
+    plt.close('all')
+
+
 def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
     """
     Load utt2phones into a dictionary
@@ -82,177 +135,243 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
     return hyps
 
 
-def to_data_samples(
-        phone_data: List[NPhone or int], ph2int: Dict[str, int], use_probs: bool
-) -> (np.ndarray, np.ndarray):
-    x = []
-    y = []
-    for d in phone_data:
-        ppl, cpl, s = d
-        if not use_probs:  # if not using probs, the tokens should be converted to onehot encoded vectors
-            ppl = [onehot(N_PHONES, ph2int[p]) for p in ppl.tolist()]
+def remove_duplicated_samples(samples: List[Sample]) -> List[Sample]:
+    return list(set(samples))
+
+
+def load_utt2phones(path: str) -> Dict[str, List[Phone]]:
+    from utils import EMPTY_PHONES
+
+    ret = load_utt2seq(path)
+    for utt in ret.keys():
+        phones = [Phone(name=ph) for ph in ret[utt] if ph not in EMPTY_PHONES]
+        ret[utt] = phones
+
+    return ret
+
+
+def get_alignment(hyps: Dict[str, List[Phone]], refs: Dict[str, List[Phone]]):
+    def to_phone_names(d: Dict[str, List[Phone]]) -> Dict[str, List[str]]:
+        ret = {}
+        for k, v in d.items():
+            names = [e.name for e in v]
+            ret[k] = names
+
+        return ret
+
+    _, _, alignment = get_scores(to_phone_names(hyps), to_phone_names(refs))
+    return alignment
+
+
+def load_hyp_ref_score_alignment(
+        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, int2ph: Dict[int, str] = None
+) -> Tuple[
+    Dict[str, List[Phone]],
+    Dict[str, List[Phone]],
+    Dict[str, List[int]],
+    Dict[str, List],
+]:
+    # hyps
+    if use_probs:
+        from utils import EMPTY_PHONES
+
+        hyps = load_utt2probs(hyp_path)
+        assert int2ph
+        for utt in hyps.keys():
+            phones = []
+            probs = hyps[utt]
+            for p in probs:
+                ph_name = int2ph[np.argmax(p)]
+
+                # remove empty phones
+                if ph_name not in EMPTY_PHONES:
+                    phones.append(Phone(name=ph_name, probs=p))
+            hyps[utt] = phones
+    else:
+        hyps = load_utt2phones(hyp_path)
+
+    # refs, scores
+    refs = load_utt2phones(ref_path)
+    scores = load_utt2seq(scores_path, formatter=int)
+
+    # get WER alignment
+    alignment = get_alignment(hyps, refs)
+
+    return hyps, refs, scores, alignment
+
+
+def get_utt_samples(preds: List[Phone], labels: List[Phone], scores: List[int], align) -> List[Sample]:
+    ret: List[Sample] = []
+    n = len(align)
+    i_l = 0
+    i_p = 0
+    for i in range(n):
+        err, i1, i2 = align[i]
+        if err == 'S' or err == '=':
+            assert i_l == i1
+            assert i_p == i2
+
+            ppl = preds[i_p]
+            cpl = labels[i_l]
+            s = scores[i_l]
+            i_p += 1
+            i_l += 1
+        elif err == 'D':
+            assert i_l == i1
+
+            ppl = Phone.get_sil_phone()
+            cpl = labels[i_l]
+            s = scores[i_l]
+            i_l += 1
+        elif err == 'I':
+            assert i_p == i2
+
+            i_p += 1
+            continue
         else:
-            ppl = ppl.tolist()
-        cpl = [onehot(N_PHONES, ph2int[p]) for p in cpl.tolist()]
+            assert False
 
-        x.append(np.asarray(ppl + cpl).ravel())
-        y.append(s)
-
-    return np.asarray(x), np.asarray(y)
-
-
-def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
-    from matplotlib import pyplot as plt
-
-    prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
-
-    fig, ax = plt.subplots()
-    ax.set_xticks(np.arange(len(phones)))
-    ax.set_yticks(np.arange(len(labels)))
-    ax.set_xticklabels(phones)
-    ax.set_yticklabels(labels)
-    plt.setp(ax.get_xticklabels(), rotation='vertical')
-    ax.margins(0.2)
-
-    ax.imshow(prob)
-    plt.savefig(os.path.join(output_path))
-    plt.close('all')
+        ret.append(Sample(cpl=cpl, ppl=ppl, score=s))
+    return ret
 
 
 def load_data(
         hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int,
         int2ph: Dict[int, str] = None, plot_probs=False
-) -> Dict[str, List]:
-    if use_probs:
-        hyps = load_utt2probs(hyp_path)
-        assert int2ph
-        # remove empty phones
-        for utt in hyps.keys():
-            phones = hyps[utt]
-            phones = [p for p in phones if int2ph[np.argmax(p)] not in ['<sos/eos>', '<blank>', '<unk>']]
-            hyps[utt] = np.asarray(phones)
-    else:
-        hyps = load_utt2phones(hyp_path)
+) -> List[Sample]:
+    hyps, refs, scores, alignment = load_hyp_ref_score_alignment(hyp_path, ref_path, scores_path, use_probs, int2ph)
 
-    refs = load_utt2phones(ref_path)
-    scores = load_utt2seq(scores_path, formatter=int)
-
-    _, _, alignment = get_scores(hyps, refs)
-
-    ph2data = {}
+    ret = []
     for utt in refs.keys():
         if utt not in hyps:
             continue
-
         assert utt in alignment and utt in scores, utt
-        label = refs[utt]
-        utt_align = alignment[utt]
-        pred = hyps[utt]
-        sc = scores[utt]
+
+        preds = hyps[utt]
+        labels = refs[utt]
+        ret += get_utt_samples(preds, labels, scores[utt], alignment[utt])
 
         if use_probs and plot_probs:
             output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f'{utt}.png')
             phones = [int2ph[i] for i in sorted(list(int2ph.keys()))]
-            plot_probmat(np.asarray(pred), label, phones, output_path)
+            plot_probmat(np.asarray([pr.probs for pr in preds]), [lab.name for lab in labels], phones, output_path)
 
-        def try_get_phone(phones: List[str], idx, sil: str):
-            if idx < 0 or idx >= len(phones):
-                return sil
-            else:
-                return phones[idx]
-
-        def get_nphone(phones, idx: int, is_deletion=False, sil: Any = '<blank>') -> NPhone:
-            # if is_deletion is true, the current position between idx-1 and idx
-            left = [try_get_phone(phones, i, sil) for i in range(idx - phone_size, idx)]
-            if is_deletion:
-                right = [try_get_phone(phones, i, sil) for i in range(idx, idx + phone_size)]
-            else:
-                right = [try_get_phone(phones, i, sil) for i in range(idx + 1, idx + phone_size + 1)]
-
-            if is_deletion:
-                curr = sil
-            else:
-                curr = try_get_phone(phones, idx, sil)
-
-            return NPhone(curr, left, right)
-
-        n = len(utt_align)
-        i_l = 0
-        i_p = 0
-        for i in range(n):
-            err, i1, i2 = utt_align[i]
-            if err == 'S' or err == '=':
-                assert i_l == i1
-                assert i_p == i2
-
-                ppl = get_nphone(pred, i_p, sil=SIL_VEC if use_probs else '<blank>')
-                cpl = get_nphone(label, i_l)
-                s = sc[i_l]
-                i_p += 1
-                i_l += 1
-            elif err == 'D':
-                assert i_l == i1
-
-                ppl = get_nphone(pred, i_p, is_deletion=True, sil=SIL_VEC if use_probs else '<blank>')
-                cpl = get_nphone(label, i_l)
-                s = sc[i_l]
-                i_l += 1
-            elif err == 'I':
-                assert i_p == i2
-
-                i_p += 1
-                continue
-            else:
-                assert False
-
-            ph2data.setdefault(cpl.curr, []).append([ppl, cpl, s])  # [perceived nphone, correct nphone, score]
-
-    return ph2data
+    return ret
 
 
-def plot_decision_tree(mdl, output_path: str):
+def samples_to_ph2samples(data: List[Sample]) -> Dict[str, List[Sample]]:
+    ph2samples: Dict[str, List[Sample]] = {}
+    for sam in data:
+        phone = sam.cpl.name
+        ph2samples.setdefault(phone, []).append(sam)
+
+    return ph2samples
+
+
+def add_more_negative_data(data: List[Sample]) -> List[Sample]:
     """
-    Plot decision tree structure into an svg file
+    Take the 2-score samples of other phones as new 0-score samples, and take the 2-score samples of
+    other similar phones as new 1-score samples
     """
-    from sklearn import tree
-    from matplotlib import pyplot as plt
-    plt.figure(figsize=(19, 10), dpi=130)
-    tree.plot_tree(mdl)
-    plt.savefig(output_path)
-    plt.close('all')
+
+    def valid_candidate(sample: Sample) -> bool:
+        from utils import EMPTY_PHONES
+        return sample.score == 2 and sample.ppl.name not in EMPTY_PHONES
+
+    ph2samples = samples_to_ph2samples(data)
+
+    # prepare samples that could be generated
+    ph2different_samples = {}  # {ph: [samples that contains phone != ph]
+    ph2similar_samples = {}  # {ph: [samples that contains phone that is similar to ph]
+    for curr_ph in ph2samples.keys():
+        ph2different_samples.setdefault(curr_ph, [])
+        ph2similar_samples.setdefault(curr_ph, [])
+        for ph, samples in ph2samples.items():
+            if ph != curr_ph:
+                sam = [Sample(cpl=sam.cpl, ppl=sam.ppl, score=0) for sam in samples if valid_candidate(sam)]
+                ph2different_samples[curr_ph] += sam
+
+                if ph in ph2similar.get(curr_ph, []):
+                    sam = [Sample(cpl=sam.cpl, ppl=sam.ppl, score=1) for sam in samples if valid_candidate(sam)]
+                    ph2similar_samples[curr_ph] += sam
+
+    for ph in ph2samples.keys():
+        ph2different_samples[ph] = remove_duplicated_samples(ph2different_samples[ph])
+        ph2similar_samples[ph] = remove_duplicated_samples(ph2similar_samples[ph])
+
+    ret = []
+    for ph, samples in ph2samples.items():
+        scores = [sam.score for sam in samples]
+        score_counts = Counter(scores)
+        n_samples_needed = 2 * score_counts[2] - len(samples)
+
+        # generate 0-score samples
+        if n_samples_needed > 0:
+            different_samples = ph2different_samples[ph]
+            ret += random.sample(
+                different_samples,
+                min(n_samples_needed, len(different_samples))
+            )
+
+        # generate 1-score samples
+        if 0 < n_samples_needed:
+            similar_samples = ph2similar_samples[ph]
+            ret += random.sample(
+                similar_samples,
+                min(n_samples_needed, len(similar_samples))
+            )
+
+    return ret
+
+
+def data2array(
+        data: List[Sample], ph2int: Dict[str, int], use_probs: bool
+) -> (np.ndarray, np.ndarray):
+    x = []
+    y = []
+    for d in data:
+        if not use_probs:  # if not using probs, the tokens should be converted to onehot encoded vectors
+            ppl = onehot(N_PHONES, ph2int[d.ppl.name])
+        else:
+            ppl = d.ppl.probs
+
+        cpl = onehot(N_PHONES, ph2int[d.cpl.name])
+
+        x.append(np.concatenate([ppl, cpl]))
+        y.append(d.score)
+
+    return np.asarray(x), np.asarray(y)
+
+
+def count_samples_per_score(data: List[Sample]) -> Dict[int, int]:
+    ret = {i: 0 for i in range(3)}
+    for d in data:
+        ret[d.score] += 1
+    return ret
 
 
 class Scorer:
-    def __init__(self, phone_names: List[str], use_mlp: bool, per_phone: bool, use_probs: bool, *args, **kwargs):
+    def __init__(
+            self, ph2int: Dict[str, int], use_mlp=False, per_phone=False, use_probs=False,
+            model_args: Dict = None
+    ):
+        self.ph2int = ph2int
         self.use_mlp = use_mlp
         self.per_phone = per_phone
         self.use_probs = use_probs
-        if per_phone:
-            self.scalers = {p: StandardScaler() for p in phone_names}
-            if use_mlp:
-                self.clfs = {p: MLPClassifier(*args, **kwargs) for p in phone_names}
-            else:
-                self.clfs = {p: DecisionTreeClassifier(*args, **kwargs) for p in phone_names}
-        else:
-            self.scalers = StandardScaler()
-            if use_mlp:
-                self.clfs = MLPClassifier(*args, **kwargs)
-            else:
-                self.clfs = DecisionTreeClassifier(*args, **kwargs)
+        self.scalers = {}
+        self.clfs = {}
+        self.model_args = model_args
 
-    def __getitem__(self, phone: str):
-        return self.clfs[phone]
+    def preprocess_probs(self, probs: np.ndarray, train_mode: bool, phone: str = None):
+        from sklearn.preprocessing import StandardScaler
 
-    def __setitem__(self, key, value):
-        raise NotImplementedError()
-
-    def preprocess_probs(self, probs, train_mode: bool, phone: str = None):
+        key = 'all'
         if self.per_phone:
-            scaler = self.scalers[phone]
-        else:
-            scaler = self.scalers
+            key = phone
+        scaler = self.scalers[key] = StandardScaler()
 
         if train_mode:
             ret = scaler.fit_transform(np.exp(probs))
@@ -263,61 +382,76 @@ class Scorer:
         print(f'Std of prob matrix of phone {phone}: {np.std(probs, axis=0)}')
         return ret
 
+    def _fit_clf(self, key: str, x: np.ndarray, y: np.ndarray):
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.neural_network import MLPClassifier
+
+        if self.use_mlp:
+            self.clfs[key] = MLPClassifier(**self.model_args)
+        else:
+            self.clfs[key] = DecisionTreeClassifier(**self.model_args)
+
+        self.clfs[key].fit(x, y)
+
+    def _calc_and_print_metrics(self, key: str, preds: np.ndarray, y: np.ndarray):
+        pcc, mse = eval_scoring(preds, y)
+        acc = accuracy_score(y, preds)
+        confusion = confusion_matrix(y, preds)
+
+        print(f'Pearson Correlation Coefficient of {key}: {pcc:.4f}')
+        print(f'MSE of {key}: {mse:.4f}')
+        print(f'Accuracy of {key}: {acc:.4f}')
+        print(f'Confusion matrix of {key}:\n{confusion}')
+        return preds, acc, mse, pcc, confusion
+
+    def _test_clf(self, key: str, x: np.ndarray, y: np.ndarray):
+        preds = self.clfs[key].predict(x)
+        return self._calc_and_print_metrics(key, preds, y)
+
+    def _fit_per_phone(self, ph2samples: Dict[str, List[Sample]]):
+        for phone, samples in ph2samples.items():
+            x, y = data2array(samples, self.ph2int, self.use_probs)
+            if self.use_probs:
+                x = self.preprocess_probs(x, True, phone)
+            self._fit_clf(phone, x, y)
+
+    def _fit_all(self, data: List[Sample]):
+        x, y = data2array(data, self.ph2int, self.use_probs)
+        if self.use_probs:
+            x = self.preprocess_probs(x, True)
+        self._fit_clf('all', x, y)
+
     def fit(self, data):
         if self.per_phone:
-            for phone, samples in data.items():
-                x, y = samples
-                if self.use_probs:
-                    x = self.preprocess_probs(x, True, phone)
-                self.clfs[phone].fit(x, y)
+            self._fit_per_phone(data)
         else:
-            x, y = data
-            if self.use_probs:
-                x = self.preprocess_probs(x, True)
-            self.clfs.fit(x, y)
+            self._fit_all(data)
 
-    def test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+    def _test_per_phone(self, ph2samples: Dict[str, Tuple[np.ndarray, np.ndarray]]):
         y_pred_all = []
         y_all = []
         for phone, samples in ph2samples.items():
-            x, y = samples
+            x, y = data2array(samples, self.ph2int, self.use_probs)
             if self.use_probs:
                 x = self.preprocess_probs(x, False, phone)
-            y_pred = self.clfs[phone].predict(x)
+            preds = self._test_clf(phone, x, y)[0]
 
-            print(f'Accuracy of phone {phone}: {accuracy_score(y, y_pred):.4f}')
-            print(f'Confusion matrix of phone {phone}:\n{confusion_matrix(y, y_pred)}')
-
-            y_pred_all.append(y_pred)
+            y_pred_all.append(preds)
             y_all.append(y)
 
         y_pred_all = np.concatenate(y_pred_all)
         y_all = np.concatenate(y_all)
-        pcc, mse = eval_scoring(y_pred_all, y_all)
-        print('=' * 40)
-        print(f'Overall Pearson Correlation Coefficient: {pcc:.4f}')
-        print(f'Overall MSE: {mse:.4f}')
-        print(f'Overall Accuracy: {accuracy_score(y_all, y_pred_all):.4f}')
-        print(f'Overall confusion matrix:\n{confusion_matrix(y_all, y_pred_all)}')
-        print('=' * 40)
+        self._calc_and_print_metrics('all', y_pred_all, y_all)
 
     def test_one(self, data):
-        x, y = data
+        x, y = data2array(data, self.ph2int, self.use_probs)
         if self.use_probs:
             x = self.preprocess_probs(x, False)
-        y_pred = self.clfs.predict(x)
-
-        pcc, mse = eval_scoring(y_pred, y)
-        print('=' * 40)
-        print(f'Pearson Correlation Coefficient: {pcc:.4f}')
-        print(f'MSE: {mse:.4f}')
-        print(f'Accuracy: {accuracy_score(y, y_pred):.4f}')
-        print(f'Confusion matrix:\n{confusion_matrix(y, y_pred)}')
-        print('=' * 40)
+        self._test_clf('all', x, y)
 
     def test(self, data):
         if self.per_phone:
-            self.test_per_phone(data)
+            self._test_per_phone(data)
         else:
             self.test_one(data)
 
@@ -330,119 +464,60 @@ class Scorer:
 
 def main():
     args = get_args()
+    model_dir = os.path.dirname(args.model_path)
+    os.makedirs(model_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
-
-    # of = open('D:/repos/espnet/tmp/hyp_prob_tokens.txt', 'w')
-    # hyp_probs = load_utt2probs(args.hyp)
-    # for utt in hyp_probs.keys():
-    #     phones = hyp_probs[utt]
-    #     phones = [int2ph[np.argmax(h)] for h in phones]
-    #     phones = [h for h in phones if h not in ['<sos/eos>', '<blank>', '<unk>']]
-    #     phones = " ".join(phones)
-    #     of.write(f'{utt}\t{phones}\n')
-    # of.close()
-
-    ph2data = load_data(
+    data = load_data(
         args.hyp, args.ref, args.scores, args.use_probs, args.n, int2ph=int2ph,
         plot_probs=args.plot_probs
     )
 
     if args.action == 'train' and args.balance:
         print('Performing data augmentation')
-        ph2data = add_more_negative_data(ph2data)
+        data = add_more_negative_data(data)
 
     # remove duplicates from data
-    for ph in ph2data.keys():
-        phonedata = [tuple(d) for d in ph2data[ph]]
-        ph2data[ph] = list(set(phonedata))
+    data = remove_duplicated_samples(data)
 
-    # save ph2data to file
-    of = open(os.path.join(args.output_dir, 'ph2data'), 'w')
-    for ph, d in ph2data.items():
-        for ppl, cpl, s in d:
-            of.write(f'CPL {cpl}\tPPL: {ppl}\tScore: {s}\n')
+    # save samples to file
+    of = open(os.path.join(args.output_dir, 'samples'), 'w')
+    for sam in data:
+        of.write(f'CPL: {sam.cpl}\tPPL: {sam.ppl}\tScore: {sam.score}\n')
     of.close()
 
-    score_count = {i: 0 for i in range(3)}
-    score2data = {}
-    for ph in ph2data.keys():
-        x, y = to_data_samples(ph2data[ph], ph2int, args.use_probs)
-        for i, s in enumerate(y):
-            score2data.setdefault(s, []).append((ph, x[i], y[i]))
-            score_count[s] += 1
+    print(f'Score count: {count_samples_per_score(data)}')
 
-    # save score2data to file, with phone index converted to phone names
-    of = open(os.path.join(args.output_dir, 'score2data'), 'w')
-    for s, d in score2data.items():
-        for p, x, _ in d:
-            of.write(f'CPL: {p}\tPPL: {int2ph[np.argmax(x)]}\tScore: {s}\n')
-    of.close()
-
-    # downsample some of the data so that the number of samples with different scores are the same
-    N = np.min(list(score_count.values()))
-    ph2data = {}
-    for s in score2data.keys():
-        d = score2data[s]
-
-        if args.downsample_extra_data and args.action == 'train':
-            nd = len(d)
-            idx = list(range(nd))
-            idx = random.sample(idx, N)
-            d = [d[i] for i in idx]
-
-        for ph, x, y in d:
-            ph2data.setdefault(ph, []).append((x, y))
-
-    # flatten ph2data
     if args.per_phone_clf:
         print('Using per-phone classifiers')
-        data = {}
+        model_input = {}
+        for d in data:
+            model_input.setdefault(d.cpl.name, []).append(d)
     else:
-        data = [[], []]
-    score_count = {i: 0 for i in range(3)}
-    for ph, d in ph2data.items():
-        xs = np.asarray([_d[0] for _d in d])
-        ys = np.asarray([_d[1] for _d in d])
-        if args.per_phone_clf:
-            data[ph] = (xs, ys)
-        else:
-            data[0].append(xs)
-            data[1].append(ys)
-        for s in ys:
-            score_count[s] += 1
-    print(f'Score counts: {score_count}')
-    if not args.per_phone_clf:
-        data[0] = np.vstack(data[0])
-        data[1] = np.concatenate(data[1])
+        model_input = data
 
-    model_dir = os.path.dirname(args.model_path)
-    os.makedirs(model_dir, exist_ok=True)
-
-    phone_names = list(ph2data.keys())
     if args.action == 'train':
-        other_args = {}
+        model_args = dict(random_state=42)
         if args.use_mlp:
-            other_args = dict(
-                early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3,
-                # verbose=True,
+            model_args.update(
+                early_stopping=True, solver='sgd', learning_rate_init=0.001, hidden_layer_sizes=[512], alpha=0.3
             )
-
         mdl = Scorer(
-            phone_names, random_state=42, use_mlp=args.use_mlp, per_phone=args.per_phone_clf,
-            use_probs=args.use_probs, **other_args
+            ph2int, use_mlp=args.use_mlp, per_phone=args.per_phone_clf, use_probs=args.use_probs,
+            model_args=model_args
         )
-        mdl.fit(data)
+        mdl.fit(model_input)
         pickle.dump(mdl, open(args.model_path, 'wb'))
     elif args.action == 'test':
         mdl: Scorer = pickle.load(open(args.model_path, 'rb'))
-        mdl.test(data)
+        mdl.test(model_input)
 
-        # plot decision trees into svg files
-        model_dir = os.path.dirname(args.model_path)
-        tree_plot_dir = os.path.join(model_dir, 'tree_plots')
-        os.makedirs(tree_plot_dir, exist_ok=True)
-        mdl.plot(tree_plot_dir)
+        # # plot decision trees into svg files
+        # model_dir = os.path.dirname(args.model_path)
+        # tree_plot_dir = os.path.join(model_dir, 'tree_plots')
+        # os.makedirs(tree_plot_dir, exist_ok=True)
+        # mdl.plot(tree_plot_dir)
     else:
         assert False
 
