@@ -1012,7 +1012,8 @@ if ! "${skip_eval}"; then
     ${python} ase/scoring_model.py train ${_dir}/hyp.txt ${_dir}/ref.txt ${scoring_opts} \
       --phone-table=${token_list} \
       --scores=${_dir}/utt2scores \
-      --model-path=${_dir}/scoring.mdl
+      --model-path=${_dir}/scoring.mdl \
+      --output-dir=${_dir}
   fi
 
   if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ]; then
@@ -1029,7 +1030,8 @@ if ! "${skip_eval}"; then
     ${python} ase/scoring_model.py test $hyp data/so762/text ${scoring_opts} \
       --phone-table=${token_list} \
       --scores=data/so762/utt2scores \
-      --model-path=data/scoring_train/scoring.mdl
+      --model-path=data/scoring_train/scoring.mdl \
+      --output-dir=${_dir}
   fi
 
   if [ ${stage} -ge 20 ]; then
