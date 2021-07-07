@@ -86,13 +86,17 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   utils/fix_data_dir.sh data/${train_set}
   utils/fix_data_dir.sh data/${train_dev}
   utils/fix_data_dir.sh data/${test_set}
+fi
 
+if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   # create data for training/testing the scoring model
   scoring_set=libri_scoring
   for x in "train" "test"; do
-    _set=$((libri_scoring_${x}))
+    _set=$(eval echo \$libriscoring_${x})
     dir=data/${scoring_set}_${x}
     rm -rf ${dir}
+
+    log "Creating scoring data set for ${_set} in ${dir}"
 
     cp -r data/${test_set} ${dir}          # kaldi-format of all data is copied
     cp data/${_set}/wav.scp ${dir}/wav.scp # wav.scp of only the subset is copied
