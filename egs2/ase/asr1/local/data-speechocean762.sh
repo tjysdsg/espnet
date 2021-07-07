@@ -29,16 +29,24 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
-    local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part
-    python3 ase/get_ppl.py --scores=local/speechocean762/scores.json > data/so762_${part}/ppl_text
+    local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part || exit 1
+    python3 ase/get_ppl.py --scores=local/speechocean762/scores.json >data/so762_${part}/ppl_text || exit 1
   done
+fi
 
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+  # create text and utt2scores
+  tmp=data/so762_tmp
   python3 ase/fix_so762_format.py \
     --text-phone=local/speechocean762/text-phone \
     --scores=local/speechocean762/scores.json \
-    --output-dir=data/so762
+    --output-dir=${tmp} || exit 1
+  for part in train test; do
+    cp ${tmp}/text data/so762_$part/text || exit 1
+    cp ${tmp}/utt2scores data/so762_$part/utt2scores || exit 1
+    utils/fix_data_dir.sh data/so762_$part || exit 1
+  done
 
-  utils/fix_data_dir.sh data/so762_$part || exit 1
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
