@@ -399,7 +399,9 @@ def main():
     )
 
     # remove duplicates from data
-    data = list(set(data))
+    if args.action == 'train' and args.use_probs:
+        # removing duplicates for onehot input will leave only several hundreds samples
+        data = list(set(data))
 
     # save samples to file
     of = open(os.path.join(args.output_dir, 'samples'), 'w')
