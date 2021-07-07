@@ -30,6 +30,9 @@ train_aligned=$phone_trans_dir/train
 test_aligned=$phone_trans_dir/test
 dev_aligned=$phone_trans_dir/dev
 
+libri_scoring_train=test_clean # subset used to train the scoring model
+libri_scoring_test=test_other  # subset used to test the scoring model
+
 log "$0 $*"
 . utils/parse_options.sh
 
@@ -84,12 +87,18 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   utils/fix_data_dir.sh data/${train_dev}
   utils/fix_data_dir.sh data/${test_set}
 
-  # create data for training the scoring model using test_clean
-  rm -rf data/libri_scoring
-  cp -r data/${test_set} data/libri_scoring
-  cp data/test_clean/wav.scp data/libri_scoring/wav.scp
-  utils/fix_data_dir.sh data/libri_scoring  # only keep utts in test_clean
-  python3 ase/generate_utt2scores.py --text=data/libri_scoring/text --output-path=data/libri_scoring/utt2scores
+  # create data for training/testing the scoring model
+  scoring_set=libri_scoring
+  for x in "train" "test"; do
+    _set=$((libri_scoring_${x}))
+    dir=data/${scoring_set}_${x}
+    rm -rf ${dir}
+
+    cp -r data/${test_set} ${dir}          # kaldi-format of all data is copied
+    cp data/${_set}/wav.scp ${dir}/wav.scp # wav.scp of only the subset is copied
+    utils/fix_data_dir.sh ${dir}           # remove extra samples
+    python3 ase/generate_utt2scores.py --text=${dir}/text --output-path=${dir}/utt2scores
+  done
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
