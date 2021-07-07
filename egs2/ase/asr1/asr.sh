@@ -37,7 +37,6 @@ gpu_inference=false  # Whether to perform gpu decoding.
 dumpdir=dump         # Directory to dump features.
 expdir=exp           # Directory to save experiments.
 python=python3       # Specify python to execute espnet commands.
-use_amp=false
 
 # Data preparation related
 local_data_opts= # The options given to local/data.sh.
@@ -117,10 +116,6 @@ lang=noinfo                # The language type of corpus.
 asr_speech_fold_length=800 # fold_length for speech data during ASR training.
 asr_text_fold_length=150   # fold_length for text data during ASR training.
 lm_fold_length=150         # fold_length for LM training.
-
-# Scoring task dependent
-scoring_opts=
-use_libri_scoring=false
 
 help_message=$(
   cat <<EOF
@@ -983,81 +978,6 @@ if ! "${skip_eval}"; then
     done
   fi
 
-  if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ]; then
-    log "Stage 12: Training scoring model"
-
-    _decode_dir=${asr_exp}/${inference_tag}
-
-    # use probs file if --use-probs
-    hyp_file=token
-    if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
-      hyp_file=probs
-    fi
-
-    # combine libri_scoring and so762_train
-    _dir=data/scoring_train
-    rm -rf ${_dir}
-    mkdir -p ${_dir}
-    if [ "${use_libri_scoring}" = "true" ]; then
-      cat data/so762/text data/libri_scoring/text >${_dir}/ref.txt
-      cat data/so762/utt2scores data/libri_scoring/utt2scores >${_dir}/utt2scores
-      cat ${_decode_dir}/so762_train/${hyp_file} ${_decode_dir}/libri_scoring/${hyp_file} >${_dir}/hyp.txt
-    else
-      cp data/so762/text ${_dir}/ref.txt
-      cp data/so762/utt2scores ${_dir}/utt2scores
-      cp ${_decode_dir}/so762_train/${hyp_file} ${_dir}/hyp.txt
-    fi
-
-    # perform data aug
-    ${python} ase/aug_scoring_data.py \
-      --text=${_dir}/ref.txt \
-      --scores=${_dir}/utt2scores \
-      --output-dir=${_dir}
-
-    export PYTHONPATH=ase/
-    ${python} ase/scoring_model.py train \
-      ${_dir}/hyp.txt \
-      ${_dir}/ref_aug.txt \
-      ${scoring_opts} \
-      --phone-table=${token_list} \
-      --scores=${_dir}/utt2scores_aug \
-      --model-path=${_dir}/scoring.mdl \
-      --output-dir=${_dir}
-  fi
-
-  if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ]; then
-    log "Stage 13: Testing scoring model"
-
-    _dir="${asr_exp}/${inference_tag}/so762_test"
-    hyp="${_dir}/token"
-    if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
-      hyp="${_dir}/probs"
-    fi
-
-    # Calculate ASE metrics
-    export PYTHONPATH=ase/
-    ${python} ase/scoring_model.py test $hyp data/so762/text ${scoring_opts} \
-      --phone-table=${token_list} \
-      --scores=data/so762/utt2scores \
-      --model-path=data/scoring_train/scoring.mdl \
-      --output-dir=${_dir}
-  fi
-
-  if [ ${stage} -ge 20 ]; then
-    for dset in ${test_sets}; do
-      _data="${data_feats}/${dset}"
-      _dir="${asr_exp}/${inference_tag}/${dset}"
-
-      if [ "${dset}" = "test" ]; then # librispeech test
-        ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
-      else # speechocean test
-        # TODO: use data/so762/utt2scores and data/so762/text
-        ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
-          --scores=local/speechocean762/scores.json --output-dir=${_dir}
-        echo "Alignment results saved to ${_dir}/alignment.txt"
-      fi
-    done
-  fi
 else
   log "Skip the evaluation stages"
 fi
