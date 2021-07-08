@@ -7,7 +7,8 @@ set -o pipefail
 
 train_set="train_all"
 val_set="dev"
-test_sets="so762_train so762_test libri_scoring test"
+# test_sets="so762_train so762_test libri_scoring_train libri_scoring_test"
+test_sets="libri_scoring_train"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml

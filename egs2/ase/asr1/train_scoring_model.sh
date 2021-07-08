@@ -16,8 +16,9 @@ token_list=data/en_token_list/word/tokens.txt
 python=python3
 asr_exp=exp/asr_train_asr_transformer_raw_en_word_sp
 inference_tag=decode_asr_asr_model_valid.acc.best
-train_sets="so762_train libri_scoring"
-test_set="so762_test"
+train_sets="so762_train libri_scoring_train"
+# test_set=so762_test
+test_set=libri_scoring_test
 model_path=exp/scoring_train/model.pkl # model save path
 
 log "$0 $*"
@@ -41,10 +42,10 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   _dir=data/scoring_train
   rm -rf ${_dir}
   mkdir -p ${_dir}
-  for dset in ${train_sets}; do
-    cat data/${dset}/text >>${_dir}/ref.txt
-    cat data/${dset}/utt2scores >>${_dir}/utt2scores
-    cat ${decode_dir}/${dset}/${hyp_file} >>${_dir}/hyp.txt
+  for x in ${train_sets}; do
+    cat data/${x}/text >>${_dir}/ref.txt
+    cat data/${x}/utt2scores >>${_dir}/utt2scores
+    cat ${decode_dir}/${x}/${hyp_file} >>${_dir}/hyp.txt
   done
 
   # perform data aug
@@ -85,7 +86,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   export PYTHONPATH=ase/
   ${python} ase/scoring_model.py test \
     ${_dir}/hyp.txt \
-    ${_dir}/reft.txt \
+    ${_dir}/ref.txt \
     ${scoring_opts} \
     --phone-table=${token_list} \
     --scores=${_dir}/utt2scores \
