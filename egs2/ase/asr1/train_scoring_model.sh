@@ -29,17 +29,16 @@ log "$0 $*"
 decode_dir="${asr_exp}/${inference_tag}"
 
 combine_data() {
-  sets=$1     # input data subsets
-  dir=$2      # output dir
-  hyp_file=$3 # token or probs
+  sets=$1       # input data subsets
+  output_dir=$2 # output dir
+  hyp_file=$3   # token or probs
 
-  _dir=data/$dir
-  rm -rf ${_dir}
-  mkdir -p ${_dir}
+  rm -rf ${output_dir}
+  mkdir -p ${output_dir}
   for x in ${sets}; do
-    cat data/${x}/text >>${_dir}/ref.txt
-    cat data/${x}/utt2scores >>${_dir}/utt2scores
-    cat ${decode_dir}/${x}/${hyp_file} >>${_dir}/hyp.txt
+    cat data/${x}/text >>${output_dir}/ref.txt
+    cat data/${x}/utt2scores >>${output_dir}/utt2scores
+    cat ${decode_dir}/${x}/${hyp_file} >>${output_dir}/hyp.txt
   done
 }
 
@@ -53,8 +52,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   fi
 
   # combine train sets
-  _dir=scoring_train
-  combine_data ${train_sets} ${_dir} ${hyp_file}
+  _dir=data/scoring_train
+  combine_data "${train_sets}" ${_dir} ${hyp_file}
 
   # perform data aug
   ${python} ase/aug_scoring_data.py \
@@ -83,8 +82,8 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   fi
 
   # combine test sets
-  _dir=scoring_test
-  combine_data ${test_sets} ${_dir} ${hyp_file}
+  _dir=data/scoring_test
+  combine_data "${test_sets}" ${_dir} ${hyp_file}
 
   # Calculate ASE metrics
   export PYTHONPATH=ase/
