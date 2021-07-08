@@ -17,8 +17,7 @@ python=python3
 asr_exp=exp/asr_train_asr_transformer_raw_en_word_sp
 inference_tag=decode_asr_asr_model_valid.acc.best
 train_sets="so762_train libri_scoring_train"
-# test_set=so762_test
-test_set=libri_scoring_test
+test_sets="so762_test libri_scoring_test"
 model_path=exp/scoring_train/model.pkl # model save path
 
 log "$0 $*"
@@ -28,6 +27,21 @@ log "$0 $*"
 . ./cmd.sh
 
 decode_dir="${asr_exp}/${inference_tag}"
+
+combine_data() {
+  sets=$1     # input data subsets
+  dir=$2      # output dir
+  hyp_file=$3 # token or probs
+
+  _dir=data/$dir
+  rm -rf ${_dir}
+  mkdir -p ${_dir}
+  for x in ${sets}; do
+    cat data/${x}/text >>${_dir}/ref.txt
+    cat data/${x}/utt2scores >>${_dir}/utt2scores
+    cat ${decode_dir}/${x}/${hyp_file} >>${_dir}/hyp.txt
+  done
+}
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   log "Stage 12: Training scoring model"
@@ -39,14 +53,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   fi
 
   # combine train sets
-  _dir=data/scoring_train
-  rm -rf ${_dir}
-  mkdir -p ${_dir}
-  for x in ${train_sets}; do
-    cat data/${x}/text >>${_dir}/ref.txt
-    cat data/${x}/utt2scores >>${_dir}/utt2scores
-    cat ${decode_dir}/${x}/${hyp_file} >>${_dir}/hyp.txt
-  done
+  _dir=scoring_train
+  combine_data ${train_sets} ${_dir} ${hyp_file}
 
   # perform data aug
   ${python} ase/aug_scoring_data.py \
@@ -74,13 +82,9 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     hyp_file=probs
   fi
 
-  # create the test set
-  _dir=data/${test_set}_scoring
-  rm -rf ${_dir}
-  mkdir -p ${_dir}
-  cat data/${test_set}/text >>${_dir}/ref.txt
-  cat data/${test_set}/utt2scores >>${_dir}/utt2scores
-  cat ${decode_dir}/${test_set}/${hyp_file} >>${_dir}/hyp.txt
+  # combine test sets
+  _dir=scoring_test
+  combine_data ${test_sets} ${_dir} ${hyp_file}
 
   # Calculate ASE metrics
   export PYTHONPATH=ase/
