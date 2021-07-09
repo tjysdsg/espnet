@@ -302,8 +302,8 @@ class Scorer:
         else:
             ret = self.scalers[key].transform(probs)
 
-        print(f'Mean of prob matrix of {key}: {np.mean(probs, axis=0)}')
-        print(f'Std of prob matrix of {key}: {np.std(probs, axis=0)}')
+        # print(f'Mean of prob matrix of {key}: {np.mean(probs, axis=0)}')
+        # print(f'Std of prob matrix of {key}: {np.std(probs, axis=0)}')
         return ret
 
     def _fit_clf(self, key: str, x: np.ndarray, y: np.ndarray):
@@ -317,20 +317,22 @@ class Scorer:
 
         self.clfs[key].fit(x, y)
 
-    def _calc_and_print_metrics(self, key: str, preds: np.ndarray, y: np.ndarray):
+    def _calc_and_print_metrics(self, key: str, preds: np.ndarray, y: np.ndarray, verbose=True):
         pcc, mse = eval_scoring(preds, y)
         acc = accuracy_score(y, preds)
         confusion = confusion_matrix(y, preds)
 
-        print(f'Pearson Correlation Coefficient of {key}: {pcc:.4f}')
-        print(f'MSE of {key}: {mse:.4f}')
-        print(f'Accuracy of {key}: {acc:.4f}')
-        print(f'Confusion matrix of {key}:\n{confusion}')
+        if verbose:
+            print(f'Pearson Correlation Coefficient of {key}: {pcc:.4f}')
+            print(f'MSE of {key}: {mse:.4f}')
+            print(f'Accuracy of {key}: {acc:.4f}')
+            print(f'Confusion matrix of {key}:\n{confusion}')
+
         return preds, acc, mse, pcc, confusion
 
-    def _test_clf(self, key: str, x: np.ndarray, y: np.ndarray):
+    def _test_clf(self, key: str, x: np.ndarray, y: np.ndarray, verbose=True):
         preds = self.clfs[key].predict(x)
-        return self._calc_and_print_metrics(key, preds, y)
+        return self._calc_and_print_metrics(key, preds, y, verbose)
 
     def _fit_per_phone(self, ph2samples: Dict[str, List[Sample]]):
         for phone, samples in ph2samples.items():
@@ -358,7 +360,7 @@ class Scorer:
             x, y = data2array(samples, self.ph2int, self.use_probs)
             if self.use_probs:
                 x = self.preprocess_probs(phone, x, False)
-            preds = self._test_clf(phone, x, y)[0]
+            preds = self._test_clf(phone, x, y, verbose=False)[0]
 
             y_pred_all.append(preds)
             y_all.append(y)
@@ -399,8 +401,7 @@ def main():
     )
 
     # remove duplicates from data
-    if args.action == 'train' and args.use_probs:
-        # removing duplicates for onehot input will leave only several hundreds samples
+    if args.use_probs:
         data = list(set(data))
 
     # save samples to file

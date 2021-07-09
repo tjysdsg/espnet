@@ -138,7 +138,7 @@ def main():
     score_counts = {i: 0 for i in range(3)}
     for d in data:
         score_counts[d.score] += 1
-    print(score_counts)
+    print(f'Score counts after data aug: {score_counts}')
 
     utt2phones = dict(sorted(utt2phones.items(), key=lambda item: item[0]))
     utt2scores = dict(sorted(utt2scores.items(), key=lambda item: item[0]))
