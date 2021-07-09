@@ -1,79 +1,18 @@
 ================== ONEHOT TREE ==================
-2021-07-09T13:24:28 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "libri_scoring_train" --test_sets "libri_scoring_test" --aug_test_data true
-2021-07-09T13:24:32 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
-Score counts after data aug: {0: 62480, 1: 18511, 2: 106400}
-Score count: {0: 62480, 1: 18511, 2: 106400}
-2021-07-09T13:28:34 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
-Score counts after data aug: {0: 59872, 1: 17779, 2: 101917}
-Score count: {0: 59872, 1: 17779, 2: 101917}
-Pearson Correlation Coefficient of all: 0.8620
-MSE of all: 0.2416
-Accuracy of all: 0.9208
+2021-07-09T14:55:08 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "so762_train" --test_sets "so762_test"
+2021-07-09T14:55:09 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
+Score counts after data aug: {0: 16380, 1: 6262, 2: 24434}
+Score count: {0: 16380, 1: 6262, 2: 24434}
+2021-07-09T14:55:13 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
+Score count: {0: 1412, 1: 1860, 2: 44097}
+Pearson Correlation Coefficient of all: 0.4669
+MSE of all: 0.3315
+Accuracy of all: 0.8826
 Confusion matrix of all:
-[[56568  1095  2209]
- [ 1719 15196   864]
- [ 7510   825 93582]]
-================== ONEHOT PP TREE ==================
-2021-07-09T13:30:32 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "libri_scoring_train" --test_sets "libri_scoring_test" --scoring_opts --per-phone-clf --aug_test_data true
-2021-07-09T13:30:35 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
-Score counts after data aug: {0: 62480, 1: 18511, 2: 106400}
-Score count: {0: 62480, 1: 18511, 2: 106400}
-Using per-phone classifiers
-2021-07-09T13:31:33 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
-Score counts after data aug: {0: 59872, 1: 17779, 2: 101917}
-Score count: {0: 59872, 1: 17779, 2: 101917}
-Using per-phone classifiers
-Pearson Correlation Coefficient of all: 0.8600
-MSE of all: 0.2452
-Accuracy of all: 0.9207
-Confusion matrix of all:
-[[56576   972  2324]
- [ 1751 15154   874]
- [ 7608   711 93598]]
-================== PROB PP TREE ==================
-2021-07-09T13:33:57 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "libri_scoring_train" --test_sets "libri_scoring_test" --scoring_opts --use-probs --per-phone-clf --aug_test_data true
-2021-07-09T13:34:01 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
-Score counts after data aug: {0: 62480, 1: 18511, 2: 106400}
-Score count: {0: 60292, 1: 17894, 2: 105516}
-Using per-phone classifiers
-2021-07-09T13:39:31 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
-Score counts after data aug: {0: 59872, 1: 17779, 2: 101917}
-Score count: {0: 55747, 1: 16528, 2: 99123}
-Using per-phone classifiers
-Pearson Correlation Coefficient of all: 0.7966
-MSE of all: 0.3405
-Accuracy of all: 0.8904
-Confusion matrix of all:
-[[47077  1430  7240]
- [ 1667 13656  1205]
- [ 5954  1289 91880]]
-================== ONEHOT MLP ==================
-2021-07-09T13:41:05 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "libri_scoring_train" --test_sets "libri_scoring_test" --scoring_opts --use-mlp --aug_test_data true
-2021-07-09T13:41:06 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
-Score counts after data aug: {0: 62480, 1: 18511, 2: 106400}
-Score count: {0: 62480, 1: 18511, 2: 106400}
-2021-07-09T14:00:41 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
-Score counts after data aug: {0: 59872, 1: 17779, 2: 101917}
-Score count: {0: 59872, 1: 17779, 2: 101917}
-Pearson Correlation Coefficient of all: 0.8569
-MSE of all: 0.2519
-Accuracy of all: 0.9189
-Confusion matrix of all:
-[[56718   822  2332]
- [ 1933 14991   855]
- [ 7896   719 93302]]
-================== PROB MLP ==================
-2021-07-09T14:02:15 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "libri_scoring_train" --test_sets "libri_scoring_test" --scoring_opts --use-probs --use-mlp --aug_test_data true
-2021-07-09T14:02:19 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
-Score counts after data aug: {0: 62480, 1: 18511, 2: 106400}
-Score count: {0: 60331, 1: 17860, 2: 105496}
-2021-07-09T14:23:42 (train_test_scoring_model.sh:79:main) Stage 13: Testing scoring model
-Score counts after data aug: {0: 59872, 1: 17779, 2: 101917}
-Score count: {0: 55820, 1: 16519, 2: 99032}
-Pearson Correlation Coefficient of all: 0.5809
-MSE of all: 0.6865
-Accuracy of all: 0.7905
-Confusion matrix of all:
-[[33100  2582 20138]
- [ 1216 12390  2913]
- [ 7105  1956 89971]]
+[[ 1138    18   256]
+ [  894    23   943]
+ [ 3126   322 40649]]
+================== PROB TREE ==================
+2021-07-09T14:55:16 (train_test_scoring_model.sh:26:main) local/train_test_scoring_model.sh --train_sets "so762_train" --test_sets "so762_test" --scoring_opts --use-probs
+2021-07-09T14:55:17 (train_test_scoring_model.sh:49:main) Stage 12: Training scoring model
+Score counts after data aug: {0: 16380, 1: 6262, 2: 24434}
