@@ -19,6 +19,7 @@ inference_tag=decode_asr_asr_model_valid.acc.best
 train_sets="so762_train libri_scoring_train"
 test_sets="so762_test libri_scoring_test"
 model_path=exp/scoring_train/model.pkl # model save path
+aug_test_data=false
 
 log "$0 $*"
 
@@ -84,6 +85,13 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   # combine test sets
   _dir=data/scoring_test
   combine_data "${test_sets}" ${_dir} ${hyp_file}
+
+  if [ "${aug_test_data}" = "true" ]; then
+    ${python} ase/aug_scoring_data.py \
+      --text=${_dir}/ref.txt \
+      --scores=${_dir}/utt2scores \
+      --output-dir=${_dir}
+  fi
 
   # Calculate ASE metrics
   export PYTHONPATH=ase/
