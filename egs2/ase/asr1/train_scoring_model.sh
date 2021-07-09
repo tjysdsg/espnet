@@ -16,8 +16,10 @@ token_list=data/en_token_list/word/tokens.txt
 python=python3
 asr_exp=exp/asr_train_asr_transformer_raw_en_word_sp
 inference_tag=decode_asr_asr_model_valid.acc.best
-train_sets="so762_train libri_scoring_train"
-test_sets="so762_test libri_scoring_test"
+# train_sets="so762_train libri_scoring_train"
+# test_sets="so762_test libri_scoring_test"
+train_sets="libri_scoring_train"
+test_sets="libri_scoring_test"
 model_path=exp/scoring_train/model.pkl # model save path
 aug_test_data=false
 
@@ -91,6 +93,9 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
       --text=${_dir}/ref.txt \
       --scores=${_dir}/utt2scores \
       --output-dir=${_dir}
+
+    mv ${_dir}/ref_aug.txt ${_dir}/ref.txt
+    mv ${_dir}/utt2scores_aug ${_dir}/utt2scores
   fi
 
   # Calculate ASE metrics
