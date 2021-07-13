@@ -36,9 +36,13 @@ class ScoringModel(nn.Module):
             nn.Linear(N_PHONES * 2, 128, bias=True),
             nn.BatchNorm1d(128),
             nn.ReLU(),
+            nn.Dropout(0.5),
+            # ===
             nn.Linear(128, 256, bias=True),
             nn.BatchNorm1d(256),
             nn.ReLU(),
+            nn.Dropout(0.5),
+            # ===
             nn.Linear(256, 1),
             nn.ReLU(),
         )
