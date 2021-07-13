@@ -141,14 +141,14 @@ def main():
         scaler = pickle.load(open(scaler_path, 'rb'))
         scaler.transform(X)
         test_loader = DataLoader(ProbMatrixDataset(X, Y), batch_size=64, shuffle=True)
-        mdl: ScoringModel = pickle.load(open(args.model_path, 'rb'))
+        mdl: ScoringModel = pickle.load(open(model_path, 'rb'))
 
         pred_all = []
         y_all = []
         for x, y in test_loader:
             pred = mdl(x)
-            pred_all.append(pred)
-            y_all.append(y)
+            pred_all.append(pred.detach().cpu().numpy().ravel())
+            y_all.append(y.detach().cpu().numpy().ravel())
 
         pred_all = np.concatenate(pred_all)
         y_all = np.concatenate(y_all)
