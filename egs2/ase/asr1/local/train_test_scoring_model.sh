@@ -53,6 +53,8 @@ train_model() {
   aug=$4       # true/false
   use_probs=$5 # true/false
 
+  echo "train_model $1 $2 $3 $4 $5"
+
   hyp_file=token
   if [ "${use_probs}" = "true" ]; then
     hyp_file=probs
@@ -92,12 +94,12 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   log "Stage 12: Training scoring model"
-  train_model train data/scoring_train ${train_sets} ${aug_train_data} ${use_probs}
+  train_model train data/scoring_train "${train_sets}" ${aug_train_data} ${use_probs}
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   log "Stage 13: Testing scoring model"
-  train_model test data/scoring_test ${test_sets} ${aug_test_data} ${use_probs}
+  train_model test data/scoring_test "${test_sets}" ${aug_test_data} ${use_probs}
 fi
 
 # if [ ${stage} -ge 20 ]; then
