@@ -125,7 +125,7 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             utt = tokens[0]
             s = tokens[1]
             probs = json.loads(s)[1:]  # FIXME: the first one is always invalid because of modified batch_beam_search.py
-            probs = np.asarray(probs)
+            probs = np.exp(np.asarray(probs))  # log -> prob
             hyps[utt] = probs
 
     return hyps
@@ -175,8 +175,9 @@ def load_hyp_ref_score_alignment(
             for p in probs:
                 ph_name = int2ph[np.argmax(p)]
 
-                # remove empty phones
+                # not including empty phones
                 if ph_name not in EMPTY_PHONES:
+                    # set values of <blank>, <unk>, and <sos/eos> dim to 0
                     phones.append(Phone(name=ph_name, probs=p))
             hyps[utt] = phones
     else:
@@ -228,7 +229,7 @@ def get_utt_samples(preds: List[Phone], labels: List[Phone], scores: List[int], 
 
 
 def load_data(
-        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool, phone_size: int,
+        hyp_path: str, ref_path: str, scores_path: str, use_probs: bool,
         int2ph: Dict[int, str] = None, plot_probs=False
 ) -> List[Sample]:
     hyps, refs, scores, alignment = load_hyp_ref_score_alignment(hyp_path, ref_path, scores_path, use_probs, int2ph)
@@ -296,7 +297,6 @@ class Scorer:
     def preprocess_probs(self, key: str, probs: np.ndarray, train_mode: bool):
         from sklearn.preprocessing import StandardScaler
 
-        probs = np.exp(probs)
         if train_mode:
             self.scalers[key] = StandardScaler()
             ret = self.scalers[key].fit_transform(probs)
@@ -397,7 +397,7 @@ def main():
 
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
     data = load_data(
-        args.hyp, args.ref, args.scores, args.use_probs, args.n, int2ph=int2ph,
+        args.hyp, args.ref, args.scores, args.use_probs, int2ph=int2ph,
         plot_probs=args.plot_probs
     )
 

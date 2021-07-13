@@ -115,9 +115,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
-    data = load_data(
-        args.hyp, args.ref, args.scores, use_probs=True, phone_size=N_PHONES, int2ph=int2ph
-    )
+    data = load_data(args.hyp, args.ref, args.scores, use_probs=True, int2ph=int2ph)
 
     # remove duplicates from data
     if args.use_probs and args.action == 'train':
@@ -138,7 +136,6 @@ def main():
     of.close()
 
     X, Y = data2array(data, ph2int, True)
-    X = np.exp(X)
     X = np.asarray(X, dtype='float32')
     Y = np.asarray(Y, dtype='float32')
     Y = Y.reshape(-1, 1)
