@@ -73,11 +73,11 @@ def get_args():
     parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
     parser.add_argument('--output-dir', type=str, default='tmp', help='Output directory')
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
-    parser.add_argument('--use-probs', action='store_true', default=False,
-                        help='Whether HYP contains tokens or probability matrices')
-    parser.add_argument('--plot-probs', action='store_true', default=False, help='Plot prob matrices')
-    parser.add_argument('--use-mlp', action='store_true', default=False, help='Use neural network model')
-    parser.add_argument('--per-phone-clf', action='store_true', default=False, help='Use a model per phone')
+    parser.add_argument('--use-probs', action='store_true', help='Whether HYP contains tokens or probability matrices')
+    parser.add_argument('--exclude-1s', action='store_true', help='Exclude score-1 samples from training and testing')
+    parser.add_argument('--plot-probs', action='store_true', help='Plot prob matrices')
+    parser.add_argument('--use-mlp', action='store_true', help='Use neural network model')
+    parser.add_argument('--per-phone-clf', action='store_true', help='Use a model per phone')
     args = parser.parse_args()
     return args
 
@@ -403,6 +403,17 @@ def main():
     # remove duplicates from data
     if args.use_probs:
         data = list(set(data))
+
+    # exclude score-1 samples
+    # change score 2 to 1
+    if args.exclude_1s:
+        new_data = []
+        for d in data:
+            if d.score == 2:
+                new_data.append(Sample(d.cpl, d.ppl, 1))
+            elif d.score == 0:
+                new_data.append(d)
+        data = new_data
 
     # save samples to file
     of = open(os.path.join(args.output_dir, 'samples'), 'w')
