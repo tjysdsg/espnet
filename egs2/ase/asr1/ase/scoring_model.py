@@ -272,10 +272,11 @@ def data2array(
     return np.asarray(x), np.asarray(y)
 
 
-def count_samples_per_score(data: List[Sample]) -> Dict[int, int]:
-    ret = {i: 0 for i in range(3)}
+def count_samples_per_score_per_phone(data: List[Sample]) -> Dict[int, int]:
+    ret = {}
     for d in data:
-        ret[d.score] += 1
+        ret.setdefault(d.cpl.name, {}).setdefault(d.score, 0)
+        ret[d.cpl.name][d.score] += 1
     return ret
 
 
@@ -421,7 +422,11 @@ def main():
         of.write(f'CPL: {sam.cpl}\tPPL: {sam.ppl}\tScore: {sam.score}\n')
     of.close()
 
-    print(f'Score count: {count_samples_per_score(data)}')
+    score_count_path = os.path.join(args.output_dir, 'score_count.json')
+    of = open(score_count_path, 'w')
+    json.dump(count_samples_per_score_per_phone(data), of, indent='\t')
+    print(f'Score count written to {score_count_path}')
+    of.close()
 
     if args.per_phone_clf:
         print('Using per-phone classifiers')
