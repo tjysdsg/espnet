@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
     parser.add_argument('--scores', type=str, help='Path to utt2scores')
     parser.add_argument('--phone-table', type=str, help='Path to phones-pure.txt')
-    parser.add_argument('--model-path', type=str, default='tmp/scoring.mdl', help='Where to save the model')
+    parser.add_argument('--model-dir', type=str, default='tmp', help='Where to save the model')
     parser.add_argument('--output-dir', type=str, default='tmp', help='Output directory')
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--use-probs', action='store_true', help='Whether HYP contains tokens or probability matrices')
@@ -391,8 +391,8 @@ class Scorer:
 
 def main():
     args = get_args()
-    model_dir = os.path.dirname(args.model_path)
-    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(args.model_dir, 'scoring.pkl')
+    os.makedirs(args.model_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
@@ -447,13 +447,13 @@ def main():
             model_args=model_args
         )
         mdl.fit(model_input)
-        pickle.dump(mdl, open(args.model_path, 'wb'))
+        pickle.dump(mdl, open(model_path, 'wb'))
     elif args.action == 'test':
-        mdl: Scorer = pickle.load(open(args.model_path, 'rb'))
+        mdl: Scorer = pickle.load(open(model_path, 'rb'))
         mdl.test(model_input)
 
         # # plot decision trees into svg files
-        # model_dir = os.path.dirname(args.model_path)
+        # model_dir = os.path.dirname(model_path)
         # tree_plot_dir = os.path.join(model_dir, 'tree_plots')
         # os.makedirs(tree_plot_dir, exist_ok=True)
         # mdl.plot(tree_plot_dir)

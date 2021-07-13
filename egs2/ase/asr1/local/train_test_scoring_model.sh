@@ -20,7 +20,7 @@ inference_tag=decode_asr_asr_model_valid.acc.best
 # test_sets="so762_test libri_scoring_test"
 train_sets="libri_scoring_train"
 test_sets="libri_scoring_test"
-model_path=exp/scoring_train/model.pkl # model save path
+model_dir=exp/scoring_train # model save path
 aug_test_data=false
 aug_train_data=true
 
@@ -81,7 +81,7 @@ train_model() {
     ${scoring_opts} \
     --phone-table=${token_list} \
     --scores=${utt2scores} \
-    --model-path=${model_path} \
+    --model-dir=${model_dir} \
     --output-dir=${dir}
 }
 
