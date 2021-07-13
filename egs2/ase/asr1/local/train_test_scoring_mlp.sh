@@ -51,10 +51,8 @@ train_model() {
   aug=$4       # true/false
   echo "train_model $1 $2 $3 $4"
 
-  hyp_file=probs
-
   # combine train sets
-  combine_data "${data_sets}" ${dir} ${hyp_file}
+  combine_data "${data_sets}" ${dir} probs
 
   # perform data aug
   ref_file=${dir}/ref.txt
@@ -70,7 +68,7 @@ train_model() {
   fi
 
   export PYTHONPATH=ase/
-  ${python} ase/scoring_model.py "${action}" \
+  ${python} ase/scoring_mlp.py "${action}" \
     ${dir}/hyp.txt \
     ${ref_file} \
     ${scoring_opts} \
