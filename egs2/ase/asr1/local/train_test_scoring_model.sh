@@ -22,6 +22,7 @@ train_sets="libri_scoring_train"
 test_sets="libri_scoring_test"
 model_path=exp/scoring_train/model.pkl # model save path
 aug_test_data=false
+aug_train_data=true
 
 log "$0 $*"
 
@@ -45,69 +46,58 @@ combine_data() {
   done
 }
 
-if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  log "Stage 12: Training scoring model"
+train_model() {
+  action=$1    # train/test
+  dir=$2       # data output dir
+  data_sets=$3 # datasets
+  aug=$4       # true/false
+  use_probs=$5 # true/false
 
-  # use probs file if --use-probs
   hyp_file=token
-  if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
+  if [ "${use_probs}" = "true" ]; then
     hyp_file=probs
   fi
 
   # combine train sets
-  _dir=data/scoring_train
-  combine_data "${train_sets}" ${_dir} ${hyp_file}
+  combine_data "${data_sets}" ${dir} ${hyp_file}
 
   # perform data aug
-  ${python} ase/aug_scoring_data.py \
-    --text=${_dir}/ref.txt \
-    --scores=${_dir}/utt2scores \
-    --output-dir=${_dir}
+  ref_file=${dir}/ref.txt
+  utt2scores=${dir}/utt2scores
+  if [ "${aug}" = "true" ]; then
+    ${python} ase/aug_scoring_data.py \
+      --text=${dir}/ref.txt \
+      --scores=${dir}/utt2scores \
+      --output-dir=${dir}
+
+    ref_file=${dir}/ref_aug.txt
+    utt2scores=${dir}/utt2scores_aug
+  fi
 
   export PYTHONPATH=ase/
-  ${python} ase/scoring_model.py train \
-    ${_dir}/hyp.txt \
-    ${_dir}/ref_aug.txt \
+  ${python} ase/scoring_model.py "${action}" \
+    ${dir}/hyp.txt \
+    ${ref_file} \
     ${scoring_opts} \
     --phone-table=${token_list} \
-    --scores=${_dir}/utt2scores_aug \
+    --scores=${utt2scores} \
     --model-path=${model_path} \
-    --output-dir=${_dir}
+    --output-dir=${dir}
+}
+
+use_probs=false
+if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
+  use_probs=true
+fi
+
+if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
+  log "Stage 12: Training scoring model"
+  train_model train data/scoring_train ${train_sets} ${aug_train_data} ${use_probs}
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   log "Stage 13: Testing scoring model"
-
-  # use probs file if --use-probs
-  hyp_file=token
-  if [[ "${scoring_opts}" == *"--use-probs"* ]]; then
-    hyp_file=probs
-  fi
-
-  # combine test sets
-  _dir=data/scoring_test
-  combine_data "${test_sets}" ${_dir} ${hyp_file}
-
-  if [ "${aug_test_data}" = "true" ]; then
-    ${python} ase/aug_scoring_data.py \
-      --text=${_dir}/ref.txt \
-      --scores=${_dir}/utt2scores \
-      --output-dir=${_dir}
-
-    mv ${_dir}/ref_aug.txt ${_dir}/ref.txt
-    mv ${_dir}/utt2scores_aug ${_dir}/utt2scores
-  fi
-
-  # Calculate ASE metrics
-  export PYTHONPATH=ase/
-  ${python} ase/scoring_model.py test \
-    ${_dir}/hyp.txt \
-    ${_dir}/ref.txt \
-    ${scoring_opts} \
-    --phone-table=${token_list} \
-    --scores=${_dir}/utt2scores \
-    --model-path=${model_path} \
-    --output-dir=${_dir}
+  train_model test data/scoring_test ${test_sets} ${aug_test_data} ${use_probs}
 fi
 
 # if [ ${stage} -ge 20 ]; then
