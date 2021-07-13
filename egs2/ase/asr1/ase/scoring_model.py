@@ -401,7 +401,7 @@ def main():
     )
 
     # remove duplicates from data
-    if args.use_probs:
+    if args.use_probs and args.action == 'train':
         data = list(set(data))
 
     # exclude score-1 samples
