@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass
 
 # TODO: fix triphone
+# TODO: exp the probs in advance
 
 MIN_LOG_PROB = -4E9
 N_PHONES = 44
@@ -224,7 +225,7 @@ def get_utt_samples(preds: List[Phone], labels: List[Phone], scores: List[int], 
         else:
             assert False
 
-        ppl = Phone(name=ppl.name, probs=np.exp(ppl.probs))
+        ppl = Phone(name=ppl.name, probs=ppl.probs)
         ret.append(Sample(cpl=cpl, ppl=ppl, score=s))
     return ret
 

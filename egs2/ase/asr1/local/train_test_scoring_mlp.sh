@@ -33,14 +33,20 @@ decode_dir="${asr_exp}/${inference_tag}"
 combine_data() {
   sets=$1       # input data subsets
   output_dir=$2 # output dir
-  hyp_file=$3   # token or probs
 
   rm -rf ${output_dir}
   mkdir -p ${output_dir}
   for x in ${sets}; do
     cat data/${x}/text >>${output_dir}/ref.txt
     cat data/${x}/utt2scores >>${output_dir}/utt2scores
-    cat ${decode_dir}/${x}/${hyp_file} >>${output_dir}/hyp.txt
+
+    # combine onehots and probs
+    ${python} ase/combine_prob_onehot.py --token=${decode_dir}/${x}/token \
+      --probs=${decode_dir}/${x}/probs \
+      --phone-table=${token_list} \
+      --output-path=${decode_dir}/${x}/prob_combined.txt
+
+    cat ${decode_dir}/${x}/prob_combined.txt >>${output_dir}/hyp.txt
   done
 }
 
@@ -52,7 +58,7 @@ train_model() {
   echo "train_model $1 $2 $3 $4"
 
   # combine train sets
-  combine_data "${data_sets}" ${dir} probs
+  combine_data "${data_sets}" ${dir}
 
   # perform data aug
   ref_file=${dir}/ref.txt
@@ -87,19 +93,3 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   log "Stage 13: Testing scoring model"
   train_model test data/scoring_test "${test_sets}" ${aug_test_data}
 fi
-
-# if [ ${stage} -ge 20 ]; then
-#   for dset in ${test_sets}; do
-#     _data="${data_feats}/${dset}"
-#     _dir="${asr_exp}/${inference_tag}/${dset}"
-#
-#     if [ "${dset}" = "test" ]; then # librispeech test
-#       ${python} ase/wer.py "${_dir}/token" "${_data}/text" --output-dir=${_dir}
-#     else # speechocean test
-#       # TODO: use data/so762/utt2scores and data/so762/text
-#       ${python} ase/ase_score.py "${_dir}/token" "local/speechocean762/text-phone" \
-#         --scores=local/speechocean762/scores.json --output-dir=${_dir}
-#       echo "Alignment results saved to ${_dir}/alignment.txt"
-#     fi
-#   done
-# fi
