@@ -2,8 +2,6 @@ import argparse
 import os
 from speechocean762 import load_phone_symbol_table
 from ase_score import eval_scoring
-import pickle
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import numpy as np
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
@@ -114,7 +112,6 @@ def train_network(model: nn.Module, train_loader: DataLoader, val_loader: DataLo
 
 def main():
     args = get_args()
-    scaler_path = os.path.join(args.model_dir, 'scaler.pkl')
     os.makedirs(args.model_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -144,21 +141,13 @@ def main():
     Y = np.asarray(Y, dtype='float32')
     Y = Y.reshape(-1, 1)
     if args.action == 'train':
-        # scaler = StandardScaler()
-        # scaler.fit_transform(X)
-
         x_train, x_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
         train_loader = DataLoader(ProbMatrixDataset(x_train, y_train), batch_size=64, shuffle=True)
         val_loader = DataLoader(ProbMatrixDataset(x_val, y_val), batch_size=64, shuffle=True)
 
         mdl = ScoringModel()
         train_network(mdl, train_loader, val_loader, args.model_dir)
-
-        # pickle.dump(scaler, open(scaler_path, 'wb'))
     elif args.action == 'test':
-        # scaler = pickle.load(open(scaler_path, 'rb'))
-        # scaler.transform(X)
-
         test_loader = DataLoader(ProbMatrixDataset(X, Y), batch_size=64, shuffle=True)
         model_path = os.path.join(args.model_dir, 'model.pt')
         mdl = ScoringModel()
