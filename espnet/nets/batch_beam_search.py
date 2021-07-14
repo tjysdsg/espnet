@@ -22,7 +22,7 @@ class BatchHypothesis(NamedTuple):
     length: torch.Tensor = torch.tensor([])  # (batch,)
     scores: Dict[str, torch.Tensor] = dict()  # values: (batch,)
     states: Dict[str, Dict] = dict()
-    prob: List[torch.Tensor] = []  # (batch, n_phones)
+    prob: List[torch.Tensor] = []  # [tensor(seq_len, n_phones), ]
 
     def __len__(self) -> int:
         """Return a batch size."""
@@ -132,12 +132,15 @@ class BatchBeamSearch(BeamSearch):
             init_states[k] = d.batch_init_state(x)
             init_scores[k] = 0.0
 
-        # FIXME: n_phones
-        n_phones = 44
+        # initial prob is <sos/eos>
+        MIN_LOG_PROB = -4E9  # FIXME
+        prob = torch.full((1, self.n_vocab), MIN_LOG_PROB, device=x.device)
+        prob[0, self.sos] = 0
+
         return self.batchfy(
             [
                 Hypothesis(
-                    prob=torch.zeros(1, n_phones, device=x.device),
+                    prob=prob,
                     score=0.0,
                     scores=init_scores,
                     states=init_states,
@@ -323,17 +326,20 @@ class BatchBeamSearch(BeamSearch):
 
         """
         n_batch = running_hyps.yseq.shape[0]
-        logging.debug(f"the number of running hypothes: {n_batch}")
+        logging.debug(f"the number of running hypothesis: {n_batch}")
         if self.token_list is not None:
             logging.debug(
                 "best hypo: "
-                + "".join(
+                + " ".join(
                     [
                         self.token_list[x]
                         for x in running_hyps.yseq[0, 1 : running_hyps.length[0]]
                     ]
                 )
             )
+
+        logging.debug(f'best hypo prob matrix: {running_hyps.prob[0]}')
+
         # add eos in the final loop to avoid that there are no ended hyps
         if i == maxlen - 1:
             logging.info("adding <eos> in the last position in the loop")
