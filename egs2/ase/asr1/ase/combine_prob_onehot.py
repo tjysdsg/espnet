@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-import os
 from speechocean762 import load_phone_symbol_table
 from scoring_model import load_utt2probs, N_PHONES
 from utils import EMPTY_PHONES, load_utt2phones, onehot
@@ -25,7 +24,7 @@ def main():
     for utt in utt2probs.keys():
         probs = utt2probs[utt]
         new_probs = [p for p in probs if int2ph[np.argmax(p)] not in EMPTY_PHONES]
-        utt2probs[utt] = np.exp(np.asarray(new_probs))
+        utt2probs[utt] = np.asarray(new_probs)
 
     utt2tokens = load_utt2phones(args.token)
     utt2onehot = {}

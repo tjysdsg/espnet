@@ -126,8 +126,8 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             tokens = line.strip('\n').split(maxsplit=1)
             utt = tokens[0]
             s = tokens[1]
-            probs = json.loads(s)[1:]  # FIXME: the first one is always invalid because of modified batch_beam_search.py
-            hyps[utt] = probs
+            probs = json.loads(s)[1:]  # the first element is always sos
+            hyps[utt] = np.exp(np.asarray(probs))
 
     return hyps
 
