@@ -328,7 +328,7 @@ class BatchBeamSearch(BeamSearch):
         n_batch = running_hyps.yseq.shape[0]
         logging.debug(f"the number of running hypothesis: {n_batch}")
         if self.token_list is not None:
-            logging.debug(
+            logging.info(
                 "best hypo: "
                 + " ".join(
                     [
@@ -338,7 +338,16 @@ class BatchBeamSearch(BeamSearch):
                 )
             )
 
-        logging.debug(f'best hypo prob matrix: {running_hyps.prob[0]}')
+            prob_phones = torch.argmax(running_hyps.prob[0], dim=1).detach().cpu().numpy().tolist()
+            logging.info(
+                "best hypo from prob matrix: "
+                + " ".join(
+                    [
+                        self.token_list[x]
+                        for x in prob_phones
+                    ]
+                )
+            )
 
         # add eos in the final loop to avoid that there are no ended hyps
         if i == maxlen - 1:
