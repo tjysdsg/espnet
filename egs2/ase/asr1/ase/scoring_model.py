@@ -11,9 +11,7 @@ import json
 from dataclasses import dataclass
 
 # TODO: fix triphone
-# TODO: exp the probs in advance
 
-MIN_LOG_PROB = -4E9
 N_PHONES = 44
 SIMILAR_PHONES = [
     ['AA', 'AH'],
@@ -47,8 +45,8 @@ class Phone:
 
     @staticmethod
     def get_sil_phone() -> 'Phone':
-        sil_vec = np.full(N_PHONES, MIN_LOG_PROB)
-        sil_vec[0] = 0  # <blank>
+        sil_vec = np.full(N_PHONES, 0)
+        sil_vec[0] = 1  # <blank>
         return Phone(name='<blank>', probs=sil_vec)
 
 
@@ -292,22 +290,8 @@ class Scorer:
         self.use_mlp = use_mlp
         self.per_phone = per_phone
         self.use_probs = use_probs
-        self.scalers = {}
         self.clfs = {}
         self.model_args = model_args
-
-    def preprocess_probs(self, key: str, probs: np.ndarray, train_mode: bool):
-        from sklearn.preprocessing import StandardScaler
-
-        if train_mode:
-            self.scalers[key] = StandardScaler()
-            ret = self.scalers[key].fit_transform(probs)
-        else:
-            ret = self.scalers[key].transform(probs)
-
-        # print(f'Mean of prob matrix of {key}: {np.mean(probs, axis=0)}')
-        # print(f'Std of prob matrix of {key}: {np.std(probs, axis=0)}')
-        return ret
 
     def _fit_clf(self, key: str, x: np.ndarray, y: np.ndarray):
         from sklearn.tree import DecisionTreeClassifier
@@ -340,14 +324,10 @@ class Scorer:
     def _fit_per_phone(self, ph2samples: Dict[str, List[Sample]]):
         for phone, samples in ph2samples.items():
             x, y = data2array(samples, self.ph2int, self.use_probs)
-            if self.use_probs:
-                x = self.preprocess_probs(phone, x, True)
             self._fit_clf(phone, x, y)
 
     def _fit_all(self, data: List[Sample]):
         x, y = data2array(data, self.ph2int, self.use_probs)
-        if self.use_probs:
-            x = self.preprocess_probs('all', x, True)
         self._fit_clf('all', x, y)
 
     def fit(self, data):
@@ -361,8 +341,6 @@ class Scorer:
         y_all = []
         for phone, samples in ph2samples.items():
             x, y = data2array(samples, self.ph2int, self.use_probs)
-            if self.use_probs:
-                x = self.preprocess_probs(phone, x, False)
             preds = self._test_clf(phone, x, y, verbose=False)[0]
 
             y_pred_all.append(preds)
@@ -374,8 +352,6 @@ class Scorer:
 
     def test_one(self, data):
         x, y = data2array(data, self.ph2int, self.use_probs)
-        if self.use_probs:
-            x = self.preprocess_probs('all', x, False)
         self._test_clf('all', x, y)
 
     def test(self, data):
