@@ -144,8 +144,8 @@ def main():
     Y = np.asarray(Y, dtype='float32')
     Y = Y.reshape(-1, 1)
     if args.action == 'train':
-        scaler = StandardScaler()
-        scaler.fit_transform(X)
+        # scaler = StandardScaler()
+        # scaler.fit_transform(X)
 
         x_train, x_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
         train_loader = DataLoader(ProbMatrixDataset(x_train, y_train), batch_size=64, shuffle=True)
@@ -154,10 +154,11 @@ def main():
         mdl = ScoringModel()
         train_network(mdl, train_loader, val_loader, args.model_dir)
 
-        pickle.dump(scaler, open(scaler_path, 'wb'))
+        # pickle.dump(scaler, open(scaler_path, 'wb'))
     elif args.action == 'test':
-        scaler = pickle.load(open(scaler_path, 'rb'))
-        scaler.transform(X)
+        # scaler = pickle.load(open(scaler_path, 'rb'))
+        # scaler.transform(X)
+
         test_loader = DataLoader(ProbMatrixDataset(X, Y), batch_size=64, shuffle=True)
         model_path = os.path.join(args.model_dir, 'model.pt')
         mdl = ScoringModel()
@@ -173,7 +174,6 @@ def main():
         pred_all = np.concatenate(pred_all)
         y_all = np.concatenate(y_all)
         calc_and_print_metrics(pred_all, y_all)
-
     else:
         assert False
 

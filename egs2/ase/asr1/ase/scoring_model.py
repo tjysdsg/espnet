@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 # TODO: fix triphone
 
+MIN_LOG_PROB = -4E9
 N_PHONES = 44
 SIMILAR_PHONES = [
     ['AA', 'AH'],
@@ -45,7 +46,7 @@ class Phone:
 
     @staticmethod
     def get_sil_phone() -> 'Phone':
-        sil_vec = np.full(N_PHONES, -100)
+        sil_vec = np.full(N_PHONES, MIN_LOG_PROB)
         sil_vec[0] = 0  # <blank>
         return Phone(name='<blank>', probs=sil_vec)
 
@@ -125,7 +126,6 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             utt = tokens[0]
             s = tokens[1]
             probs = json.loads(s)[1:]  # FIXME: the first one is always invalid because of modified batch_beam_search.py
-            probs = np.exp(np.asarray(probs))  # log -> prob
             hyps[utt] = probs
 
     return hyps
@@ -224,6 +224,7 @@ def get_utt_samples(preds: List[Phone], labels: List[Phone], scores: List[int], 
         else:
             assert False
 
+        ppl = Phone(name=ppl.name, probs=np.exp(ppl.probs))
         ret.append(Sample(cpl=cpl, ppl=ppl, score=s))
     return ret
 
