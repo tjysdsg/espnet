@@ -21,6 +21,7 @@ test_sets="so762_test"
 model_dir=exp/scoring_train # model save path
 aug_test_data=false
 aug_train_data=true
+onehot_weight=0.5
 
 log "$0 $*"
 
@@ -42,6 +43,7 @@ combine_data() {
 
     # combine onehots and probs
     ${python} ase/combine_prob_onehot.py --token=${decode_dir}/${x}/token \
+      --onehot-weight=${onehot_weight} \
       --probs=${decode_dir}/${x}/probs \
       --phone-table=${token_list} \
       --output-path=${decode_dir}/${x}/prob_combined.txt

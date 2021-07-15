@@ -11,6 +11,7 @@ def get_args():
     parser.add_argument('--probs', type=str)
     parser.add_argument('--phone-table', type=str)
     parser.add_argument('--output-path', type=str)
+    parser.add_argument('--onehot-weight', type=float, default=0.5)
     return parser.parse_args()
 
 
@@ -43,7 +44,7 @@ def main():
             print('probs: ', [int2ph[e] for e in np.argmax(probs, -1)])
             continue
 
-        combined = 0.5 * onehots + 0.5 * probs
+        combined = args.onehot_weight * onehots + (1 - args.onehot_weight) * probs
 
         s = str(combined.tolist())
         of.write(f'{utt}\t{s}\n')
