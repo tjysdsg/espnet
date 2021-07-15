@@ -333,11 +333,8 @@ class BatchBeamSearch(BeamSearch):
                     f"hypo {i}: "
                     + " ".join([self.token_list[x] for x in running_hyps.yseq[i, 1: running_hyps.length[0]]])
                 )
-                prob_phones = torch.argmax(running_hyps.prob[i], dim=1).detach().cpu().numpy().tolist()
-                logging.info(
-                    f"hypo {i} from prob matrix: "
-                    + " ".join([self.token_list[x] for x in prob_phones])
-                )
+                prob = running_hyps.prob[i].detach().cpu().numpy().tolist()
+                logging.info(f"current prob: {prob}")
 
         # add eos in the final loop to avoid that there are no ended hyps
         if i == maxlen - 1:
