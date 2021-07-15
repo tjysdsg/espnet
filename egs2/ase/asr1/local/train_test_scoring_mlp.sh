@@ -41,14 +41,14 @@ combine_data() {
     cat data/${x}/text >>${output_dir}/ref.txt
     cat data/${x}/utt2scores >>${output_dir}/utt2scores
 
-    # combine onehots and probs
-    ${python} ase/combine_prob_onehot.py --token=${decode_dir}/${x}/token \
-      --onehot-weight=${onehot_weight} \
-      --probs=${decode_dir}/${x}/probs \
-      --phone-table=${token_list} \
-      --output-path=${decode_dir}/${x}/prob_combined.txt
+    # # combine onehots and probs
+    # ${python} ase/combine_prob_onehot.py --token=${decode_dir}/${x}/token \
+    #   --onehot-weight=${onehot_weight} \
+    #   --probs=${decode_dir}/${x}/probs \
+    #   --phone-table=${token_list} \
+    #   --output-path=${decode_dir}/${x}/prob_combined.txt
 
-    cat ${decode_dir}/${x}/prob_combined.txt >>${output_dir}/hyp.txt
+    cat ${decode_dir}/${x}/probs >>${output_dir}/hyp.txt
   done
 }
 

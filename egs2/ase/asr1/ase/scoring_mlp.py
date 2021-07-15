@@ -31,17 +31,22 @@ class ScoringModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Linear(N_PHONES * 2, 128, bias=True),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            # ===
-            nn.Linear(128, 256, bias=True),
+            nn.Linear(N_PHONES * 2, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.2),
             # ===
-            nn.Linear(256, 1),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            # nn.Dropout(0.2),
+            # ===
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            # nn.Dropout(0.2),
+            # ===
+            nn.Linear(512, 1),
             nn.ReLU(),
         )
 
@@ -69,7 +74,7 @@ def calc_and_print_metrics(preds: np.ndarray, y: np.ndarray):
 
 
 def train_network(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, output_dir: str):
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.8)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.8)  # , weight_decay=0.2)
     criterion = nn.MSELoss()
     trainer = create_supervised_trainer(model, optimizer, criterion)
 
