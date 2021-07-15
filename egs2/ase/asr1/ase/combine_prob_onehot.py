@@ -39,6 +39,8 @@ def main():
         probs = utt2probs[utt]
         if onehots.shape != probs.shape:
             print(f'onehots and probs of {utt} have different lengths')
+            print('onehot:', [int2ph[e] for e in np.argmax(onehots, -1)])
+            print('probs: ', [int2ph[e] for e in np.argmax(probs, -1)])
             continue
 
         combined = 0.5 * onehots + 0.5 * probs
