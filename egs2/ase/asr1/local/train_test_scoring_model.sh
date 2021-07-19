@@ -23,6 +23,7 @@ test_sets="libri_scoring_test"
 model_dir=exp/scoring_train # model save path
 aug_test_data=false
 aug_train_data=true
+aug_rule_file=conf/aug0.yaml
 
 log "$0 $*"
 
@@ -69,6 +70,7 @@ train_model() {
   if [ "${aug}" = "true" ]; then
     ${python} ase/aug_scoring_data.py \
       --text=${dir}/ref.txt \
+      --rule-path=${aug_rule_file} \
       --scores=${dir}/utt2scores \
       --output-dir=${dir}
 
