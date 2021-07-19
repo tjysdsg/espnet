@@ -10,6 +10,16 @@ log() {
   local fname=${BASH_SOURCE[1]##*/}
   echo -e "$(date '+%Y-%m-%dT%H:%M:%S') (${fname}:${BASH_LINENO[0]}:${FUNCNAME[1]}) $*"
 }
+min() {
+  local a b
+  a=$1
+  for b in "$@"; do
+    if [ "${b}" -le "${a}" ]; then
+      a="${b}"
+    fi
+  done
+  echo "${a}"
+}
 
 inference_nj=300    # The number of parallel jobs in decoding.
 gpu_inference=false # Whether to perform gpu decoding.
