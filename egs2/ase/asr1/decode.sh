@@ -35,7 +35,7 @@ asr_exp="${expdir}/asr_${asr_tag}"
 
 inference_asr_model=valid.acc.best.pth # ASR model path for decoding.
 inference_config=conf/decode_asr.yaml
-inference_tag=inference
+inference_tag=decode_asr_asr_model_valid.acc.best
 
 run_args=$(pyscripts/utils/print_args.py $0 "$@")
 . utils/parse_options.sh

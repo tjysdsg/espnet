@@ -30,8 +30,8 @@ train_aligned=$phone_trans_dir/train
 test_aligned=$phone_trans_dir/test
 dev_aligned=$phone_trans_dir/dev
 
-libri_scoring_train=test_clean # subset used to train the scoring model
-libri_scoring_test=test_other  # subset used to test the scoring model
+libri_scoring_train=train_all # subset used to train the scoring model
+libri_scoring_test=test_other # subset used to test the scoring model
 
 log "$0 $*"
 . utils/parse_options.sh
