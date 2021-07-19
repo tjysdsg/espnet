@@ -38,7 +38,8 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--text', type=str, help='Phone transcripts')
     parser.add_argument('--scores', type=str, help='Path to utt2scores')
-    parser.add_argument('--output-dir', type=str, default='tmp', help='Output directory')
+    parser.add_argument('--output-dir', type=str, help='Output directory')
+    parser.add_argument('--rule-path', type=str, help='Path to rule.yaml file')
     return parser.parse_args()
 
 
@@ -70,37 +71,43 @@ def remove_duplicated_samples(samples: List[Phone]) -> List[Phone]:
     return list(set(samples))
 
 
-def add_more_negative_data(data: List[Phone]) -> List[Phone]:
+def add_more_negative_data(data: List[Phone], rule_path: str) -> List[Phone]:
     """
     Take the 2-score samples of other phones as new 0-score samples, and take the 2-score samples of
     other similar phones as new 1-score samples
     """
+    import yaml
+    rules = yaml.full_load(open(rule_path).read())
+    print(f'Augmentation rules used: {rules}')
+
     ph2samples = samples_to_ph2samples(data)
     phone_names = list(set([d.name for d in data]))
 
     ret = []
     for ph, samples in ph2samples.items():
-        invalid_candidates = [sam for sam in samples if sam.score != 2]
-        ret += invalid_candidates
+        # NOT including 1-score samples
+        # invalid_candidates = [sam for sam in samples if sam.score != 2]
+        # ret += invalid_candidates
 
         samples = [sam for sam in samples if sam.score == 2]
         random.shuffle(samples)
-        sam_0s, sam_1s, sam_2s = [samples[i::3] for i in range(3)]
-        assert len(sam_0s) + len(sam_1s) + len(sam_2s) == len(samples)
+        # sam_0s, sam_1s, sam_2s = [samples[i::3] for i in range(3)]
+        # assert len(sam_0s) + len(sam_1s) + len(sam_2s) == len(samples)
+        sam_0s, sam_2s = [samples[i::2] for i in range(2)]
+        assert len(sam_0s) + len(sam_2s) == len(samples)
 
         # 0-score samples
-        other_phones = [p for p in phone_names if p != ph]
+        other_phones = [p for p in phone_names if p in rules[ph]]
         for s in sam_0s:
-            # TODO: use other_vow/other_consonant
             ret.append(Phone(name=random.choice(other_phones), loc=s.loc, score=0))
 
         # 1-score samples
-        similar_phones = [p for p in ph2similar.get(ph, [])]
-        if len(similar_phones) > 0:
-            for s in sam_1s:
-                ret.append(Phone(name=random.choice(similar_phones), loc=s.loc, score=1))
-        else:
-            ret += sam_1s
+        # similar_phones = [p for p in ph2similar.get(ph, [])]
+        # if len(similar_phones) > 0:
+        #     for s in sam_1s:
+        #         ret.append(Phone(name=random.choice(similar_phones), loc=s.loc, score=1))
+        # else:
+        #     ret += sam_1s
 
         ret += sam_2s
 
@@ -129,8 +136,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     data = load_into_phones(args.text, args.scores)
-    new_data = add_more_negative_data(data)
-    assert len(new_data) == len(data)
+    new_data = add_more_negative_data(data, args.rule_path)
     data = new_data
 
     utt2phones, utt2scores = restore_utt2(data)
