@@ -18,6 +18,8 @@ def main():
     utt2phones = load_utt2seq(args.token)
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
 
+    total = 0
+    correct = 0
     for utt in utt2probs.keys():
         if utt not in utt2phones:
             print(f'Cannot find {utt} in {args.token}')
@@ -31,9 +33,13 @@ def main():
         prob_phones = remove_empty_phones(prob_phones)
 
         n = len(prob_phones)
-        assert n == len(phones)
-        for i in range(n):
-            assert prob_phones[i] == phones[i]
+        total += n
+        if n == len(phones):
+            for i in range(n):
+                if prob_phones[i] == phones[i]:
+                    correct += 1
+
+    print(correct / total)
 
 
 if __name__ == '__main__':
