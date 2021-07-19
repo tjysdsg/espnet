@@ -31,7 +31,7 @@ test_aligned=$phone_trans_dir/test
 dev_aligned=$phone_trans_dir/dev
 
 libri_scoring_train=train_all # subset used to train the scoring model
-libri_scoring_test=test_other # subset used to test the scoring model
+libri_scoring_test=test       # subset used to test the scoring model
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -100,12 +100,10 @@ fi
 
 if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
   log "Creating testing data for the scoring model"
-  _set=${libri_scoring_test}
   dir=data/libri_scoring_test
   rm -rf ${dir}
-  cp -r data/${test_set} ${dir}          # copy kaldi-format of all test data
-  cp data/${_set}/wav.scp ${dir}/wav.scp # use the wav.scp of only the subset
-  utils/fix_data_dir.sh ${dir}           # remove extra samples
+  cp -r data/${libri_scoring_test} ${dir} # copy kaldi-format of all test data
+  utils/fix_data_dir.sh ${dir}            # remove extra samples
   python3 ase/generate_utt2scores.py --text=${dir}/text --output-path=${dir}/utt2scores
 fi
 
