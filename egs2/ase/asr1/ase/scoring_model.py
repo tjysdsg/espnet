@@ -85,8 +85,6 @@ def get_args():
 def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
     from matplotlib import pyplot as plt
 
-    prob = np.clip(prob, -10, 10)  # clip large values so the colors are shown properly
-
     fig, ax = plt.subplots()
     ax.set_xticks(np.arange(len(phones)))
     ax.set_yticks(np.arange(len(labels)))
@@ -95,7 +93,8 @@ def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_
     plt.setp(ax.get_xticklabels(), rotation='vertical')
     ax.margins(0.2)
 
-    ax.imshow(prob)
+    im = ax.imshow(prob)
+    fig.colorbar(im)
     plt.savefig(os.path.join(output_path))
     plt.close('all')
 
