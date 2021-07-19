@@ -85,6 +85,8 @@ def get_args():
 def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
     from matplotlib import pyplot as plt
 
+    prob = np.clip(np.log(prob), -10, 0)
+
     fig, ax = plt.subplots()
     ax.set_xticks(np.arange(len(phones)))
     ax.set_yticks(np.arange(len(labels)))
