@@ -14,7 +14,7 @@ log() {
 }
 SECONDS=0
 
-stage=4
+stage=0
 stop_stage=100000
 train_set="train_all"
 train_dev="dev"
