@@ -78,7 +78,6 @@ def add_more_negative_data(data: List[Phone], rule_path: str) -> List[Phone]:
     """
     import yaml
     rules = yaml.full_load(open(rule_path).read())
-    print(f'Augmentation rules used: {rules}')
 
     ph2samples = samples_to_ph2samples(data)
     phone_names = list(set([d.name for d in data]))

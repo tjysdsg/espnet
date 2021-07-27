@@ -126,7 +126,7 @@ def load_utt2probs(path: str) -> Dict[str, np.ndarray]:
             utt = tokens[0]
             s = tokens[1]
             probs = json.loads(s)[1:]  # the first element is always sos
-            hyps[utt] = np.exp(np.asarray(probs))
+            hyps[utt] = np.asarray(probs)
 
     return hyps
 
