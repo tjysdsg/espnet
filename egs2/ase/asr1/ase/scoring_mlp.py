@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--output-dir', type=str, default='tmp/scoring_model', help='Output directory')
     parser.add_argument('--use-probs', action='store_true', help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--include-1s', action='store_true', help='Exclude score-1 samples from training and testing')
+    parser.add_argument('--load-feats', action='store_true', help='Load cached features from --output-dir')
     return parser.parse_args()
 
 
@@ -120,31 +121,32 @@ def main():
     os.makedirs(args.model_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
-    ph2int, int2ph = load_phone_symbol_table(args.phone_table)
-    data = load_data(args.hyp, args.ref, args.scores, use_probs=True, int2ph=int2ph)
+    if not args.load_feats:
+        ph2int, int2ph = load_phone_symbol_table(args.phone_table)
+        data = load_data(args.hyp, args.ref, args.scores, use_probs=True, int2ph=int2ph)
 
-    # remove duplicates from data
-    if args.use_probs and args.action == 'train':
-        data = list(set(data))
+        # remove duplicates from data
+        if args.use_probs and args.action == 'train':
+            data = list(set(data))
 
-    # exclude score-1 samples
-    if not args.include_1s:
-        new_data = []
-        for d in data:
-            if d.score != 1:
-                new_data.append(d)
-        data = new_data
+        # exclude score-1 samples
+        if not args.include_1s:
+            new_data = []
+            for d in data:
+                if d.score != 1:
+                    new_data.append(d)
+            data = new_data
 
-    # save samples to file
-    of = open(os.path.join(args.output_dir, 'samples'), 'w')
-    for sam in data:
-        of.write(f'CPL: {sam.cpl}\tPPL: {sam.ppl}\tScore: {sam.score}\n')
-    of.close()
+        X, Y = data2array(data, ph2int, True)
+        X = np.asarray(X, dtype='float32')
+        Y = np.asarray(Y, dtype='float32')
+        Y = Y.reshape(-1, 1)
+        np.save(os.path.join(args.output_dir, 'X.npy'), X)
+        np.save(os.path.join(args.output_dir, 'Y.npy'), Y)
+    else:
+        X = np.load(os.path.join(args.output_dir, 'X.npy'))
+        Y = np.load(os.path.join(args.output_dir, 'Y.npy'))
 
-    X, Y = data2array(data, ph2int, True)
-    X = np.asarray(X, dtype='float32')
-    Y = np.asarray(Y, dtype='float32')
-    Y = Y.reshape(-1, 1)
     if args.action == 'train':
         x_train, x_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
         train_loader = DataLoader(ProbMatrixDataset(x_train, y_train), batch_size=64, shuffle=True)
