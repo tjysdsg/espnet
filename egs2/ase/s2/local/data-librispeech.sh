@@ -88,24 +88,5 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   utils/fix_data_dir.sh data/${test_set}
 fi
 
-if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-  log "Creating training data for the scoring model"
-  dir=data/libri_scoring_train
-
-  rm -rf ${dir}
-  cp -r data/${libri_scoring_train} ${dir}
-  utils/fix_data_dir.sh ${dir}
-  python3 ase/generate_utt2scores.py --text=${dir}/text --output-path=${dir}/utt2scores
-fi
-
-if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
-  log "Creating testing data for the scoring model"
-  dir=data/libri_scoring_test
-  rm -rf ${dir}
-  cp -r data/${libri_scoring_test} ${dir} # copy kaldi-format of all test data
-  utils/fix_data_dir.sh ${dir}            # remove extra samples
-  python3 ase/generate_utt2scores.py --text=${dir}/text --output-path=${dir}/utt2scores
-fi
-
 log "Successfully finished. [elapsed=${SECONDS}s]"
 
