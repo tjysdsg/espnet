@@ -11,6 +11,7 @@ from scoring_model import N_PHONES, load_data, data2array
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+import ignite.distributed as idist
 
 
 def get_args():
@@ -74,13 +75,20 @@ def calc_and_print_metrics(preds: np.ndarray, y: np.ndarray):
     return preds, mse, pcc
 
 
-def train_network(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, output_dir: str):
+def train_network(model: nn.Module, train_dataset: Dataset, val_dataset: Dataset, output_dir: str):
+    model = idist.auto_model(ScoringModel())
+
+    train_loader = idist.auto_dataloader(train_dataset, batch_size=64, num_workers=16, shuffle=True)
+    val_loader = idist.auto_dataloader(val_dataset, batch_size=64, num_workers=16, shuffle=True)
+
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.8)  # , weight_decay=0.2)
-    criterion = nn.MSELoss()
-    trainer = create_supervised_trainer(model, optimizer, criterion)
+    optimizer = idist.auto_optim(optimizer)
+
+    criterion = nn.MSELoss().to(idist.device())
+    trainer = create_supervised_trainer(model, optimizer, criterion, device=idist.device())
 
     val_metrics = {"loss": Loss(criterion)}
-    evaluator = create_supervised_evaluator(model, metrics=val_metrics)
+    evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=idist.device())
 
     # save best
     score_function = Checkpoint.get_default_score_fn("loss", score_sign=-1)
@@ -121,7 +129,12 @@ def main():
     os.makedirs(args.model_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
-    if not args.load_feats:
+    if args.load_feats:
+        print('Loading cached features')
+        X = np.load(os.path.join(args.output_dir, 'X.npy'))
+        Y = np.load(os.path.join(args.output_dir, 'Y.npy'))
+    else:
+        print('Loading data')
         ph2int, int2ph = load_phone_symbol_table(args.phone_table)
         data = load_data(args.hyp, args.ref, args.scores, use_probs=True, int2ph=int2ph)
 
@@ -143,17 +156,15 @@ def main():
         Y = Y.reshape(-1, 1)
         np.save(os.path.join(args.output_dir, 'X.npy'), X)
         np.save(os.path.join(args.output_dir, 'Y.npy'), Y)
-    else:
-        X = np.load(os.path.join(args.output_dir, 'X.npy'))
-        Y = np.load(os.path.join(args.output_dir, 'Y.npy'))
 
     if args.action == 'train':
         x_train, x_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
-        train_loader = DataLoader(ProbMatrixDataset(x_train, y_train), batch_size=64, shuffle=True)
-        val_loader = DataLoader(ProbMatrixDataset(x_val, y_val), batch_size=64, shuffle=True)
+        train_ds = ProbMatrixDataset(x_train, y_train)
+        val_ds = ProbMatrixDataset(x_val, y_val)
 
-        mdl = ScoringModel()
-        train_network(mdl, train_loader, val_loader, args.model_dir)
+        with idist.Parallel(backend="nccl") as parallel:
+            parallel.run(train_network, train_dataset=train_ds, val_dataset=val_ds, output_dir=args.model_dir)
+
     elif args.action == 'test':
         test_loader = DataLoader(ProbMatrixDataset(X, Y), batch_size=64, shuffle=True)
         model_path = os.path.join(args.model_dir, 'model.pt')

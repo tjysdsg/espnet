@@ -22,6 +22,7 @@ model_dir=exp/scoring_train # model save path
 aug_test_data=false
 aug_train_data=true
 aug_rule_file=conf/aug0.yaml
+load_feats=false
 
 log "$0 $*"
 
@@ -59,13 +60,14 @@ train_model() {
   aug=$4       # true/false
   echo "train_model $1 $2 $3 $4"
 
-  # combine train sets
-  combine_data "${data_sets}" ${dir}
-
-  # perform data aug
   ref_file=${dir}/ref.txt
   utt2scores=${dir}/utt2scores
-  if [ "${aug}" = "true" ]; then
+
+  if [ "${aug}" = "true" ] && [ "${load_feats}" = "false" ]; then
+    # combine train sets
+    combine_data "${data_sets}" ${dir}
+
+    # perform data aug
     ${python} ase/aug_scoring_data.py \
       --text=${dir}/ref.txt \
       --rule-path=${aug_rule_file} \
@@ -77,6 +79,9 @@ train_model() {
   fi
 
   export PYTHONPATH=ase/
+  if [ "${load_feats}" = "true" ]; then
+      scoring_opts="${scoring_opts} --load-feats"
+  fi
   ${python} ase/scoring_mlp.py "${action}" \
     ${dir}/hyp.txt \
     ${ref_file} \
@@ -92,7 +97,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   train_model train data/scoring_train "${train_sets}" ${aug_train_data}
 fi
 
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  log "Stage 13: Testing scoring model"
-  train_model test data/scoring_test "${test_sets}" ${aug_test_data}
-fi
+# if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+#   log "Stage 13: Testing scoring model"
+#   train_model test data/scoring_test "${test_sets}" ${aug_test_data}
+# fi
