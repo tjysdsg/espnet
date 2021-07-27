@@ -30,7 +30,6 @@ fi
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for part in train test; do
     local/prep-speechocean762.sh ${SPEECHOCEAN762}/$part data/so762_$part || exit 1
-    python3 ase/get_ppl.py --scores=local/speechocean762/scores.json >data/so762_${part}/ppl_text || exit 1
   done
 fi
 
