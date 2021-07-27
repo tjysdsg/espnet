@@ -596,37 +596,7 @@ if ! "${skip_data_prep}"; then
   fi
 
   if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-    if [ "${token_type}" = bpe ]; then
-      log "Stage 5: Generate token_list from ${bpe_train_text} using BPE"
-
-      mkdir -p "${bpedir}"
-      # shellcheck disable=SC2002
-      cat ${bpe_train_text} | cut -f 2- -d" " >"${bpedir}"/train.txt
-
-      if [ -n "${bpe_nlsyms}" ]; then
-        _opts_spm="--user_defined_symbols=${bpe_nlsyms}"
-      else
-        _opts_spm=""
-      fi
-
-      spm_train \
-        --input="${bpedir}"/train.txt \
-        --vocab_size="${nbpe}" \
-        --model_type="${bpemode}" \
-        --model_prefix="${bpeprefix}" \
-        --character_coverage=${bpe_char_cover} \
-        --input_sentence_size="${bpe_input_sentence_size}" \
-        ${_opts_spm}
-
-      {
-        echo "${blank}"
-        echo "${oov}"
-        # Remove <unk>, <s>, </s> from the vocabulary
-        awk <"${bpeprefix}".vocab '{ if( NR != 1 && NR != 2 && NR != 3 ){ print $1; } }'
-        echo "${sos_eos}"
-      } >"${token_list}"
-
-    elif [ "${token_type}" = char ] || [ "${token_type}" = word ]; then
+    if [ "${token_type}" = word ]; then
       log "Stage 5: Generate character level token_list from ${lm_train_text}"
 
       _opts="--non_linguistic_symbols ${nlsyms_txt}"
@@ -644,6 +614,8 @@ if ! "${skip_data_prep}"; then
         --add_symbol "${oov}:1" \
         --add_symbol "${sos_eos}:-1"
 
+      # add anti-phones to the token list
+      cat local/antiphones.txt >>${token_list}
     else
       log "Error: not supported --token_type '${token_type}'"
       exit 2
@@ -664,12 +636,10 @@ if ! "${skip_data_prep}"; then
         --add_symbol "${oov}:1" \
         --add_symbol "${sos_eos}:-1"
     fi
-
   fi
 else
   log "Skip the stages for data preparation"
 fi
-
 # ========================== Data preparation is done here. ==========================
 
 if ! "${skip_train}"; then
