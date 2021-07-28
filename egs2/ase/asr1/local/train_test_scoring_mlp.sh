@@ -97,7 +97,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   train_model train data/scoring_train "${train_sets}" ${aug_train_data}
 fi
 
-# if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-#   log "Stage 13: Testing scoring model"
-#   train_model test data/scoring_test "${test_sets}" ${aug_test_data}
-# fi
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+  log "Stage 13: Testing scoring model"
+  train_model test data/scoring_test "${test_sets}" ${aug_test_data}
+fi
