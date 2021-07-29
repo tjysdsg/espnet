@@ -10,8 +10,6 @@ import numpy as np
 import json
 from dataclasses import dataclass
 
-# TODO: fix triphone
-
 N_PHONES = 44
 SIMILAR_PHONES = [
     ['AA', 'AH'],
