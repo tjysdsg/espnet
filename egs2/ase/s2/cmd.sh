@@ -59,16 +59,8 @@ elif [ "${cmd_backend}" = sge ]; then
     # Note that to use "--gpu *", you have to setup "complex_value" for the system scheduler.
 
     export train_cmd="queue.pl -q w1v6.q,cpu.q --mem 2G"
-    export decode_cmd="queue.pl -q w1v6.q,cpu.q --mem 15G"
+    export decode_cmd="queue.pl -q w1v6.q,cpu.q --mem 2G"
     export cuda_cmd="queue.pl --mem 2G"
-
-    # export egs_cmd="queue.pl -q w1v6.q,cpu.q --mem 5G"
-    # export mkgraph_cmd="queue.pl -q graph.q --mem 15G"
-    # export feat_cmd="queue.pl -q w1v6.q,cpu.q --mem 1G"
-
-    # export train_nj=300
-    # export decode_nj=300
-
 
 # "qsub" (Torque/PBS.)
 elif [ "${cmd_backend}" = pbs ]; then

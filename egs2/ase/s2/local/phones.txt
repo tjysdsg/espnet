@@ -1,4 +1,5 @@
-<eps>
+<blank>
+<unk>
 SIL
 SPN
 AA0
@@ -118,3 +119,4 @@ W2
 Y2
 Z2
 ZH2
+<sos/eos>
