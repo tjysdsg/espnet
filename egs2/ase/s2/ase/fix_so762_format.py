@@ -22,6 +22,13 @@ def main():
     utt2phones = load_so762_ref(args.text_phone)
     utt2scores, _ = load_human_scores(args.scores, floor=1)
 
+    # convert phones to score phones
+    for utt in utt2phones.keys():
+        scores = utt2scores[utt]
+        phones = utt2phones[utt]
+        for i, p in enumerate(phones):
+            utt2phones[utt][i] = f'{p}{scores[i]}'
+
     write_utt2seq(os.path.join(output_dir, 'text'), utt2phones)
     write_utt2seq(os.path.join(output_dir, 'utt2scores'), utt2scores)
 

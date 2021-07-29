@@ -45,7 +45,6 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     cp ${tmp}/utt2scores data/so762_$part/utt2scores || exit 1
     utils/fix_data_dir.sh data/so762_$part || exit 1
   done
-
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
