@@ -615,7 +615,7 @@ if ! "${skip_data_prep}"; then
         --add_symbol "${sos_eos}:-1"
 
       # add anti-phones to the token list
-      cat local/antiphones.txt >>${token_list}
+      cp local/phones.txt ${token_list}
     else
       log "Error: not supported --token_type '${token_type}'"
       exit 2
