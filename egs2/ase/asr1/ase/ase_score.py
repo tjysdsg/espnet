@@ -4,8 +4,8 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import load_utt2phones, create_logger
-from metrics import wer_details_for_batch
+from utils import load_utt2phones, create_logger, load_utt2seq
+from metrics import predict_scores, wer_details_for_batch, wer_summary
 from typing import Dict, List
 import numpy as np
 from scipy.stats import pearsonr
@@ -17,6 +17,7 @@ def get_args():
         description='Calculate ASE correlation between predicted scores and annotated scores')
     parser.add_argument('--hyp', type=str, help='Hypothesis file')
     parser.add_argument('--ref', type=str, help='Reference file')
+    parser.add_argument('--utt2scores', type=str, help='utt2scores')
     parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
     args = parser.parse_args()
     return args
@@ -41,18 +42,45 @@ def get_wer_alignment(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) ->
     return wer_align
 
 
-def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[float]) -> str:
+def get_scores(
+        hyps: Dict[str, List[str]], refs: Dict[str, List[str]]
+) -> (Dict, Dict[str, List[int]], Dict):
+    ref_list = []
+    hyp_list = []
+    utts = []
+    for utt, r in refs.items():
+        if utt not in hyps:
+            continue
+
+        utts.append(utt)
+        hyp_list.append(hyps[utt])
+        ref_list.append(r)
+
+    details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
+    wer = wer_summary(details)
+
+    # {utt -> wer alignments}
+    wer_align = {}
+    for d in details:
+        wer_align[d['key']] = d['alignment']
+
+    return wer, predict_scores(utts, details), wer_align
+
+
+def get_result_str(wer_align: List, hyp: List[str], ref: List[str], pred: List[float], label: List[float]) -> str:
+    pred = [str(int(score)) for score in pred]
     label = [str(int(score)) for score in label]
 
     n = len(wer_align)
-    lines = ['' for _ in range(3)]
+    lines = ['' for _ in range(4)]
     indices = [0 for _ in range(3)]
     for i in range(n):
         err = wer_align[i][0]
         if err == 'S' or err == '=':
             lines[0] += '\t' + hyp[indices[0]]
             lines[1] += '\t' + ref[indices[1]]
-            lines[2] += '\t' + label[indices[2]]
+            lines[2] += '\t' + pred[indices[2]]
+            lines[3] += '\t' + label[indices[2]]
             indices[0] += 1
             indices[1] += 1
             indices[2] += 1
@@ -60,11 +88,13 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[
             lines[0] += '\t' + hyp[indices[0]]
             lines[1] += '\t '
             lines[2] += '\t '
+            lines[3] += '\t '
             indices[0] += 1
         elif err == 'D':
             lines[0] += '\t '
             lines[1] += '\t' + ref[indices[1]]
-            lines[2] += '\t' + label[indices[2]]
+            lines[2] += '\t' + pred[indices[2]]
+            lines[3] += '\t' + label[indices[2]]
             indices[1] += 1
             indices[2] += 1
         else:
@@ -72,44 +102,14 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[
 
     return f'pred_phones:\t{lines[0]}\n' \
            f'true_phones:\t{lines[1]}\n' \
-           f'true_scores:\t{lines[2]}\n'
-
-
-def fix_score_lengths(wer_align: List, pred: List[int], label: List[int]) -> (List[int], List[int]):
-    """
-    Make the lengths of predicted scores and true scores the same, by removing the inserted elements from either of the
-    sequence according to the WER alignment
-    """
-    n = len(wer_align)
-    ret_pred = []
-    ret_label = []
-    pred_idx = 0
-    label_idx = 0
-    for i in range(n):
-        err = wer_align[i][0]
-        if err == 'S' or err == '=':
-            ret_pred.append(pred[pred_idx])
-            ret_label.append(label[label_idx])
-            pred_idx += 1
-            label_idx += 1
-        elif err == 'I':  # pred has an insertion, ignore it
-            pred_idx += 1
-        elif err == 'D':  # label has an insertion, ignore it
-            label_idx += 1
-        else:
-            assert False
-
-    return ret_pred, ret_label
+           f'pred_scores:\t{lines[2]}\n' \
+           f'true_scores:\t{lines[3]}\n'
 
 
 def eval_scoring(pred: np.ndarray, true: np.ndarray) -> (float, float):
     pcc, _ = pearsonr(pred, true)
     mse = mean_squared_error(pred, true)
     return pcc, mse
-
-
-def scores_from_sphones(sphones: List[str]) -> List[int]:
-    return [int(sp[-1]) for sp in sphones]
 
 
 def main():
@@ -120,26 +120,21 @@ def main():
 
     hyps = load_utt2phones(args.hyp)
     refs = load_utt2phones(args.ref)
-    wer_align = get_wer_alignment(hyps, refs)
+    wer, preds, wer_align = get_scores(hyps, refs)
 
+    logger.info(wer)
+
+    labels = load_utt2seq(args.utt2scores, lambda x: round(float(x)))
+    f = open(f'{args.output_dir}/alignment.txt', 'w')
     hyp_scores = []
     true_scores = []
-    f = open(f'{args.output_dir}/alignment.txt', 'w')
-    for utt, s in hyps.items():
-        # FIXME: the phone part of score-phones of pred and label can differ, need to check them
-        pred = scores_from_sphones(s)
-        if utt in refs:
-            label = scores_from_sphones(refs[utt])
-            alignment = wer_align[utt]
-
-            pred, label = fix_score_lengths(alignment, pred, label)
-
-            # FIXME:
-            #   f.write(f'utt: {utt}\n')
-            #   f.write(get_result_str(alignment, hyps[utt], refs[utt], label))
-
-            hyp_scores += pred
-            true_scores += label
+    for utt, s in preds.items():
+        hyp_scores += s
+        if utt in labels:
+            true_scores += labels[utt]
+            error_type = wer_align[utt]
+            f.write(f'utt: {utt}\n')
+            f.write(get_result_str(error_type, hyps[utt], refs[utt], preds[utt], labels[utt]))
         else:
             print(f'WARNING: Cannot find annotated score for {utt}')
 
