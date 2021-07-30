@@ -957,8 +957,8 @@ if [ ${stage} -ge 20 ]; then
     _data="${data_feats}/${dset}"
     _dir="${asr_exp}/${inference_tag}/${dset}"
 
-    ${python} ase/ase_score.py --hyp="${_dir}/token" --ref=data/so762/text \
-      --scores=data/so762/utt2scores --output-dir=${_dir}
+    ${python} ase/ase_score.py --hyp="${_dir}/token" --ref=data/${dset}/text \
+      --utt2scores=data/${dset}/utt2scores --output-dir=${_dir}
     echo "Alignment results saved to ${_dir}/alignment.txt"
   done
 fi
