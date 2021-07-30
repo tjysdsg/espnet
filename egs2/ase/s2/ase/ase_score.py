@@ -4,8 +4,7 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import load_utt2phones, create_logger
-from speechocean762 import load_human_scores, load_so762_ref
+from utils import load_utt2phones, create_logger, load_utt2seq
 from metrics import predict_scores, wer_details_for_batch, wer_summary
 from typing import Dict, List
 import numpy as np
@@ -16,9 +15,9 @@ from sklearn.metrics import mean_squared_error
 def get_args():
     parser = argparse.ArgumentParser(
         description='Calculate ASE correlation between predicted scores and annotated scores')
-    parser.add_argument('hyp', metavar='HYP', type=str, help='Hypothesis file')
-    parser.add_argument('ref', metavar='REF', type=str, help='Reference file')
-    parser.add_argument('--scores', type=str, default=None, help='Path to scores.json')
+    parser.add_argument('--hyp', type=str, help='Hypothesis file')
+    parser.add_argument('--ref', type=str, help='Reference file')
+    parser.add_argument('--utt2scores', type=str, help='utt2scores')
     parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
     args = parser.parse_args()
     return args
@@ -120,12 +119,12 @@ def main():
     logger = create_logger('ase_score', f'{args.output_dir}/ase_score.log')
 
     hyps = load_utt2phones(args.hyp)
-    refs = load_so762_ref(args.ref)
+    refs = load_utt2phones(args.ref)
     wer, preds, wer_align = get_scores(hyps, refs)
 
     logger.info(wer)
 
-    labels, _ = load_human_scores(args.scores)
+    labels = load_utt2seq(args.utt2scores, lambda x: round(float(x)))
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     hyp_scores = []
     true_scores = []
@@ -141,7 +140,7 @@ def main():
 
     f.close()
 
-    pcc, mse = eval_scoring(hyp_scores, true_scores)
+    pcc, mse = eval_scoring(np.asarray(hyp_scores), np.asarray(true_scores))
     logger.info(f'Pearson Correlation Coefficient: {pcc:.4f}')
     logger.info(f'MSE: {mse:.4f}')
 
