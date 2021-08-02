@@ -73,30 +73,10 @@ def get_args():
     parser.add_argument('-n', type=int, default=0, help='Number of neighboring phones to include on each side')
     parser.add_argument('--use-probs', action='store_true', help='Whether HYP contains tokens or probability matrices')
     parser.add_argument('--exclude-1s', action='store_true', help='Exclude score-1 samples from training and testing')
-    parser.add_argument('--plot-probs', action='store_true', help='Plot prob matrices')
     parser.add_argument('--use-mlp', action='store_true', help='Use neural network model')
     parser.add_argument('--per-phone-clf', action='store_true', help='Use a model per phone')
     args = parser.parse_args()
     return args
-
-
-def plot_probmat(prob: np.ndarray, labels: List[str], phones: List[str], output_path: str):
-    from matplotlib import pyplot as plt
-
-    prob = np.clip(np.log(prob), -10, 0)
-
-    fig, ax = plt.subplots()
-    ax.set_xticks(np.arange(len(phones)))
-    ax.set_yticks(np.arange(len(labels)))
-    ax.set_xticklabels(phones)
-    ax.set_yticklabels(labels)
-    plt.setp(ax.get_xticklabels(), rotation='vertical')
-    ax.margins(0.2)
-
-    im = ax.imshow(prob)
-    fig.colorbar(im)
-    plt.savefig(os.path.join(output_path))
-    plt.close('all')
 
 
 def plot_decision_tree(mdl, output_path: str):
@@ -229,7 +209,7 @@ def get_utt_samples(preds: List[Phone], labels: List[Phone], scores: List[int], 
 
 def load_data(
         hyp_path: str, ref_path: str, scores_path: str, use_probs: bool,
-        int2ph: Dict[int, str] = None, plot_probs=False
+        int2ph: Dict[int, str] = None
 ) -> List[Sample]:
     hyps, refs, scores, alignment = load_hyp_ref_score_alignment(hyp_path, ref_path, scores_path, use_probs, int2ph)
 
@@ -242,13 +222,6 @@ def load_data(
         preds = hyps[utt]
         labels = refs[utt]
         ret += get_utt_samples(preds, labels, scores[utt], alignment[utt])
-
-        if use_probs and plot_probs:
-            output_dir = os.path.join(os.path.dirname(hyp_path), 'prob_plots')
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f'{utt}.png')
-            phones = [int2ph[i] for i in sorted(list(int2ph.keys()))]
-            plot_probmat(np.asarray([pr.probs for pr in preds]), [lab.name for lab in labels], phones, output_path)
 
     return ret
 
@@ -375,7 +348,6 @@ def main():
     ph2int, int2ph = load_phone_symbol_table(args.phone_table)
     data = load_data(
         args.hyp, args.ref, args.scores, args.use_probs, int2ph=int2ph,
-        plot_probs=args.plot_probs
     )
 
     # remove duplicates from data
