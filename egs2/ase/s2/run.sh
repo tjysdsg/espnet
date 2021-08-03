@@ -5,9 +5,9 @@ set -e
 set -u
 set -o pipefail
 
-train_set="so762_train"
-val_set="so762_test"
-test_sets="so762_test"
+train_set="l2arctic_train"
+val_set="l2arctic_val"
+test_sets="l2arctic_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml

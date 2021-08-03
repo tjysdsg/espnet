@@ -7,17 +7,7 @@ import string
 import textgrid
 import re
 import argparse
-
-parser = argparse.ArgumentParser(description="Prepare L2 data")
-parser.add_argument("--l2-path", help="l2-Arctic path")
-parser.add_argument("--output-dir", help="l2-Arctic path")
-
-args = parser.parse_args()
-
-path = args.l2_path + "/*/annotation/*.TextGrid"
-train_spk = ["EBVS", "ERMS", "HQTV", "PNV", "ASI", "RRBI", "BWC", "LXC", "HJK", "HKK", "ABA", "SKA"]
-dev_spk = ["MBMPS", "THV", "SVBI", "NCC", "YDCK", "YBAA"]
-test_spk = ["NJS", "TLV", "TNI", "TXHC", "YKWK", "ZHAA"]
+import shutil
 
 EMPTY_PHONES = [
     '<blank>',
@@ -27,14 +17,12 @@ EMPTY_PHONES = [
     '<sos/eos>',
 ]
 
-wav_lst = glob.glob(path)
-output_dir = args.output_dir
-os.makedirs(output_dir, exist_ok=True)
-wrd_text = open(os.path.join(output_dir, "words"), 'w')
-wavscp = open(os.path.join(output_dir, "wav.scp"), 'w')
-ppl = open(os.path.join(output_dir, "ppl"), 'w')  # perceived phones
-cpl = open(os.path.join(output_dir, "cpl"), 'w')  # correct phones
-utt2spk = open(os.path.join(output_dir, "utt2spk"), 'w')
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Prepare L2 data")
+    parser.add_argument("--l2-path", help="l2-Arctic path")
+    parser.add_argument("--output-dir", help="l2-Arctic path")
+    return parser.parse_args()
 
 
 def del_repeat_sil(phn_lst):
@@ -76,7 +64,13 @@ def phone_to_score_phone(phone: str) -> str:
     return f'{phone}2'
 
 
-def main():
+def clean_data(wav_lst: list, output_dir: str):
+    wrd_text = open(os.path.join(output_dir, "words"), 'a')
+    wavscp = open(os.path.join(output_dir, "wav.scp"), 'a')
+    ppl = open(os.path.join(output_dir, "text"), 'a')  # perceived phones
+    cpl = open(os.path.join(output_dir, "cpl.txt"), 'a')  # correct phones
+    utt2spk = open(os.path.join(output_dir, "utt2spk"), 'a')
+
     for phn_path in wav_lst:
         # PPL path
         phn_path = phn_path.replace('\\', '/')
@@ -146,6 +140,35 @@ def main():
     ppl.close()
     cpl.close()
     utt2spk.close()
+
+
+def clean_data_for_spk(speakers: list, l2_path: str, output_dir: str):
+    for spk in speakers:
+        path = l2_path + f"/{spk}/annotation/*.TextGrid"
+        wav_list = glob.glob(path)
+        clean_data(wav_list, output_dir)
+
+
+def main():
+    args = get_args()
+    train_spk = ["EBVS", "ERMS", "HQTV", "PNV", "ASI", "RRBI", "BWC", "LXC", "HJK", "HKK", "ABA", "SKA"]
+    val_spk = ["MBMPS", "THV", "SVBI", "NCC", "YDCK", "YBAA"]
+    test_spk = ["NJS", "TLV", "TNI", "TXHC", "YKWK", "ZHAA"]
+
+    output_dir = os.path.join(args.output_dir, 'l2arctic_train')
+    shutil.rmtree(output_dir, ignore_errors=True)  # remove previous data dir, since the files will be appended
+    os.makedirs(output_dir)
+    clean_data_for_spk(train_spk, args.l2_path, output_dir)
+
+    output_dir = os.path.join(args.output_dir, 'l2arctic_test')
+    shutil.rmtree(output_dir, ignore_errors=True)  # remove previous data dir, since the files will be appended
+    os.makedirs(output_dir)
+    clean_data_for_spk(test_spk, args.l2_path, output_dir)
+
+    output_dir = os.path.join(args.output_dir, 'l2arctic_val')
+    shutil.rmtree(output_dir, ignore_errors=True)  # remove previous data dir, since the files will be appended
+    os.makedirs(output_dir)
+    clean_data_for_spk(val_spk, args.l2_path, output_dir)
 
 
 if __name__ == '__main__':

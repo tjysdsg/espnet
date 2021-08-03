@@ -33,10 +33,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   mkdir -p data/local/l2arctic
   mkdir -p data/l2arctic
 
-  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --output-dir=data/local/l2arctic
-
-  cp data/local/l2arctic/ppl data/l2arctic/text
-  cp data/local/l2arctic/{wav.scp,utt2spk} data/l2arctic/
+  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --output-dir=data
 fi
 
 utils/fix_data_dir.sh data/l2arctic || exit 1;
