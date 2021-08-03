@@ -12,11 +12,8 @@ log() {
 SECONDS=0
 
 
-stage=0
+stage=1
 stop_stage=100000
-data_url=www.openslr.org/resources/12
-train_set="train_960"
-train_dev="dev"
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -31,48 +28,12 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
-if [ -z "${LIBRISPEECH}" ]; then
-    log "Fill the value of 'LIBRISPEECH' of db.sh"
-    exit 1
-fi
-
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    if [ ! -e "${LIBRISPEECH}/LibriSpeech/LICENSE.TXT" ]; then
-	echo "stage 1: Data Download to ${LIBRISPEECH}"
-	for part in dev-clean test-clean dev-other test-other train-clean-100 train-clean-360 train-other-500; do
-            local/download_and_untar.sh ${LIBRISPEECH} ${data_url} ${part}
-	done
-    else
-        log "stage 1: ${LIBRISPEECH}/LibriSpeech/LICENSE.TXT is already existing. Skip data downloading"
-    fi
+  local/data-librispeech.sh
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    log "stage 2: Data Preparation"
-    for part in dev-clean test-clean dev-other test-other train-clean-100 train-clean-360 train-other-500; do
-        # use underscore-separated names in data directories.
-        local/data_prep.sh ${LIBRISPEECH}/LibriSpeech/${part} data/${part//-/_}
-    done
+  local/data-speechocean762.sh
 fi
 
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    log "stage 3: combine all training and development sets"
-    utils/combine_data.sh --extra_files utt2num_frames data/${train_set} data/train_clean_100 data/train_clean_360 data/train_other_500
-    utils/combine_data.sh --extra_files utt2num_frames data/${train_dev} data/dev_clean data/dev_other
-fi
-
-if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-    # use external data
-    if [ ! -e data/local/other_text/librispeech-lm-norm.txt.gz ]; then
-	log "stage 4: prepare external text data from http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
-        wget https://openslr.magicdatatech.com/resources/11/librispeech-lm-norm.txt.gz -P data/local/other_text/
-    fi
-    if [ ! -e data/local/other_text/text ]; then
-	# provide utterance id to each texts
-	# e.g., librispeech_lng_00003686 A BANK CHECK
-	zcat data/local/other_text/librispeech-lm-norm.txt.gz | \
-	    awk '{ printf("librispeech_lng_%08d %s\n",NR,$0) } ' > data/local/other_text/text
-    fi
-fi
-
-log "Successfully finished. [elapsed=${SECONDS}s]"
+log "Data preparation completed"

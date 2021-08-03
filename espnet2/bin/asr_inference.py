@@ -340,6 +340,11 @@ def inference(
                 if text is not None:
                     ibest_writer["text"][key] = text
 
+                # prob matrix
+                probs = hyp.prob.detach().cpu().numpy().tolist()
+                probs = str(probs).replace('\n', ' ')
+                ibest_writer['probs'][key] = probs
+
 
 def get_parser():
     parser = config_argparse.ArgumentParser(

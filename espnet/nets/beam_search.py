@@ -23,6 +23,7 @@ class Hypothesis(NamedTuple):
     score: Union[float, torch.Tensor] = 0
     scores: Dict[str, Union[float, torch.Tensor]] = dict()
     states: Dict[str, Any] = dict()
+    prob: torch.Tensor = torch.tensor([])
 
     def asdict(self) -> dict:
         """Convert data to JSON-friendly dict."""
@@ -30,6 +31,7 @@ class Hypothesis(NamedTuple):
             yseq=self.yseq.tolist(),
             score=float(self.score),
             scores={k: float(v) for k, v in self.scores.items()},
+            prob=self.prob.detach().cpu().numpy().tolist(),
         )._asdict()
 
 

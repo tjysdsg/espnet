@@ -22,6 +22,7 @@ class BatchHypothesis(NamedTuple):
     length: torch.Tensor = torch.tensor([])  # (batch,)
     scores: Dict[str, torch.Tensor] = dict()  # values: (batch,)
     states: Dict[str, Dict] = dict()
+    prob: List[torch.Tensor] = []  # [tensor(seq_len, n_phones), ]
 
     def __len__(self) -> int:
         """Return a batch size."""
@@ -36,6 +37,7 @@ class BatchBeamSearch(BeamSearch):
         if len(hyps) == 0:
             return BatchHypothesis()
         return BatchHypothesis(
+            prob=[h.prob for h in hyps],
             yseq=pad_sequence(
                 [h.yseq for h in hyps], batch_first=True, padding_value=self.eos
             ),
@@ -46,7 +48,11 @@ class BatchBeamSearch(BeamSearch):
         )
 
     def _batch_select(self, hyps: BatchHypothesis, ids: List[int]) -> BatchHypothesis:
+        if not isinstance(ids, list):
+            ids = ids.detach().cpu().numpy().tolist()
+
         return BatchHypothesis(
+            prob=[hyps.prob[i] for i in ids],
             yseq=hyps.yseq[ids],
             score=hyps.score[ids],
             length=hyps.length[ids],
@@ -59,6 +65,7 @@ class BatchBeamSearch(BeamSearch):
 
     def _select(self, hyps: BatchHypothesis, i: int) -> Hypothesis:
         return Hypothesis(
+            prob=hyps.prob[i],
             yseq=hyps.yseq[i, : hyps.length[i]],
             score=hyps.score[i],
             scores={k: v[i] for k, v in hyps.scores.items()},
@@ -71,6 +78,7 @@ class BatchBeamSearch(BeamSearch):
         """Revert batch to list."""
         return [
             Hypothesis(
+                prob=batch_hyps.prob[i],
                 yseq=batch_hyps.yseq[i][: batch_hyps.length[i]],
                 score=batch_hyps.score[i],
                 scores={k: batch_hyps.scores[k][i] for k in self.scorers},
@@ -123,9 +131,16 @@ class BatchBeamSearch(BeamSearch):
         for k, d in self.scorers.items():
             init_states[k] = d.batch_init_state(x)
             init_scores[k] = 0.0
+
+        # initial prob is <sos/eos>
+        MIN_LOG_PROB = -4E9  # FIXME
+        prob = torch.full((1, self.n_vocab), MIN_LOG_PROB, device=x.device)
+        prob[0, self.sos] = 0
+
         return self.batchfy(
             [
                 Hypothesis(
+                    prob=prob,
                     score=0.0,
                     scores=init_scores,
                     states=init_states,
@@ -255,8 +270,14 @@ class BatchBeamSearch(BeamSearch):
             part_new_token_id,
         ) in zip(*self.batch_beam(weighted_scores, part_ids)):
             prev_hyp = prev_hyps[full_prev_hyp_id]
+
+            # append the current prob to the previous path
+            prob = [prev_hyp.prob, weighted_scores[full_prev_hyp_id].unsqueeze(0)]
+            prob = torch.cat(prob)
+
             best_hyps.append(
                 Hypothesis(
+                    prob=prob,
                     score=weighted_scores[full_prev_hyp_id, full_new_token_id],
                     yseq=self.append_token(prev_hyp.yseq, full_new_token_id),
                     scores=self.merge_scores(
@@ -305,17 +326,16 @@ class BatchBeamSearch(BeamSearch):
 
         """
         n_batch = running_hyps.yseq.shape[0]
-        logging.debug(f"the number of running hypothes: {n_batch}")
+        logging.info(f"the number of running hypothesis: {n_batch}")
         if self.token_list is not None:
-            logging.debug(
-                "best hypo: "
-                + "".join(
-                    [
-                        self.token_list[x]
-                        for x in running_hyps.yseq[0, 1 : running_hyps.length[0]]
-                    ]
+            for i in range(n_batch):
+                logging.info(
+                    f"hypo {i}: "
+                    + " ".join([self.token_list[x] for x in running_hyps.yseq[i, 1: running_hyps.length[0]]])
                 )
-            )
+                # prob = running_hyps.prob[i].detach().cpu().numpy().tolist()
+                # logging.info(f"current prob: {prob}")
+
         # add eos in the final loop to avoid that there are no ended hyps
         if i == maxlen - 1:
             logging.info("adding <eos> in the last position in the loop")
