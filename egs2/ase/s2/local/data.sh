@@ -36,4 +36,8 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   local/data-speechocean762.sh
 fi
 
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+  local/data-l2arctic.sh
+fi
+
 log "Data preparation completed"
