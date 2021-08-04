@@ -22,8 +22,8 @@ from espnet.nets.pytorch_backend.transformer.subsampling import TooShortUttError
 from espnet.nets.scorer_interface import BatchScorerInterface
 from espnet.nets.scorers.ctc import CTCPrefixScorer
 from espnet.nets.scorers.length_bonus import LengthBonus
-from espnet.nets.scorers.ngram import NgramFullScorer
-from espnet.nets.scorers.ngram import NgramPartScorer
+# from espnet.nets.scorers.ngram import NgramFullScorer
+# from espnet.nets.scorers.ngram import NgramPartScorer
 from espnet.utils.cli_utils import get_commandline_args
 from espnet2.fileio.datadir_writer import DatadirWriter
 from espnet2.tasks.asr import ASRTask
