@@ -11,9 +11,9 @@ test_sets="l2arctic_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml
-asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
+# asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
+asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std"
 
-# --asr_args "${asr_args}" \
 ./asr.sh \
   --lang en \
   --ngpu 8 \
@@ -21,6 +21,7 @@ asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed
   --inference_nj 200 \
   --speed_perturb_factors "0.9 1.0 1.1" \
   --asr_config "${asr_config}" \
+  --asr_args "${asr_args}" \
   --inference_config "${inference_config}" \
   --asr_tag "finetune" \
   --use_lm false \
