@@ -8,6 +8,8 @@ import textgrid
 import re
 import argparse
 import shutil
+from typing import List
+from metrics import get_wer_details, predict_scores
 
 EMPTY_PHONES = [
     '<blank>',
@@ -64,9 +66,15 @@ def phone_to_score_phone(phone: str) -> str:
     return f'{phone}2'
 
 
+def get_scores(ppl: List[str], cpl: List[str]) -> List[int]:
+    scores = predict_scores(['0'], get_wer_details({'0': ppl}, {'0': cpl}))
+    return scores['0']
+
+
 def clean_data(wav_lst: list, output_dir: str):
     wrd_text = open(os.path.join(output_dir, "words"), 'a')
     wavscp = open(os.path.join(output_dir, "wav.scp"), 'a')
+    utt2scores = open(os.path.join(output_dir, "utt2scores"), 'a')
     ppl = open(os.path.join(output_dir, "text"), 'a')  # perceived phones
     cpl = open(os.path.join(output_dir, "cpl.txt"), 'a')  # correct phones
     utt2spk = open(os.path.join(output_dir, "utt2spk"), 'a')
@@ -100,8 +108,7 @@ def clean_data(wav_lst: list, output_dir: str):
         tg = textgrid.TextGrid.fromFile(phn_path)
         for i in tg[1]:
             if i.mark == '':
-                cpl_phones.append("SIL")
-                ppl_phones.append("SIL")
+                continue
             else:
                 cpl_ppl_type = i.mark.split(",")  # [CPL] or [CPL, PPL, error_type]
                 if len(cpl_ppl_type) == 1:  # no pronunciation error
@@ -119,24 +126,31 @@ def clean_data(wav_lst: list, output_dir: str):
                 ppl_phones.append(clean_phone(ppl_phn))
                 cpl_phones.append(clean_phone(cpl_phn))
 
-        # remove repeated SIL
-        ppl_phones = del_repeat_sil(ppl_phones)
-        cpl_phones = del_repeat_sil(cpl_phones)
+        # remove empty phones from CPL
+        cpl_phones = [p for p in cpl_phones if p not in EMPTY_PHONES]
 
-        # for PPL, convert to score-phones
+        # get scores
+        scores = get_scores(ppl_phones, cpl_phones)  # NOTE: insertions in PPL are ignored
+
+        # remove repeated SIL and convert to score-phones for PPL
+        ppl_phones = del_repeat_sil(ppl_phones)
         ppl_phones = [phone_to_score_phone(p) for p in ppl_phones]
 
         f = open(text_path, 'r')
         for line in f:
             wrd_text.write(utt_id + " " + line.lower() + "\n")
 
+        assert len(scores) == len(cpl_phones)
+
         wavscp.write(f'{utt_id}\t{wav_path}\n')
+        utt2scores.write(f'{utt_id}\t{" ".join(map(str, scores))}\n')
         ppl.write(f'{utt_id}\t{" ".join(ppl_phones)}\n')
         cpl.write(f'{utt_id}\t{" ".join(cpl_phones)}\n')
         utt2spk.write(f'{utt_id}\t{spk_id}\n')
 
     wrd_text.close()
     wavscp.close()
+    utt2scores.close()
     ppl.close()
     cpl.close()
     utt2spk.close()

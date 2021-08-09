@@ -28,7 +28,7 @@ if [ $# -ne 0 ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  python3 local/l2_arctic.py --l2-path=${L2ARCTIC} --output-dir=data
+  python3 ase/l2_arctic.py --l2-path=${L2ARCTIC} --output-dir=data
   utils/fix_data_dir.sh data/l2arctic_train || exit 1
   utils/fix_data_dir.sh data/l2arctic_test || exit 1
   utils/fix_data_dir.sh data/l2arctic_val || exit 1

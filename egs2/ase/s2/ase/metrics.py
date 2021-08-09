@@ -6,7 +6,7 @@ Authors
 """
 import collections
 import json
-from typing import List
+from typing import List, Dict
 
 EDIT_SYMBOLS = {
     "eq": "=",  # when tokens are equal
@@ -103,7 +103,6 @@ def _batch_stats(refs, hyps):
 
     Example
     -------
-    >>> from speechbrain.utils.edit_distance import _batch_stats
     >>> batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
     >>> refs, hyps = batch
     >>> print(_batch_stats(refs, hyps))
@@ -736,6 +735,18 @@ def top_wer_spks(details_by_speaker, top_k=10):
         return spks_by_wer[:top_k]
     else:
         return spks_by_wer
+
+
+def get_wer_details(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> List[dict]:
+    ref_list = []
+    hyp_list = []
+    utts = []
+    for utt, h in hyps.items():
+        utts.append(utt)
+        hyp_list.append(h)
+        ref_list.append(refs[utt])
+
+    return wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
 
 
 def predict_scores(utts: List[str], wer_details: List[dict]) -> dict:
