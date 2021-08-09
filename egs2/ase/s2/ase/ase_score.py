@@ -10,6 +10,13 @@ from typing import Dict, List
 import numpy as np
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
+from dataclasses import dataclass
+
+
+@dataclass
+class ScorePhone:
+    phone: str
+    score: int
 
 
 def get_args():
@@ -17,7 +24,7 @@ def get_args():
         description='Calculate ASE correlation between predicted scores and annotated scores')
     parser.add_argument('--hyp', type=str, help='Hypothesis file')
     parser.add_argument('--ref', type=str, help='Reference file')
-    parser.add_argument('--output-dir', type=str, default='tmp', help='Where to save the results')
+    parser.add_argument('--output-dir', type=str, help='Where to save the results')
     args = parser.parse_args()
     return args
 
@@ -75,11 +82,7 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[
            f'true_scores:\t{lines[2]}\n'
 
 
-def fix_score_lengths(wer_align: List, pred: List[int], label: List[int]) -> (List[int], List[int]):
-    """
-    Make the lengths of predicted scores and true scores the same, by removing the inserted elements from either of the
-    sequence according to the WER alignment
-    """
+def get_pred_label(wer_align: List, pred: List[ScorePhone], label: List[ScorePhone]) -> (List[int], List[int]):
     n = len(wer_align)
     ret_pred = []
     ret_label = []
@@ -87,14 +90,24 @@ def fix_score_lengths(wer_align: List, pred: List[int], label: List[int]) -> (Li
     label_idx = 0
     for i in range(n):
         err = wer_align[i][0]
+
         if err == 'S' or err == '=':
-            ret_pred.append(pred[pred_idx])
-            ret_label.append(label[label_idx])
+            pred_sp = pred[pred_idx]
+            true_sp = label[label_idx]
+
+            if pred_sp.phone != true_sp.phone:
+                ret_pred.append(0)
+            else:
+                ret_pred.append(pred_sp.score)
+
+            ret_label.append(true_sp.score)
             pred_idx += 1
             label_idx += 1
         elif err == 'I':  # pred has an insertion, ignore it
             pred_idx += 1
-        elif err == 'D':  # label has an insertion, ignore it
+        elif err == 'D':  # label has an insertion, pred score is 0
+            ret_pred.append(0)
+            ret_label.append(label[label_idx].score)
             label_idx += 1
         else:
             assert False
@@ -108,8 +121,8 @@ def eval_scoring(pred: np.ndarray, true: np.ndarray) -> (float, float):
     return pcc, mse
 
 
-def scores_from_sphones(sphones: List[str]) -> List[int]:
-    return [int(sp[-1]) for sp in sphones]
+def get_score_phones(phones: List[str]) -> List[ScorePhone]:
+    return [ScorePhone(phone=sp[:-1], score=int(sp[-1])) for sp in phones]
 
 
 def main():
@@ -126,13 +139,12 @@ def main():
     true_scores = []
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     for utt, s in hyps.items():
-        # FIXME: the phone part of score-phones of pred and label can differ, need to check them
-        pred = scores_from_sphones(s)
+        pred = get_score_phones(s)
         if utt in refs:
-            label = scores_from_sphones(refs[utt])
+            label = get_score_phones(refs[utt])
             alignment = wer_align[utt]
 
-            pred, label = fix_score_lengths(alignment, pred, label)
+            pred, label = get_pred_label(alignment, pred, label)
 
             # FIXME:
             #   f.write(f'utt: {utt}\n')
