@@ -4,8 +4,8 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import load_utt2phones, create_logger
-from metrics import wer_details_for_batch
+from utils import load_utt2phones, load_utt2seq, create_logger
+from metrics import get_wer_details
 from typing import Dict, List
 import numpy as np
 from scipy.stats import pearsonr
@@ -20,25 +20,17 @@ class ScorePhone:
 
 
 def get_args():
-    parser = argparse.ArgumentParser(
-        description='Calculate ASE correlation between predicted scores and annotated scores')
-    parser.add_argument('--hyp', type=str, help='Hypothesis file')
-    parser.add_argument('--ref', type=str, help='Reference file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--hyp', type=str)
+    parser.add_argument('--cpl', type=str)
+    parser.add_argument('--utt2scores', type=str)
     parser.add_argument('--output-dir', type=str, help='Where to save the results')
     args = parser.parse_args()
     return args
 
 
 def get_wer_alignment(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) -> Dict:
-    ref_list = []
-    hyp_list = []
-    utts = []
-    for utt, h in hyps.items():
-        utts.append(utt)
-        hyp_list.append(h)
-        ref_list.append(refs[utt])
-
-    details = wer_details_for_batch(utts, ref_list, hyp_list, compute_alignments=True)
+    details = get_wer_details(hyps, refs)
 
     # {utt -> wer alignments}
     wer_align = {}
@@ -132,19 +124,24 @@ def main():
     logger = create_logger('ase_score', f'{args.output_dir}/ase_score.log')
 
     hyps = load_utt2phones(args.hyp)
-    refs = load_utt2phones(args.ref)
-    wer_align = get_wer_alignment(hyps, refs)
+    cpls = load_utt2phones(args.cpl)
+    utt2scores = load_utt2seq(args.cpl, formatter=int)
+    wer_align = get_wer_alignment(hyps, cpls)
 
     hyp_scores = []
     true_scores = []
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     for utt, s in hyps.items():
         pred = get_score_phones(s)
-        if utt in refs:
-            label = get_score_phones(refs[utt])
+
+        if utt in cpls:
             alignment = wer_align[utt]
 
-            pred, label = get_pred_label(alignment, pred, label)
+            utt_scores = utt2scores[utt]
+            assert len(utt_scores) == len(cpls[utt])
+            cpl = [ScorePhone(phone=p, score=utt_scores[i]) for i, p in enumerate(cpls[utt])]
+
+            pred, label = get_pred_label(alignment, pred, cpl)
 
             # FIXME:
             #   f.write(f'utt: {utt}\n')
