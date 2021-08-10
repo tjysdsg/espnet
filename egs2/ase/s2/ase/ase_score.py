@@ -145,9 +145,8 @@ def main():
 
             pred, label = get_pred_label(alignment, pred, cpl)
 
-            # FIXME:
-            #   f.write(f'utt: {utt}\n')
-            #   f.write(get_result_str(alignment, hyps[utt], refs[utt], label))
+            f.write(f'\nutt: {utt}\n')
+            f.write(get_result_str(alignment, hyps[utt], cpls[utt], label))
 
             hyp_scores += pred
             true_scores += label
