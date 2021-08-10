@@ -125,8 +125,10 @@ def main():
 
     hyps = load_utt2phones(args.hyp)
     cpls = load_utt2phones(args.cpl)
-    utt2scores = load_utt2seq(args.cpl, formatter=int)
-    wer_align = get_wer_alignment(hyps, cpls)
+    utt2scores = load_utt2seq(args.utt2scores, formatter=int)
+
+    hyps_phones = {k: [p[:-1] for p in v] for k, v in hyps.items()}  # phones without scores attached
+    wer_align = get_wer_alignment(hyps_phones, cpls)
 
     hyp_scores = []
     true_scores = []
