@@ -11,8 +11,7 @@ test_sets="l2arctic_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml
-# asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
-asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std"
+asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
 
 ./asr.sh \
   --lang en \
