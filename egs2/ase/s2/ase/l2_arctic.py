@@ -165,8 +165,8 @@ def clean_data_for_spk(speakers: list, l2_path: str, output_dir: str):
 
 def main():
     args = get_args()
-    train_spk = ["EBVS", "ERMS", "HQTV", "PNV", "ASI", "RRBI", "BWC", "LXC", "HJK", "HKK", "ABA", "SKA"]
-    val_spk = ["MBMPS", "THV", "SVBI", "NCC", "YDCK", "YBAA"]
+    train_spk = ["EBVS", "ERMS", "HQTV", "PNV", "ASI", "RRBI", "BWC", "LXC", "HJK", "HKK", "ABA", "SKA", "MBMPS", "THV",
+                 "SVBI", "NCC", "YDCK", "YBAA"]
     test_spk = ["NJS", "TLV", "TNI", "TXHC", "YKWK", "ZHAA"]
 
     output_dir = os.path.join(args.output_dir, 'l2arctic_train')
@@ -178,11 +178,6 @@ def main():
     shutil.rmtree(output_dir, ignore_errors=True)  # remove previous data dir, since the files will be appended
     os.makedirs(output_dir)
     clean_data_for_spk(test_spk, args.l2_path, output_dir)
-
-    output_dir = os.path.join(args.output_dir, 'l2arctic_val')
-    shutil.rmtree(output_dir, ignore_errors=True)  # remove previous data dir, since the files will be appended
-    os.makedirs(output_dir)
-    clean_data_for_spk(val_spk, args.l2_path, output_dir)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ set -u
 set -o pipefail
 
 train_set="l2arctic_train"
-val_set="l2arctic_val"
+val_set="l2arctic_test"
 test_sets="l2arctic_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
