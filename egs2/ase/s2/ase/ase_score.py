@@ -117,10 +117,10 @@ def find_most_incorrect_phones(phone_pairs: List[Tuple[str, str]]):
     phone_pairs = [pair for pair in phone_pairs if pair[0] != pair[1]]
 
     # remove whose CPL is 0-scored
-    phone_pairs = [pair for pair in phone_pairs if '0' in pair[1]]
+    phone_pairs = [pair for pair in phone_pairs if '0' not in pair[1]]
 
     counts = collections.Counter(phone_pairs)
-    print(counts.most_common(10))
+    print(counts.most_common(20))
 
 
 def get_score_phones(phones: List[str]) -> List[ScorePhone]:
