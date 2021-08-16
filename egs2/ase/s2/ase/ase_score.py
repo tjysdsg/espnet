@@ -44,34 +44,27 @@ def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[
     label = [str(int(score)) for score in label]
 
     n = len(wer_align)
-    lines = ['' for _ in range(3)]
-    indices = [0 for _ in range(3)]
+    lines = ['' for _ in range(2)]
+    indices = [0 for _ in range(2)]
     for i in range(n):
         err = wer_align[i][0]
         if err == 'S' or err == '=':
             lines[0] += '\t' + hyp[indices[0]]
-            lines[1] += '\t' + ref[indices[1]]
-            lines[2] += '\t' + label[indices[2]]
+            lines[1] += '\t' + ref[indices[1]] + label[indices[1]]
             indices[0] += 1
             indices[1] += 1
-            indices[2] += 1
         elif err == 'I':
             lines[0] += '\t' + hyp[indices[0]]
             lines[1] += '\t '
-            lines[2] += '\t '
             indices[0] += 1
         elif err == 'D':
             lines[0] += '\t '
-            lines[1] += '\t' + ref[indices[1]]
-            lines[2] += '\t' + label[indices[2]]
+            lines[1] += '\t' + ref[indices[1]] + label[indices[1]]
             indices[1] += 1
-            indices[2] += 1
         else:
             assert False
 
-    return f'pred_phones:\t{lines[0]}\n' \
-           f'true_phones:\t{lines[1]}\n' \
-           f'true_scores:\t{lines[2]}\n'
+    return f'pred_phones:\t{lines[0]}\ntrue_phones:\t{lines[1]}\n'
 
 
 def get_pred_label(wer_align: List, pred: List[ScorePhone], label: List[ScorePhone]) -> (List[int], List[int]):
