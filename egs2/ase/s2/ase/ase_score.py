@@ -4,13 +4,14 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 """
 import argparse
 import os
-from utils import load_utt2phones, load_utt2seq, create_logger
+from utils import load_utt2phones, load_utt2seq
 from metrics import get_wer_details
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 from scipy.stats import pearsonr
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score
 from dataclasses import dataclass
+import collections
 
 
 @dataclass
@@ -40,31 +41,32 @@ def get_wer_alignment(hyps: Dict[str, List[str]], refs: Dict[str, List[str]]) ->
     return wer_align
 
 
-def get_result_str(wer_align: List, hyp: List[str], ref: List[str], label: List[float]) -> str:
+def get_phone_pairs(wer_align: List, hyp: List[str], ref: List[str], label: List[float]) -> (List[str], List[str]):
     label = [str(int(score)) for score in label]
 
     n = len(wer_align)
-    lines = ['' for _ in range(2)]
+    preds = []
+    labels = []
     indices = [0 for _ in range(2)]
     for i in range(n):
         err = wer_align[i][0]
         if err == 'S' or err == '=':
-            lines[0] += '\t' + hyp[indices[0]]
-            lines[1] += '\t' + ref[indices[1]] + label[indices[1]]
+            preds.append(hyp[indices[0]])
+            labels.append(ref[indices[1]] + label[indices[1]])
             indices[0] += 1
             indices[1] += 1
         elif err == 'I':
-            lines[0] += '\t' + hyp[indices[0]]
-            lines[1] += '\t '
+            preds.append(hyp[indices[0]])
+            labels.append(' ')
             indices[0] += 1
         elif err == 'D':
-            lines[0] += '\t '
-            lines[1] += '\t' + ref[indices[1]] + label[indices[1]]
+            preds.append(' ')
+            labels.append(ref[indices[1]] + label[indices[1]])
             indices[1] += 1
         else:
             assert False
 
-    return f'pred_phones:\t{lines[0]}\ntrue_phones:\t{lines[1]}\n'
+    return preds, labels
 
 
 def get_pred_label(wer_align: List, pred: List[ScorePhone], label: List[ScorePhone]) -> (List[int], List[int]):
@@ -103,7 +105,22 @@ def get_pred_label(wer_align: List, pred: List[ScorePhone], label: List[ScorePho
 def eval_scoring(pred: np.ndarray, true: np.ndarray) -> (float, float):
     pcc, _ = pearsonr(pred, true)
     mse = mean_squared_error(pred, true)
-    return pcc, mse
+    print(f'Pearson Correlation Coefficient: {pcc:.4f}')
+    print(f'MSE: {mse:.4f}')
+
+    print(f'Acc: {accuracy_score(true, pred)}')
+    print(f'Confusion:\n{confusion_matrix(true, pred)}')
+
+
+def find_most_incorrect_phones(phone_pairs: List[Tuple[str, str]]):
+    # remove correct phone pairs
+    phone_pairs = [pair for pair in phone_pairs if pair[0] != pair[1]]
+
+    # remove whose CPL is 0-scored
+    phone_pairs = [pair for pair in phone_pairs if '0' in pair[1]]
+
+    counts = collections.Counter(phone_pairs)
+    print(counts.most_common(10))
 
 
 def get_score_phones(phones: List[str]) -> List[ScorePhone]:
@@ -114,8 +131,6 @@ def main():
     args = get_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
-    logger = create_logger('ase_score', f'{args.output_dir}/ase_score.log')
-
     hyps = load_utt2phones(args.hyp)
     cpls = load_utt2phones(args.cpl)
     utt2scores = load_utt2seq(args.utt2scores, formatter=int)
@@ -125,6 +140,7 @@ def main():
 
     hyp_scores = []
     true_scores = []
+    phone_pairs = []
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     for utt, s in hyps.items():
         pred = get_score_phones(s)
@@ -138,8 +154,16 @@ def main():
 
             pred, label = get_pred_label(alignment, pred, cpl)
 
-            f.write(f'\nutt: {utt}\n')
-            f.write(get_result_str(alignment, hyps[utt], cpls[utt], label))
+            hyp_phones, ref_phones = get_phone_pairs(alignment, hyps[utt], cpls[utt], label)
+            n = len(hyp_phones)
+            assert n == len(ref_phones)
+
+            # write to alignment.txt
+            f.write(f'utt: {utt}\n')
+            f.write('\t'.join(hyp_phones) + '\n')
+            f.write('\t'.join(ref_phones) + '\n\n')
+
+            phone_pairs += list(zip(hyp_phones, ref_phones))
 
             hyp_scores += pred
             true_scores += label
@@ -148,9 +172,8 @@ def main():
 
     f.close()
 
-    pcc, mse = eval_scoring(np.asarray(hyp_scores), np.asarray(true_scores))
-    logger.info(f'Pearson Correlation Coefficient: {pcc:.4f}')
-    logger.info(f'MSE: {mse:.4f}')
+    eval_scoring(np.asarray(hyp_scores), np.asarray(true_scores))
+    find_most_incorrect_phones(phone_pairs)
 
 
 if __name__ == '__main__':
