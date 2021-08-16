@@ -112,14 +112,19 @@ def eval_scoring(pred: np.ndarray, true: np.ndarray) -> (float, float):
     print(f'Confusion:\n{confusion_matrix(true, pred)}')
 
 
-def find_most_incorrect_phones(phone_pairs: List[Tuple[str, str]]):
-    # remove correct phone pairs
-    phone_pairs = [pair for pair in phone_pairs if pair[0] != pair[1]]
+def find_most_incorrect_sp_pairs(phone_pairs: List[Tuple[str, str]]):
+    pairs = []  # all incorrect sp pairs
+    for pred, true in phone_pairs:
+        pred_phone = pred[:-1]
+        true_phone = true[:-1]
 
-    # remove whose CPL is 0-scored
-    phone_pairs = [pair for pair in phone_pairs if '0' not in pair[1]]
+        if '0' in true and pred_phone == true_phone:  # e.g. 'IH1' 'IH0'
+            pairs.append((pred, true))
 
-    counts = collections.Counter(phone_pairs)
+        if '0' not in true and pred != true:  # e.g. 'IY2' 'IY1'
+            pairs.append((pred, true))
+
+    counts = collections.Counter(pairs)
     print(counts.most_common(20))
 
 
@@ -140,7 +145,7 @@ def main():
 
     hyp_scores = []
     true_scores = []
-    phone_pairs = []
+    sp_pairs = []
     f = open(f'{args.output_dir}/alignment.txt', 'w')
     for utt, s in hyps.items():
         pred = get_score_phones(s)
@@ -163,7 +168,7 @@ def main():
             f.write('\t'.join(hyp_phones) + '\n')
             f.write('\t'.join(ref_phones) + '\n\n')
 
-            phone_pairs += list(zip(hyp_phones, ref_phones))
+            sp_pairs += list(zip(hyp_phones, ref_phones))
 
             hyp_scores += pred
             true_scores += label
@@ -173,7 +178,7 @@ def main():
     f.close()
 
     eval_scoring(np.asarray(hyp_scores), np.asarray(true_scores))
-    find_most_incorrect_phones(phone_pairs)
+    find_most_incorrect_sp_pairs(sp_pairs)
 
 
 if __name__ == '__main__':
