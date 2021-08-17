@@ -5,7 +5,7 @@ https://github.com/kaldi-asr/kaldi/blob/master/egs/gop_speechocean762/s5/local/u
 import argparse
 import os
 from utils import remove_empty_phones, create_logger
-from metrics import predict_scores, wer_details_for_batch, wer_summary
+from metrics import wer_details_for_batch, wer_summary
 from typing import Dict, List
 
 
