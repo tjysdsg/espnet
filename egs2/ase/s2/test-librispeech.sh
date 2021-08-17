@@ -22,6 +22,7 @@ inference_config=conf/decode_asr.yaml
   --speed_perturb_factors "0.9 1.0 1.1" \
   --asr_config "${asr_config}" \
   --inference_config "${inference_config}" \
+  --asr_tag "finetune" \
   --use_lm false \
   --token_type "word" \
   --train_set "${train_set}" \
