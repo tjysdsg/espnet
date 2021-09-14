@@ -37,7 +37,6 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   # create text and utt2scores
   tmp=data/so762_tmp
   python3 ase/fix_so762_format.py \
-    --text-phone=local/speechocean762/text-phone \
     --scores=local/speechocean762/scores.json \
     --output-dir=${tmp} || exit 1
   for part in train test; do

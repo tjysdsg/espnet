@@ -55,19 +55,40 @@ def round_score(score, floor=0.1, min_val=0, max_val=2):
     return round(score / floor) * floor
 
 
-def load_human_scores(filename, floor=0.1):
-    with open(filename) as f:
+def load_utt2cpl_ppl_scores(scores_json: str, floor=1):
+    """
+    Note that PPL is <DEL> if there is a deletion error, <UNK>
+    """
+    with open(scores_json) as f:
         info = json.load(f)
-    score_of = {}
-    phone_of = {}
+
+    utt2cpl = {}
+    utt2ppl = {}
+    utt2scores = {}
     for utt in info:
-        phone_of[utt] = []
-        score_of[utt] = []
+        utt2cpl[utt] = []
+        utt2ppl[utt] = []
+        utt2scores[utt] = []
         for word in info[utt]['words']:
             assert len(word['phones']) == len(word['phones-accuracy'])
+
+            ppl = []
             for i, phone in enumerate(word['phones']):
+                # cpl
                 pure_phone = convert_to_pure_phones(phone)
+                utt2cpl[utt].append(pure_phone)
+
+                # use cpl as ppl at first, then overwrite it with mispronunciation
+                ppl.append(pure_phone)
+
+                # score
                 s = round_score(word['phones-accuracy'][i], floor)
-                phone_of[utt].append(pure_phone)
-                score_of[utt].append(s)
-    return score_of, phone_of
+                utt2scores[utt].append(s)
+
+            # ppl
+            for mispron in word.get('mispronunciations', []):
+                idx = mispron['index']
+                ppl[idx] = mispron['pronounced-phone'].upper()
+            utt2ppl[utt] += ppl
+
+    return utt2cpl, utt2ppl, utt2scores
