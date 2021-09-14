@@ -40,6 +40,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     --scores=local/speechocean762/scores.json \
     --output-dir=${tmp} || exit 1
   for part in train test; do
+    cp ${tmp}/cpl.txt data/so762_$part/cpl.txt || exit 1
     cp ${tmp}/text data/so762_$part/text || exit 1
     cp ${tmp}/utt2scores data/so762_$part/utt2scores || exit 1
     utils/fix_data_dir.sh data/so762_$part || exit 1
