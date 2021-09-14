@@ -5,13 +5,15 @@ set -e
 set -u
 set -o pipefail
 
-train_set="l2arctic_train"
-val_set="l2arctic_test"
-test_sets="l2arctic_test"
+train_set="so762_train"
+val_set="so762_test"
+test_sets="so762_test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml
 inference_config=conf/decode_asr.yaml
-asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
+# asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std --freeze_param decoder.decoders encoder specaug frontend"
+asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed,normalize.mean,normalize.std"
+asr_tag="finetune_nofreeze"
 
 ./asr.sh \
   --lang en \
@@ -22,7 +24,7 @@ asr_args="--init_param data/trained.pth:::ctc,decoder.output_layer,decoder.embed
   --asr_config "${asr_config}" \
   --asr_args "${asr_args}" \
   --inference_config "${inference_config}" \
-  --asr_tag "finetune" \
+  --asr_tag $asr_tag \
   --use_lm false \
   --token_type "word" \
   --train_set "${train_set}" \
