@@ -2,6 +2,9 @@
 # "downloads" means the corpus can be downloaded by the recipe automatically
 
 AISHELL=downloads
+AISHELL3=downloads
+AISHELL4=downloads
+ALFFA=downloads
 AN4=downloads
 DIRHA_ENGLISH_PHDEV=
 DIRHA_WSJ=
@@ -18,32 +21,41 @@ CSJDATATOP=
 CSJVER=dvd  ## Set your CSJ format (dvd or usb).
             ## Usage    :
             ## Case DVD : We assume CSJ DVDs are copied in this directory with the names dvd1, dvd2,...,dvd17.
-            ##            Neccesary directory is dvd3 - dvd17.
+            ##            Necessary directory is dvd3 - dvd17.
             ##            e.g. $ ls $CSJDATATOP(DVD) => 00README.txt dvd1 dvd2 ... dvd17
             ##
-            ## Case USB : Neccesary directory is MORPH/SDB and WAV
+            ## Case USB : Necessary directory is MORPH/SDB and WAV
             ##            e.g. $ ls $CSJDATATOP(USB) => 00README.txt DOC MORPH ... WAV fileList.csv
-            ## Case merl :MERL setup. Neccesary directory is WAV and sdb
+            ## Case merl :MERL setup. Necessary directory is WAV and sdb
 CSMSC=downloads
+CSS10=
 HKUST1=
 HKUST2=
 HUI_ACG=downloads
 LABOROTV=
 TEDXJP=
 LIBRISPEECH=
+LIBRILIGHT_LIMITED=
 FSC=
+SLURP=
 MINI_LIBRISPEECH=downloads
+MISP2021=
 LIBRITTS=
 LJSPEECH=downloads
 NSC=
 JMD=downloads
 JSSS=downloads
 JSUT=downloads
+JTUBESPEECH=downloads
 JVS=downloads
 KSS=
+SNIPS= # smart-light-en-closed-field data path
 SPGISPEECH=
 SWBD=
+SWBD_NXT=
+THCHS30=downloads
 TIMIT=$(realpath ../../../../TIMIT)
+TSUKUYOMI=downloads
 VOXFORGE=downloads
 AMI=
 COMMONVOICE=downloads
@@ -73,6 +85,7 @@ BABEL_402=
 BABEL_403=
 BABEL_404=
 PUEBLA_NAHUATL=
+TEDLIUM2=downloads
 TEDLIUM3=downloads
 VCTK=downloads
 VIVOS=downloads
@@ -84,15 +97,30 @@ ZEROTH_KOREAN=downloads
 JAVA=downloads
 RU_OPEN_STT=downloads
 RUSLAN=downloads
+SIWIS=downloads
 GIGASPEECH=
 NOISY_SPEECH=
 NOISY_REVERBERANT_SPEECH=
 LRS2=
 SUNDA=downloads
+CMU_ARCTIC=downloads
+CMU_INDIC=downloads
+INDIC_SPEECH=downloads
+JKAC=
+MUCS_SUBTASK1=downloads
+MUCS_SUBTASK2=downloads
+GAMAYUN=downloads
+IWSLT21LR=downloads/iwslt21
+JDCINAL=downloads
+GRABO=downloads
+WENETSPEECH=
+SPEECHCOMMANDS=downloads
 
 # For only JHU environment
 if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     AISHELL=
+    AISHELL3=downloads
+    ALFFA=downloads
     AN4=
     DIRHA_ENGLISH_PHDEV=
     DIRHA_WSJ=
@@ -109,13 +137,14 @@ if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     CSJVER=usb  ## Set your CSJ format (dvd or usb).
                 ## Usage    :
                 ## Case DVD : We assume CSJ DVDs are copied in this directory with the names dvd1, dvd2,...,dvd17.
-                ##            Neccesary directory is dvd3 - dvd17.
+                ##            Necessary directory is dvd3 - dvd17.
                 ##            e.g. $ ls $CSJDATATOP(DVD) => 00README.txt dvd1 dvd2 ... dvd17
                 ##
-                ## Case USB : Neccesary directory is MORPH/SDB and WAV
+                ## Case USB : Necessary directory is MORPH/SDB and WAV
                 ##            e.g. $ ls $CSJDATATOP(USB) => 00README.txt DOC MORPH ... WAV fileList.csv
-                ## Case merl :MERL setup. Neccesary directory is WAV and sdb
+                ## Case merl :MERL setup. Necessary directory is WAV and sdb
     CSMSC=downloads
+    CSS10=
     HKUST1=
     HKUST2=
     HUI_ACG=downloads
@@ -123,6 +152,8 @@ if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     TEDXJP=
     LIBRISPEECH=
     FSC=
+    SNIPS= # smart-light-en-closed-field data path
+    SLURP=
     MINI_LIBRISPEECH=downloads
     LIBRITTS=
     LJSPEECH=downloads
@@ -131,7 +162,9 @@ if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     JSUT=downloads
     JVS=downloads
     KSS=
+    THCHS30=downloads
     TIMIT=
+    TSUKUYOMI=downloads
     VOXFORGE=
     AMI=/export/corpora4/ami/amicorpus
     COMMONVOICE=downloads
@@ -161,6 +194,7 @@ if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     BABEL_403=/export/babel/data/403-dholuo/IARPA-babel403b-v1.0b-build/BABEL_OP3_403
     BABEL_404=/export/corpora/LDC/LDC2016S12/IARPA_BABEL_OP3_404
     PUEBLA_NAHUATL=
+    TEDLIUM2=downloads
     TEDLIUM3=downloads
     VCTK=downloads
     VIVOS=
@@ -173,6 +207,13 @@ if [[ "$(hostname -d)" == clsp.jhu.edu ]]; then
     JAVA=
     RU_OPEN_STT=downloads
     RUSLAN=downloads
+    SIWIS=downloads
     SUNDA=
-
+    CMU_INDIC=
+    INDIC_SPEECH=
+    JKAC=
+    MUCS_SUBTASK1=downloads
+    MUCS_SUBTASK2=downloads
+    GAMAYUN=downloads
+    IWSLT21LR=downloads/iwslt21
 fi
