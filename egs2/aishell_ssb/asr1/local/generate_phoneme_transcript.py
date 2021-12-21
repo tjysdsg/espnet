@@ -8,15 +8,10 @@ INITIALS = ['b', 'c', 'ch', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q
             'z', 'zh']
 INVALID_TONE = -1
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--out-dir', type=str)
-args = parser.parse_args()
 
-
-def main():
-    os.makedirs(args.out_dir, exist_ok=True)
-
-    of = open(os.path.join(args.out_dir, 'phn_txt'), 'w', encoding='utf-8')
+def generate_phoneme_transcript(out_dir: str):
+    os.makedirs(out_dir, exist_ok=True)
+    of = open(os.path.join(out_dir, 'text'), 'w', encoding='utf-8')
 
     unique_phones = set()
     # generate phoneme transcript
@@ -76,11 +71,7 @@ def main():
     of.close()
 
     # write a list of unique phones
-    of = open(os.path.join(args.out_dir, 'phones.txt'), 'w', encoding='utf-8')
+    of = open(os.path.join(out_dir, 'phones.txt'), 'w', encoding='utf-8')
     unique_phones = sorted(list(unique_phones))
     for p in unique_phones:
         of.write(f'{p}\n')
-
-
-if __name__ == "__main__":
-    main()
