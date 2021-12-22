@@ -1,3 +1,7 @@
+# Data
+
+Train/test/val = 130/40/30 speakers. See `local/*_spk.txt`
+
 # Phoneme generation
 
 Phoneme transcript is generated from `local/aishell-ssb-annotations.txt` using the phones similar
