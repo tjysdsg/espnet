@@ -4,6 +4,7 @@
 
 import argparse
 import os
+from utils import get_spk_from_utt
 
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -44,7 +45,7 @@ def main():
             for line in f:
                 utt, sth = line.strip('\n').split(maxsplit=1)
 
-                spk = utt[:6]
+                spk = get_spk_from_utt(utt)
                 if spk in train_spks:
                     train_of.write(f'{utt}\t{sth}\n')
                 elif spk in test_spks:

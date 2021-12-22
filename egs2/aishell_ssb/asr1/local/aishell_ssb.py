@@ -5,6 +5,7 @@
 from generate_phoneme_transcript import generate_phoneme_transcript
 import argparse
 import os
+from utils import get_spk_from_utt
 
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,13 +24,16 @@ def main():
 
     generate_phoneme_transcript(args.out_dir)  # text
 
+    spks = []
     utt2spk = open(os.path.join(out_dir, 'utt2spk'), 'w')
     wavscp = open(os.path.join(out_dir, 'wav.scp'), 'w')
     with open(os.path.join(FILE_DIR, 'aishell-ssb-annotations.txt'), encoding='utf-8') as f:
         for line in f:
             tokens = line.strip('\n').split()
             utt = tokens[0].split('.')[0]
-            spk = utt[:6]
+            spk = get_spk_from_utt(utt)
+
+            spks.append(spk)
 
             # utt2spk
             utt2spk.write(f'{utt}\t{spk}\n')
@@ -39,6 +43,13 @@ def main():
 
     utt2spk.close()
     wavscp.close()
+
+    # spk.txt
+    spklist = open(os.path.join(out_dir, 'spk.txt'), 'w')
+    spks = sorted(list(set(spks)))
+    for spk in spks:
+        spklist.write(f'{spk}\n')
+    spklist.close()
 
 
 if __name__ == '__main__':

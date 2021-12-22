@@ -1,6 +1,6 @@
 # Data
 
-Train/test/val = 130/40/30 speakers. See `local/*_spk.txt`
+Train/test/val = 1500/300/128 speakers. See `local/*_spk.txt`
 
 # Phoneme generation
 
