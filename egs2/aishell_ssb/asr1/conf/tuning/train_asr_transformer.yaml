@@ -1,17 +1,17 @@
-# This configuration requires 4 GPUs with 32GB memory
 batch_type: numel
-batch_bins: 30000000
-accum_grad: 3
-max_epoch: 60
+batch_bins: 16000000
+accum_grad: 4
+max_epoch: 200
 patience: none
+# The initialization method for model parameters
 init: xavier_uniform
 best_model_criterion:
 -   - valid
     - acc
     - max
-keep_nbest_models: 10
+keep_nbest_models: 1000
 
-encoder: conformer
+encoder: transformer
 encoder_conf:
     output_size: 512
     attention_heads: 8
@@ -19,15 +19,9 @@ encoder_conf:
     num_blocks: 12
     dropout_rate: 0.1
     positional_dropout_rate: 0.1
-    attention_dropout_rate: 0.1
-    input_layer: conv2d6
+    attention_dropout_rate: 0.0
+    input_layer: conv2d
     normalize_before: true
-    macaron_style: false
-    pos_enc_layer_type: "rel_pos"
-    selfattention_layer_type: "rel_selfattn"
-    activation_type: "swish"
-    use_cnn_module:  true
-    cnn_module_kernel: 31
 
 decoder: transformer
 decoder_conf:
@@ -36,8 +30,8 @@ decoder_conf:
     num_blocks: 6
     dropout_rate: 0.1
     positional_dropout_rate: 0.1
-    self_attention_dropout_rate: 0.1
-    src_attention_dropout_rate: 0.1
+    self_attention_dropout_rate: 0.0
+    src_attention_dropout_rate: 0.0
 
 model_conf:
     ctc_weight: 0.3
@@ -46,7 +40,7 @@ model_conf:
 
 optim: adam
 optim_conf:
-    lr: 0.001
+    lr: 0.002
 scheduler: warmuplr
 scheduler_conf:
     warmup_steps: 25000
