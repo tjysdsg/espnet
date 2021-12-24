@@ -9,7 +9,8 @@ train_set="train"
 val_set="test"
 test_sets="test"
 
-asr_config=conf/tuning/train_asr_transformer.yaml
+# asr_config=conf/tuning/train_asr_transformer.yaml
+asr_config=conf/tuning/train_asr_conformer_s3prlfrontend_wav2vec2.yaml
 inference_config=conf/decode_asr.yaml
 
 # --gpu_inference true \
@@ -22,6 +23,7 @@ inference_config=conf/decode_asr.yaml
   --inference_config "${inference_config}" \
   --use_lm false \
   --token_type "word" \
+  --feats_normalize uttmvn \
   --train_set "${train_set}" \
   --valid_set "${val_set}" \
   --test_sets "${test_sets}" \

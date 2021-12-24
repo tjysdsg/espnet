@@ -1,1 +1,1 @@
-AISHELL_SSB=/home/storage20/dinkelheinrich/data/AISHELL3
+AISHELL3=/home/storage20/dinkelheinrich/data/AISHELL3

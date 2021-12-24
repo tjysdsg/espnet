@@ -13,7 +13,7 @@ def generate_phoneme_transcript(data_dir: str, out_dir: str):
     unique_phones = set()
 
     for data_split in ['train', 'test']:
-        split_dir = os.path.join(data_dir, data_split)
+        split_dir = os.path.join(out_dir, data_split)
         os.makedirs(split_dir, exist_ok=True)
         of = open(os.path.join(split_dir, 'text'), 'w', encoding='utf-8')
 
