@@ -6,7 +6,7 @@ set -u
 set -o pipefail
 
 train_set="train"
-val_set="val"
+val_set="test"
 test_sets="test"
 
 asr_config=conf/tuning/train_asr_transformer.yaml

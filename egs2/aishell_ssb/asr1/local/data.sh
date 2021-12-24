@@ -30,15 +30,12 @@ fi
 mkdir -p ${out_dir}
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  python local/aishell_ssb.py --wav-dir=${AISHELL_SSB} --out-dir=${out_dir}/aishell_ssb || exit 1
+  python local/aishell_ssb.py --data-dir=${AISHELL3} --out-dir=${out_dir} || exit 1
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  python local/split_train_test_val.py --in-dir=${out_dir}/aishell_ssb --out-dir=${out_dir} || exit 1
-
   utils/fix_data_dir.sh ${out_dir}/train || exit 1
   utils/fix_data_dir.sh ${out_dir}/test || exit 1
-  utils/fix_data_dir.sh ${out_dir}/val || exit 1
 fi
 
 

@@ -1,1 +1,1 @@
-AISHELL_SSB=/NASdata/AudioData/AISHELL-ASR-SSB/SPEECHDATA/
+AISHELL_SSB=/home/storage20/dinkelheinrich/data/AISHELL3
