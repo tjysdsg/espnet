@@ -21,6 +21,7 @@ inference_config=conf/decode_asr.yaml
   --speed_perturb_factors "0.9 1.0 1.1" \
   --asr_config "${asr_config}" \
   --inference_config "${inference_config}" \
+  --inference_asr_model valid.acc.best.pth \
   --use_lm false \
   --token_type "word" \
   --feats_normalize uttmvn \
