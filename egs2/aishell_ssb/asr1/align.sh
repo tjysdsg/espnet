@@ -16,9 +16,9 @@ val_set="test"
 test_sets="test"
 nj=1
 
-asr_config=conf/tuning/train_asr_conformer_s3prlfrontend_wav2vec2.yaml
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
 out_dir=exp/asr_align_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
+asr_config=${exp_dir}/config.yaml
 
 log "$0 $*"
 . utils/parse_options.sh
