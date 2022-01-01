@@ -34,10 +34,9 @@ fi
 mkdir -p ${out_dir}
 
 ${train_cmd} JOB=1:"${nj}" "${out_dir}"/asr_align.JOB.log \
-  python3 -m espnet2.bin.asr_align \
-  --asr_train_config ${asr_config} \
-  --asr_model_file ${exp_dir}/valid.acc.best.pth \
-  --fs 16000 \
-  --audio exp/SSB00050353.wav \
+  python3 local/batch_align.py \
+  --asr-train-config ${asr_config} \
+  --asr-model-file ${exp_dir}/valid.acc.best.pth \
+  --wavscp exp/wav.scp \
   --text exp/text \
-  --output "${out_dir}/aligned.txt" || exit 1
+  --out-dir ${out_dir} || exit 1
