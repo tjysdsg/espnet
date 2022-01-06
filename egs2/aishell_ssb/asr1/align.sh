@@ -9,11 +9,8 @@ log() {
   echo -e "$(date '+%Y-%m-%dT%H:%M:%S') (${fname}:${BASH_LINENO[0]}:${FUNCNAME[1]}) $*"
 }
 
-stage=1          # Processes starts from the specified stage.
-stop_stage=10000 # Processes is stopped at the specified stage.
-train_set="train"
-val_set="test"
-test_sets="test"
+wav_scp=data/autism/wav.scp
+text=data/autism/text
 nj=1
 
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
@@ -37,6 +34,6 @@ ${train_cmd} JOB=1:"${nj}" "${out_dir}"/asr_align.JOB.log \
   python3 local/batch_align.py \
   --asr-train-config ${asr_config} \
   --asr-model-file ${exp_dir}/valid.acc.best.pth \
-  --wavscp exp/wav.scp \
-  --text exp/text \
+  --wavscp "${wav_scp}" \
+  --text "${text}" \
   --out-dir ${out_dir} || exit 1
