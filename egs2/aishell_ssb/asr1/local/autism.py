@@ -3,8 +3,8 @@ import argparse
 import librosa
 import json
 import soundfile
-
 import numpy as np
+from pinyin import text2pinyin
 
 ROLE = 'K'  # we only need children data
 
@@ -15,6 +15,20 @@ def get_args():
     parser.add_argument('--data-dir', type=str)
     parser.add_argument('--out-dir', type=str)
     return parser.parse_args()
+
+
+def clean_text(text: str):
+    from transcript import clean_transcript
+
+    text = text.upper()
+    text = text.replace('[UNK]', '')
+    text = text.replace('[UNK_]', '')
+    text = text.replace('[LAUGH]', '')
+    text = text.replace('[LAUGH_]', '')
+    text = text.replace('[CRY]', '')
+    text = text.replace('[CRY_]', '')
+    text = clean_transcript(text)
+    return text
 
 
 def main():
@@ -40,7 +54,12 @@ def main():
                 if role != ROLE:
                     continue
 
-                utt2align.setdefault(utt, []).append([start, end, text])
+                # g2p
+                text = clean_text(text)
+                text = ' '.join(text2pinyin(text))
+
+                if len(text) > 0:
+                    utt2align.setdefault(utt, []).append([start, end, text])
 
                 # all_durs.append(end - start)
     json.dump(utt2align, open(os.path.join(out_dir, 'utt2align.json'), 'w'), indent=' ', ensure_ascii=False)
