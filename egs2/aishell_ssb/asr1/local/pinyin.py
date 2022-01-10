@@ -6,6 +6,10 @@ class _Pinyin:
     INITIALS = ['b', 'c', 'ch', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 'sh', 't', 'w', 'x',
                 'y', 'z', 'zh']
     EMPTY_PINYIN = ' '
+    PHONES = {"a", "ai", "an", "ang", "ao", "b", "c", "ch", "d", "e", "ei", "en", "eng", "er", "f", "g", "h", "i", "ia",
+              "ian", "iang", "iao", "ie", "in", "ing", "io", "iong", "iu", "j", "k", "l", "m", "n", "o", "ong", "ou",
+              "p", "q", "r", "s", "sh", "t", "u", "ua", "uai", "uan", "uang", "uao", "ue", "ui", "un", "uo", "v", "ve",
+              "w", "x", "y", "z", "zh"}
 
 
 def text2pinyin(text: str) -> List[str]:
@@ -19,6 +23,7 @@ def text2pinyin(text: str) -> List[str]:
     for p in pinyin:
         ret += to_kaldi_style_pinyin(p)
 
+    ret = [p for p in ret if p.split('_')[0] in _Pinyin.PHONES]
     return ret
 
 
@@ -42,3 +47,7 @@ def to_kaldi_style_pinyin(pinyin: str) -> List[str]:
 
     ret.append(pinyin[final_start:])
     return ret
+
+
+if __name__ == '__main__':
+    print(text2pinyin('LAUGH_'))
