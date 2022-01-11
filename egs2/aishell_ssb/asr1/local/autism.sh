@@ -40,5 +40,15 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   utils/fix_data_dir.sh ${out_dir} || exit 1
 fi
 
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+  mkdir -p ${out_dir}_clean
+  python local/cut_long_wavs.py \
+    --data-dir=${out_dir} \
+    --out-dir=${out_dir}_clean || exit 1
+fi
+
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
+  utils/fix_data_dir.sh ${out_dir}_clean || exit 1
+fi
 
 log "Data preparation completed"
