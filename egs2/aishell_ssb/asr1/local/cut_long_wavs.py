@@ -72,12 +72,13 @@ def main():
             cache[path] = wav
 
         wav_segs = []
-        text_clean = ''
+        text_clean = []
         for start, end, text in align:
             s, e = librosa.time_to_samples([start, end], sr=args.fs)
             wav_segs.append(wav[s:e])
-            text_clean += text
+            text_clean.append(text)
         wav_clean = np.concatenate(wav_segs)
+        text_clean = ' '.join(text_clean)
 
         # save the new wav file
         out_path = os.path.join(out_wav_dir, f'{utt}.wav')
