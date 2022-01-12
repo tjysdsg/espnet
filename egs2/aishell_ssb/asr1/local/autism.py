@@ -14,6 +14,7 @@ def get_args():
     parser.add_argument('--filter', type=str)
     parser.add_argument('--data-dir', type=str)
     parser.add_argument('--out-dir', type=str)
+    parser.add_argument('--only-text', action='store_true', help='Do not output wave files if true')
     return parser.parse_args()
 
 
@@ -76,14 +77,15 @@ def main():
     # cut waves
     wav_dir = os.path.join(args.data_dir, '16k')
     wav_clean_dir = os.path.join(out_dir, 'wav')
-    os.makedirs(wav_clean_dir, exist_ok=True)
-    for utt in utts:
-        waveform, sr = librosa.load(os.path.join(wav_dir, f'{utt}.wav'))
-        cleaned = np.zeros_like(waveform)
-        for start, end, _ in utt2align[utt]:
-            start, end = librosa.time_to_samples([start, end], sr=sr)
-            cleaned[start:end] = waveform[start:end]
-        soundfile.write(os.path.join(wav_clean_dir, f'{utt}.wav'), cleaned, samplerate=sr)
+    if not args.only_text:
+        os.makedirs(wav_clean_dir, exist_ok=True)
+        for utt in utts:
+            waveform, sr = librosa.load(os.path.join(wav_dir, f'{utt}.wav'))
+            cleaned = np.zeros_like(waveform)
+            for start, end, _ in utt2align[utt]:
+                start, end = librosa.time_to_samples([start, end], sr=sr)
+                cleaned[start:end] = waveform[start:end]
+            soundfile.write(os.path.join(wav_clean_dir, f'{utt}.wav'), cleaned, samplerate=sr)
 
     # text
     with open(os.path.join(out_dir, 'text'), 'w') as f:

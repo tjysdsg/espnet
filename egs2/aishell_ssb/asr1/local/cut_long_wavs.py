@@ -1,4 +1,3 @@
-import math
 import os
 import argparse
 import librosa
@@ -13,6 +12,7 @@ def get_args():
     parser.add_argument('--fs', type=int, default=16000)
     parser.add_argument('--data-dir', type=str)
     parser.add_argument('--out-dir', type=str)
+    parser.add_argument('--only-text', action='store_true', help='Do not output wave files if true')
     return parser.parse_args()
 
 
@@ -62,27 +62,37 @@ def main():
     text_of = open(os.path.join(out_dir, 'text'), 'w', buffering=1)
     wavscp_of = open(os.path.join(out_dir, 'wav.scp'), 'w', buffering=1)
     cache = {}
+    all_phones = set()
     for utt, align in utt2align_clean.items():
         path = utt2path[utt.split('.')[0]]
 
-        if path in cache:
-            wav = cache[path]
-        else:
-            wav, _ = librosa.load(path, sr=args.fs)
-            cache[path] = wav
+        if not args.only_text:
+            if path in cache:
+                wav = cache[path]
+            else:
+                wav, _ = librosa.load(path, sr=args.fs)
+                cache[path] = wav
 
         wav_segs = []
         text_clean = []
         for start, end, text in align:
-            s, e = librosa.time_to_samples([start, end], sr=args.fs)
-            wav_segs.append(wav[s:e])
+            if not args.only_text:
+                s, e = librosa.time_to_samples([start, end], sr=args.fs)
+                wav_segs.append(wav[s:e])
+
             text_clean.append(text)
-        wav_clean = np.concatenate(wav_segs)
+
+        if not args.only_text:
+            wav_clean = np.concatenate(wav_segs)
+
         text_clean = ' '.join(text_clean)
+        for p in text_clean.split():
+            all_phones.add(p)
 
         # save the new wav file
         out_path = os.path.join(out_wav_dir, f'{utt}.wav')
-        soundfile.write(out_path, wav_clean, samplerate=args.fs)
+        if not args.only_text:
+            soundfile.write(out_path, wav_clean, samplerate=args.fs)
 
         # update wav.scp
         wavscp_of.write(f'{utt}\t{out_path}\n')
@@ -92,6 +102,10 @@ def main():
 
     text_of.close()
     wavscp_of.close()
+
+    with open(os.path.join(out_dir, 'phones.txt'), 'w') as f:
+        for p in all_phones:
+            f.write(f'{p}\n')
 
 
 if __name__ == '__main__':
