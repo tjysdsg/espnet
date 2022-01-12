@@ -44,8 +44,8 @@ def main():
     )
     aligner = CTCSegmentation(**config)
 
-    with open(os.path.join(args.out_dir, f'{utt}.txt'), 'w') as f:
-        for utt in utts:
+    for utt in utts:
+        with open(os.path.join(args.out_dir, f'{utt}.txt'), 'w') as f:
             wav, sr = librosa.load(utt2path[utt], sr=args.fs)
             text = '\n'.join(utt2phones[utt])
 
