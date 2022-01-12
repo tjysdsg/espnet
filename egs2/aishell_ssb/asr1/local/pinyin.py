@@ -24,6 +24,7 @@ def text2pinyin(text: str) -> List[str]:
         ret += to_kaldi_style_pinyin(p)
 
     ret = [p for p in ret if is_phone_valid(p)]
+    ret = [fix_tone0(p) for p in ret]
     return ret
 
 
@@ -37,6 +38,19 @@ def is_phone_valid(p: str):
         return False
 
 
+def fix_tone0(p: str):
+    tokens = p.split('_')
+    if len(tokens) == 2:
+        tone = int(tokens[1])
+
+        if tone == 5:
+            tone = 0
+
+        return f'{tokens[0]}_{tone}'
+    else:
+        return p
+
+
 def to_kaldi_style_pinyin(pinyin: str) -> List[str]:
     if pinyin == _Pinyin.EMPTY_PINYIN:
         return []
@@ -44,6 +58,7 @@ def to_kaldi_style_pinyin(pinyin: str) -> List[str]:
         pinyin = 'er' + '_' + pinyin[-1]
     else:
         pinyin = pinyin[:-1] + '_' + pinyin[-1]
+
     ret = []
     len_ = len(pinyin)
     assert len_ > 0
