@@ -9,8 +9,8 @@ log() {
   echo -e "$(date '+%Y-%m-%dT%H:%M:%S') (${fname}:${BASH_LINENO[0]}:${FUNCNAME[1]}) $*"
 }
 
-wav_scp=data/autism/wav.scp
-text=data/autism/text
+wav_scp=data/autism_clean/wav.scp
+text=data/autism_clean/text
 nj=1
 
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
