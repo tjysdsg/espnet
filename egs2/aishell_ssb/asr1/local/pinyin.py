@@ -23,8 +23,18 @@ def text2pinyin(text: str) -> List[str]:
     for p in pinyin:
         ret += to_kaldi_style_pinyin(p)
 
-    ret = [p for p in ret if p.split('_')[0] in _Pinyin.PHONES]
+    ret = [p for p in ret if is_phone_valid(p)]
     return ret
+
+
+def is_phone_valid(p: str):
+    tokens = p.split('_')
+    if len(tokens) == 1:  # initials
+        return tokens[0] in _Pinyin.PHONES
+    elif len(tokens) == 2:  # finals, must have a tone
+        return tokens[0] in _Pinyin.PHONES and tokens[1].isdigit()
+    else:
+        return False
 
 
 def to_kaldi_style_pinyin(pinyin: str) -> List[str]:
