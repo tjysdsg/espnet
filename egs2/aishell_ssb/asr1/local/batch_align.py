@@ -49,7 +49,11 @@ def main():
             wav, sr = librosa.load(utt2path[utt], sr=args.fs)
             text = '\n'.join(utt2phones[utt])
 
-            segments = aligner(wav, text)
+            try:
+                segments = aligner(wav, text)
+            except AssertionError as e:
+                print(f'{utt} failed')
+                continue
 
             f.write(f'{str(segments)}\n')
 
