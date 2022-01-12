@@ -8,7 +8,10 @@ import numpy as np
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--max-dur', type=int, default=10, help='Max duration in seconds')
+    parser.add_argument('--max-dur', type=float, default=10, help='Max duration in seconds')
+    parser.add_argument('--min-dur', type=float, default=3, help='Min duration in seconds, segments that are shorter '
+                                                                 'than this will be concatenated to its previous '
+                                                                 'segment')
     parser.add_argument('--fs', type=int, default=16000)
     parser.add_argument('--data-dir', type=str)
     parser.add_argument('--out-dir', type=str)
@@ -47,7 +50,14 @@ def main():
                 curr_dur += end - start
 
         if len(align_clean) > 0:  # save any leftovers
-            utt2align_clean[f'{utt}.{curr_seg}'] = align_clean
+            dur_left = 0
+            for a in align_clean:
+                dur_left += a[1] - a[0]
+
+            if dur_left < args.min_dur:  # append leftovers to the last segment if it's too short tho
+                utt2align_clean[f'{utt}.{curr_seg - 1}'] += align_clean
+            else:  # else save the leftovers as a new segment
+                utt2align_clean[f'{utt}.{curr_seg}'] = align_clean
 
     with open(os.path.join(out_dir, 'utt2align.json'), 'w') as f:
         json.dump(utt2align_clean, f, indent='  ', ensure_ascii=False)
@@ -84,6 +94,7 @@ def main():
 
         if not args.only_text:
             wav_clean = np.concatenate(wav_segs)
+            print(f'duration of {utt} = {len(wav_clean) / args.fs}')
 
         text_clean = ' '.join(text_clean)
         for p in text_clean.split():
