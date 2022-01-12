@@ -59,22 +59,29 @@ def main():
             utt, path = line.strip('\n').split()
             utt2path[utt] = path
 
-    text_of = open(os.path.join(out_dir, 'text'), 'w')
-    wavscp_of = open(os.path.join(out_dir, 'wav.scp'), 'w')
+    text_of = open(os.path.join(out_dir, 'text'), 'w', buffering=1)
+    wavscp_of = open(os.path.join(out_dir, 'wav.scp'), 'w', buffering=1)
+    cache = {}
     for utt, align in utt2align_clean.items():
         path = utt2path[utt.split('.')[0]]
-        wav, sr = librosa.load(path, sr=args.fs)
+
+        if path in cache:
+            wav = cache[path]
+        else:
+            wav, _ = librosa.load(path, sr=args.fs)
+            cache[path] = wav
+
         wav_segs = []
         text_clean = ''
         for start, end, text in align:
-            s, e = librosa.time_to_samples([start, end], sr=sr)
+            s, e = librosa.time_to_samples([start, end], sr=args.fs)
             wav_segs.append(wav[s:e])
             text_clean += text
         wav_clean = np.concatenate(wav_segs)
 
         # save the new wav file
         out_path = os.path.join(out_wav_dir, f'{utt}.wav')
-        soundfile.write(out_path, wav_clean, samplerate=sr)
+        soundfile.write(out_path, wav_clean, samplerate=args.fs)
 
         # update wav.scp
         wavscp_of.write(f'{utt}\t{out_path}\n')
