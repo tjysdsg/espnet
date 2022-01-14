@@ -7,7 +7,8 @@ set -o pipefail
 
 train_set="train"
 val_set="val"
-test_sets="test"
+# test_sets="test autism_clean"
+test_sets="autism_clean"
 
 # asr_config=conf/tuning/train_asr_transformer.yaml
 asr_config=conf/tuning/train_asr_conformer_s3prlfrontend_wav2vec2.yaml

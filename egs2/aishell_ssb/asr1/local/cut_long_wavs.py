@@ -62,19 +62,28 @@ def main():
     with open(os.path.join(out_dir, 'utt2align.json'), 'w') as f:
         json.dump(utt2align_clean, f, indent='  ', ensure_ascii=False)
 
-    # cut long wavs
     utt2path = {}
     with open(os.path.join(args.data_dir, 'wav.scp')) as f:
         for line in f:
             utt, path = line.strip('\n').split()
             utt2path[utt] = path
 
+    utt2spk = {}
+    with open(os.path.join(args.data_dir, 'utt2spk')) as f:
+        for line in f:
+            utt, spk = line.strip('\n').split()
+            utt2spk[utt] = spk
+
     text_of = open(os.path.join(out_dir, 'text'), 'w', buffering=1)
     wavscp_of = open(os.path.join(out_dir, 'wav.scp'), 'w', buffering=1)
-    cache = {}
+    utt2spk_of = open(os.path.join(out_dir, 'utt2spk'), 'w', buffering=1)
     all_phones = set()
+
+    # cut long wavs
+    cache = {}
     for utt, align in utt2align_clean.items():
-        path = utt2path[utt.split('.')[0]]
+        orig_utt = utt.split('.')[0]
+        path = utt2path[orig_utt]
 
         if not args.only_text:
             if path in cache:
@@ -111,8 +120,13 @@ def main():
         # update text
         text_of.write(f'{utt}\t{text_clean}\n')
 
+        # utt2spk
+        spk = utt2spk[orig_utt]
+        utt2spk_of.write(f'{utt}\t{spk}\n')
+
     text_of.close()
     wavscp_of.close()
+    utt2spk_of.close()
 
     with open(os.path.join(out_dir, 'phones.txt'), 'w') as f:
         for p in all_phones:
