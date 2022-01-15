@@ -9,9 +9,15 @@ log() {
   echo -e "$(date '+%Y-%m-%dT%H:%M:%S') (${fname}:${BASH_LINENO[0]}:${FUNCNAME[1]}) $*"
 }
 
-wav_scp=data/autism_clean/wav.scp
-# text=data/autism_clean/text
+stage=0
+stop_stage=1000000000
+
+data_dir=data/autism_clean
+wav_scp=${data_dir}/wav.scp
+
+# text=${data_dir}/text
 text=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp/decode_asr_asr_model_valid.acc.best/autism_clean/token
+
 nj=1
 
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
@@ -31,10 +37,16 @@ fi
 
 mkdir -p ${out_dir}
 
-${train_cmd} JOB=1:"${nj}" "${out_dir}"/asr_align.JOB.log \
-  python3 local/batch_align.py \
-  --asr-train-config ${asr_config} \
-  --asr-model-file ${exp_dir}/valid.acc.best.pth \
-  --wavscp "${wav_scp}" \
-  --text "${text}" \
-  --out-dir ${out_dir} || exit 1
+if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
+  ${train_cmd} JOB=1:"${nj}" "${out_dir}"/asr_align.JOB.log \
+    python3 local/batch_align.py \
+    --asr-train-config ${asr_config} \
+    --asr-model-file ${exp_dir}/valid.acc.best.pth \
+    --wavscp "${wav_scp}" \
+    --text "${text}" \
+    --out-dir ${out_dir} || exit 1
+fi
+
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+  python local/postprocess_align.py --data-dir=${data_dir} --align-dir=${out_dir} --out-dir=exp/align_clean
+fi
