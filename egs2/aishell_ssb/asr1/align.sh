@@ -10,7 +10,8 @@ log() {
 }
 
 wav_scp=data/autism_clean/wav.scp
-text=data/autism_clean/text
+# text=data/autism_clean/text
+text=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp/decode_asr_asr_model_valid.acc.best/autism_clean/token
 nj=1
 
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
