@@ -21,8 +21,10 @@ text=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp/decode_asr_a
 nj=1
 
 exp_dir=exp/asr_train_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
-out_dir=exp/asr_align_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
 asr_config=${exp_dir}/config.yaml
+
+out_dir=exp/asr_align_asr_conformer_s3prlfrontend_wav2vec2_raw_word_sp
+align_out_dir=exp/align_clean
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -36,6 +38,7 @@ fi
 . ./cmd.sh
 
 mkdir -p ${out_dir}
+mkdir -p ${align_out_dir}
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   ${train_cmd} JOB=1:"${nj}" "${out_dir}"/asr_align.JOB.log \
@@ -48,5 +51,10 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  python local/postprocess_align.py --data-dir=${data_dir} --align-dir=${out_dir} --out-dir=exp/align_clean
+  python local/postprocess_align.py --data-dir=${data_dir} --align-dir=${out_dir} --out-dir=${align_out_dir}
+fi
+
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+  python local/merge_segment_text.py --text=${text} --out-file=${align_out_dir}/hyp.txt
+  cp data/autism/text ${align_out_dir}/ref.txt
 fi
