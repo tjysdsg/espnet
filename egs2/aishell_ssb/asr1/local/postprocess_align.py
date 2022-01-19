@@ -29,6 +29,7 @@ def main():
             of_cache[orig_utt] = of
 
         with open(os.path.join(args.align_dir, f'{utt}.txt')) as f:
+            prev_seg = -1
             for line in f:
                 line = line.strip()
                 if len(line) == 0:
@@ -41,7 +42,7 @@ def main():
 
                 # no need to optimize search since there are only a couple of segments per utt
                 start_clean = 0
-                for seg_start, seg_end, _ in align:
+                for i, (seg_start, seg_end, _, _) in enumerate(align):
                     seg_dur = seg_end - seg_start
                     end_clean = start_clean + seg_dur
 
@@ -51,6 +52,11 @@ def main():
                     start_clean += seg_end - seg_start
                 start = start - start_clean + seg_start
                 end = end - start_clean + seg_start
+
+                if i != prev_seg:
+                    _, _, text, words = align[i]
+                    of.write(f'==================\nStandard: {words}\t{text}\n')
+                    prev_seg = i
 
                 of.write(f'{start:.2f} {end:.2f} {phone}\n')
 
