@@ -36,17 +36,17 @@ def main():
         align_clean = []
         curr_dur = 0
         curr_seg = 0
-        for start, end, text in align:
+        for start, end, text, words in align:
             if len(align_clean) > 0 and curr_dur > args.max_dur:
                 utt2align_clean[f'{utt}.{curr_seg}'] = align_clean
 
                 align_clean = [
-                    (start, end, text)
+                    (start, end, text, words)
                 ]
                 curr_dur = end - start
                 curr_seg += 1
             else:
-                align_clean.append((start, end, text))
+                align_clean.append((start, end, text, words))
                 curr_dur += end - start
 
         if len(align_clean) > 0:  # save any leftovers
@@ -94,7 +94,7 @@ def main():
 
         wav_segs = []
         text_clean = []
-        for start, end, text in align:
+        for start, end, text, _ in align:
             if not args.only_text:
                 s, e = librosa.time_to_samples([start, end], sr=args.fs)
                 wav_segs.append(wav[s:e])

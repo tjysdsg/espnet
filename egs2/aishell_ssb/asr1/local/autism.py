@@ -49,18 +49,17 @@ def main():
     for utt in utts:
         with open(os.path.join(align_dir, f'{utt}.txt'), encoding='utf-8') as f:
             for line in f:
-                role, start, end, text = line.strip('\n').split(maxsplit=3)
+                role, start, end, words = line.strip('\n').split(maxsplit=3)
                 start, end = float(start), float(end)
 
                 if role != ROLE:
                     continue
 
                 # g2p
-                text = clean_text(text)
-                text = ' '.join(text2pinyin(text))
+                text = ' '.join(text2pinyin(clean_text(words)))
 
                 if len(text) > 0:
-                    utt2align.setdefault(utt, []).append([start, end, text])
+                    utt2align.setdefault(utt, []).append([start, end, text, words])
 
                 # all_durs.append(end - start)
     json.dump(utt2align, open(os.path.join(out_dir, 'utt2align.json'), 'w'), indent=' ', ensure_ascii=False)
@@ -82,7 +81,7 @@ def main():
         for utt in utts:
             waveform, sr = librosa.load(os.path.join(wav_dir, f'{utt}.wav'))
             cleaned = np.zeros_like(waveform)
-            for start, end, _ in utt2align[utt]:
+            for start, end, _, _ in utt2align[utt]:
                 start, end = librosa.time_to_samples([start, end], sr=sr)
                 cleaned[start:end] = waveform[start:end]
             soundfile.write(os.path.join(wav_clean_dir, f'{utt}.wav'), cleaned, samplerate=sr)
@@ -91,7 +90,7 @@ def main():
     with open(os.path.join(out_dir, 'text'), 'w') as f:
         for utt in utts:
             text = []
-            for _, _, t in utt2align[utt]:
+            for _, _, t, _ in utt2align[utt]:
                 text.append(t)
             f.write(f'{utt}\t{" ".join(text)}\n')
 
