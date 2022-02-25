@@ -13,6 +13,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--filter', type=str)
     parser.add_argument('--data-dir', type=str)
+    parser.add_argument('--override-utt2align', type=str, default=None)
     parser.add_argument('--out-dir', type=str)
     parser.add_argument('--only-text', action='store_true', help='Do not output wave files if true')
     return parser.parse_args()
@@ -37,32 +38,39 @@ def main():
     out_dir = args.out_dir
     os.makedirs(out_dir, exist_ok=True)
 
-    utts = []
-    with open(args.filter) as f:
-        for line in f:
-            utts.append(line.strip('\n'))
+    override_utt2align = args.override_utt2align
 
-    # utt2align
-    align_dir = os.path.join(args.data_dir, 'Mark')
-    utt2align = {}
-    # all_durs = []
-    for utt in utts:
-        with open(os.path.join(align_dir, f'{utt}.txt'), encoding='utf-8') as f:
+    if override_utt2align is None:
+        utts = []
+        with open(args.filter) as f:
             for line in f:
-                role, start, end, words = line.strip('\n').split(maxsplit=3)
-                start, end = float(start), float(end)
+                utts.append(line.strip('\n'))
 
-                if role != ROLE:
-                    continue
+        # utt2align
+        align_dir = os.path.join(args.data_dir, 'Mark')
+        utt2align = {}
+        # all_durs = []
+        for utt in utts:
+            with open(os.path.join(align_dir, f'{utt}.txt'), encoding='utf-8') as f:
+                for line in f:
+                    role, start, end, words = line.strip('\n').split(maxsplit=3)
+                    start, end = float(start), float(end)
 
-                # g2p
-                text = ' '.join(text2pinyin(clean_text(words)))
+                    if role != ROLE:
+                        continue
 
-                if len(text) > 0:
-                    utt2align.setdefault(utt, []).append([start, end, text, words])
+                    # g2p
+                    text = ' '.join(text2pinyin(clean_text(words)))
 
-                # all_durs.append(end - start)
-    json.dump(utt2align, open(os.path.join(out_dir, 'utt2align.json'), 'w'), indent=' ', ensure_ascii=False)
+                    if len(text) > 0:
+                        utt2align.setdefault(utt, []).append([start, end, text, words])
+
+                    # all_durs.append(end - start)
+        json.dump(utt2align, open(os.path.join(out_dir, 'utt2align.json'), 'w'), indent=' ', ensure_ascii=False)
+    else:
+        with open(override_utt2align) as f:
+            utt2align: dict = json.load(f)
+        utts = list(utt2align.keys())
 
     """
     from matplotlib import pyplot as plt

@@ -32,6 +32,7 @@ mkdir -p ${out_dir}
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   python local/autism.py \
     --filter=local/autism_list.txt \
+    --override-utt2align=local/utt2align_correct.json \
     --data-dir=${AUTISM} \
     --out-dir=${out_dir} || exit 1
 fi
