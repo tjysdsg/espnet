@@ -38,6 +38,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+  cp local/utt2align_correct.json ${out_dir}/utt2align.json
   utils/fix_data_dir.sh ${out_dir} || exit 1
 fi
 
