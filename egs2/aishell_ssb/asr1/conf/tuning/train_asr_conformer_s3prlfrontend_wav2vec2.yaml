@@ -3,7 +3,7 @@ num_workers: 8
 batch_type: numel
 batch_bins: 4000000
 accum_grad: 4
-max_epoch: 100
+max_epoch: 1000000
 patience: none
 # The initialization method for model parameters
 init: xavier_uniform
@@ -11,7 +11,7 @@ best_model_criterion:
   - - valid
     - acc
     - max
-keep_nbest_models: 1000
+keep_nbest_models: 1000000
 
 freeze_param: [
     "frontend.upstream"

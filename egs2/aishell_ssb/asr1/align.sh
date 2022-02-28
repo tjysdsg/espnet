@@ -51,10 +51,10 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  python local/postprocess_align.py --data-dir=${data_dir} --align-dir=${out_dir} --out-dir=${align_out_dir}
+  python local/postprocess_align.py --data-dir=${data_dir} --align-dir=${out_dir} --out-dir=${align_out_dir} || exit 1
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-  python local/merge_segment_text.py --text=${text} --out-file=${align_out_dir}/hyp.txt
+  python local/merge_segment_text.py --text=${text} --out-file=${align_out_dir}/hyp.txt || exit 1
   cp data/autism/text ${align_out_dir}/ref.txt
 fi
