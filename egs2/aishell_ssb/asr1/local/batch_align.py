@@ -47,7 +47,11 @@ def main():
     for utt in utts:
         with open(os.path.join(args.out_dir, f'{utt}.txt'), 'w') as f:
             wav, sr = librosa.load(utt2path[utt], sr=args.fs)
-            text = '\n'.join(utt2phones[utt])
+            try:
+                text = '\n'.join(utt2phones[utt])
+            except KeyError:
+                print(f"Cannot find key in transcript: {utt}")
+                continue
 
             try:
                 segments = aligner(wav, text)

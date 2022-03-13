@@ -25,13 +25,17 @@ def main():
 
     with open(args.out_file, 'w') as f:
         for utt, seg in utt2text.items():
-            text_seg = []
-            n = len(seg)
-            for i in range(n):
-                text_seg += seg[i]
+            try:
+                text_seg = []
+                n = len(seg)
+                for i in range(n):
+                    text_seg += seg[i]
 
-            text = ' '.join(text_seg)
-            f.write(f'{utt}\t{text}\n')
+                text = ' '.join(text_seg)
+                f.write(f'{utt}\t{text}\n')
+            except KeyError:
+                print(f'Key {i} not found')
+                continue
 
 
 if __name__ == '__main__':
