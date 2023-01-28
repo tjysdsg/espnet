@@ -54,6 +54,7 @@ mkdir -p $tmp
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   log "Converting *.mp4 and *.mp3 files into .wav"
+  log "Will skip converting if the wav file already exists"
 
   for ext in mp3 mp4; do
     for subdir in Aphasia Control; do
@@ -62,8 +63,13 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         filename=$(basename -- "$f")
         dir=$(dirname "$f")
         filename="${filename%.*}"
-        echo "Converting $f to $dir/${filename}.wav"
-        ffmpeg -y -i "$f" -acodec pcm_s16le -ac 1 -ar 16000 "${dir}/${filename}.wav" &>/dev/null
+
+        if [ ! -f "$dir/${filename}.wav" ]; then
+          echo "Converting $f to $dir/${filename}.wav"
+          ffmpeg -y -i "$f" -acodec pcm_s16le -ac 1 -ar 16000 "${dir}/${filename}.wav" &>/dev/null
+        # else
+        #   echo "Skip converting $f to $dir/${filename}.wav as it already exists"
+        fi
       done
     done
   done
@@ -86,6 +92,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   # generate data/local/text
   _opts="--transcript-dir=${APHASIABANK}/transcripts --out-dir=$tmp "
   if "${include_aphasia_type}"; then
+    log "**Including the aphasia type**"
     _opts+="--spk2aphasia-type=data/spk2aphasia_type "
   fi
 

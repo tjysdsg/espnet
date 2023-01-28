@@ -11,6 +11,21 @@ from argparse import ArgumentParser
 import pylangacq as pla
 
 
+aphasia_type2label = {
+    '': 'NONAPH',
+    'control': 'NONAPH',
+    'notaphasicbywab': 'APH',
+    'conduction': 'APH',
+    'anomic': 'APH',
+    'global': 'APH',
+    'transsensory': 'APH',
+    'transmotor': 'APH',
+    'broca': 'APH',
+    'aphasia': 'APH',
+    'wernicke': 'APH',
+}
+
+
 def get_args():
     parser = ArgumentParser()
     parser.add_argument("--transcript-dir", type=str, required=True)
@@ -135,7 +150,8 @@ def main():
 
                 # write lines
                 if spk2aphasia_type is not None:
-                    trans = f"[{spk2aphasia_type[spk]}] {trans}"
+                    aphasia_type = aphasia_type2label[spk2aphasia_type[spk]]
+                    trans = f"[{aphasia_type}] {trans}"
                 text.write(f"{utt_id}\t{trans}\n")
                 utt2spk.write(f"{utt_id}\t{spk}\n")
 
