@@ -12,7 +12,7 @@ include_control=true
 include_aphasia_type=true
 include_lang_id=true
 
-asr_config=conf/tuning/train_asr_ebranchformer_small.yaml
+asr_config=conf/tuning/train_asr_conformer.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
