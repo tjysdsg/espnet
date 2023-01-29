@@ -52,6 +52,8 @@ spk2missing_aphasia_types = {
     'kurland25e': 'aphasia',
     'MMA04a': 'aphasia',
     'MMA20a': 'aphasia',
+    'colin08a': 'aphasia',
+    'colin10a2': 'aphasia',
 }
 
 

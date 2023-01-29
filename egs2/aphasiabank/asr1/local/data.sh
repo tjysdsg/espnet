@@ -28,6 +28,8 @@ stage=1
 stop_stage=100
 include_control=false
 include_aphasia_type=false
+include_lang_id=false
+languages="English French"
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -47,29 +49,30 @@ mkdir -p $tmp
 
 # Things to manually prepare:
 # - Download AphasiaBank data from https://aphasia.talkbank.org/
-# - Set ${APHASIABANK} to the path to English subset ("<data_root>/English/") in db.sh
-# - Download transcripts (Aphasia and Control subfolder) from
-#   https://aphasia.talkbank.org/data/English/
-# - Unzip and copy all *.cha files into ${APHASIABANK}/transcripts
+# - Set ${APHASIABANK} to the path to data root (which contains "English", "French", "Greek" etc.) in db.sh
+# - Download transcripts from https://aphasia.talkbank.org/data/
+# - Unzip and copy all *.cha files into ${APHASIABANK}/<lang>/transcripts
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   log "Converting *.mp4 and *.mp3 files into .wav"
   log "Will skip converting if the wav file already exists"
 
-  for ext in mp3 mp4; do
-    for subdir in Aphasia Control; do
-      files=$(find ${APHASIABANK}/${subdir} -type f -name "*.${ext}")
-      for f in $files; do
-        filename=$(basename -- "$f")
-        dir=$(dirname "$f")
-        filename="${filename%.*}"
+  for lang in ${languages}; do
+    for ext in mp3 mp4; do
+      for subdir in Aphasia Control; do
+        files=$(find "${APHASIABANK}/${lang}/${subdir}" -type f -name "*.${ext}")
+        for f in $files; do
+          filename=$(basename -- "$f")
+          dir=$(dirname "$f")
+          filename="${filename%.*}"
 
-        if [ ! -f "$dir/${filename}.wav" ]; then
-          echo "Converting $f to $dir/${filename}.wav"
-          ffmpeg -y -i "$f" -acodec pcm_s16le -ac 1 -ar 16000 "${dir}/${filename}.wav" &>/dev/null
-        # else
-        #   echo "Skip converting $f to $dir/${filename}.wav as it already exists"
-        fi
+          if [ ! -f "$dir/${filename}.wav" ]; then
+            echo "Converting $f to $dir/${filename}.wav"
+            ffmpeg -y -i "$f" -acodec pcm_s16le -ac 1 -ar 16000 "${dir}/${filename}.wav" &>/dev/null
+          # else
+          #   echo "Skip converting $f to $dir/${filename}.wav as it already exists"
+          fi
+        done
       done
     done
   done
@@ -78,29 +81,47 @@ fi
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   log "Extracting speaker information"
 
-  # generate data/spk_info.txt
-
   # install pylangacq
   pip install --upgrade pylangacq
 
-  python local/extract_speaker_info.py --transcript-dir=${APHASIABANK}/transcripts --out-dir=data
+  # generate data/spk_info.txt
+  for lang in ${languages}; do
+    python local/extract_speaker_info.py --transcript-dir="${APHASIABANK}/${lang}/transcripts" --out-dir=data/${lang}
+  done
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   log "Extracting sentence information"
 
-  # generate data/local/text
-  _opts="--transcript-dir=${APHASIABANK}/transcripts --out-dir=$tmp "
-  if "${include_aphasia_type}"; then
-    log "**Including the aphasia type**"
-    _opts+="--spk2aphasia-type=data/spk2aphasia_type "
-  fi
+  # generate data/local/<lang>/text
+  for lang in ${languages}; do
+    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} "
 
-  python local/extract_sentence_info.py ${_opts}
+    if "${include_aphasia_type}"; then
+      log "**Including the aphasia type**"
+      _opts+="--spk2aphasia-type=data/${lang}/spk2aphasia_type "
+    fi
+
+    if "${include_lang_id}"; then
+      log "**Including language id**"
+      _opts+="--lang=$lang "
+    fi
+
+    python local/extract_sentence_info.py ${_opts}
+  done
 fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   log "Split data into train, test, and val"
+
+  # combine multiple languages
+  for file in text utt2spk; do
+    rm -f $tmp/$file
+    touch $tmp/$file
+    for lang in English French; do
+      cat $tmp/$lang/$file >>$tmp/$file
+    done
+  done
 
   # split data, generate text and utt2spk
   python local/split_train_test_val.py --text=$tmp/text --out-dir=$tmp
@@ -110,12 +131,12 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   log "Generating data files of the entire database"
 
   # generate wav.scp of all data
-  find ${APHASIABANK}/Aphasia -type f -name "*.wav" >$tmp/all_wav.list
+  find ${APHASIABANK}/*/Aphasia -type f -name "*.wav" >$tmp/all_wav.list
 
   # add control group data if needed
   if "${include_control}"; then
     log "**Including the control group**"
-    find ${APHASIABANK}/Control -type f -name "*.wav" >>$tmp/all_wav.list
+    find ${APHASIABANK}/*/Control -type f -name "*.wav" >>$tmp/all_wav.list
   fi
 
   awk -F'/' '{printf("%s\t%s\n",$NF,$0)}' $tmp/all_wav.list >$tmp/all_wav.scp

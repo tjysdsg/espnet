@@ -10,8 +10,9 @@ valid_set="val"
 test_sets="test"
 include_control=true
 include_aphasia_type=true
+include_lang_id=true
 
-asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large.yaml
+asr_config=conf/tuning/train_asr_ebranchformer_small.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
@@ -35,5 +36,5 @@ inference_config=conf/decode.yaml
   --test_sets "${test_sets}" \
   --speed_perturb_factors "0.9 1.0 1.1" \
   --feats_normalize ${feats_normalize} \
-  --local_data_opts "--include_control ${include_control} --include_aphasia_type ${include_aphasia_type}" \
+  --local_data_opts "--include_control ${include_control} --include_aphasia_type ${include_aphasia_type} --include_lang_id ${include_lang_id}" \
   --lm_train_text "data/${train_set}/text" "$@"

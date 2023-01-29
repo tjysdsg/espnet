@@ -31,6 +31,7 @@ def get_args():
     parser.add_argument("--transcript-dir", type=str, required=True)
     parser.add_argument("--out-dir", type=str, required=True)
     parser.add_argument("--spk2aphasia-type", type=str, default=None)
+    parser.add_argument("--lang", type=str, default=None)
     return parser.parse_args()
 
 
@@ -110,6 +111,10 @@ def main():
         with open(args.spk2aphasia_type, encoding="utf-8") as f:
             spk2aphasia_type = json.load(f)
 
+    lang = None
+    if args.lang is not None:  # use the first two characters as language id
+        lang = args.lang[:2].upper()
+
     # get a list of all CHAT files
     files = []
     for file in os.listdir(args.transcript_dir):
@@ -148,10 +153,14 @@ def main():
                 for c in trans:
                     all_chars.add(c)
 
-                # write lines
+                # add aphasia type and/or language annotation to the front if needed
                 if spk2aphasia_type is not None:
                     aphasia_type = aphasia_type2label[spk2aphasia_type[spk]]
                     trans = f"[{aphasia_type}] {trans}"
+
+                if lang is not None:
+                    trans = f"[{lang}] {trans}"
+
                 text.write(f"{utt_id}\t{trans}\n")
                 utt2spk.write(f"{utt_id}\t{spk}\n")
 

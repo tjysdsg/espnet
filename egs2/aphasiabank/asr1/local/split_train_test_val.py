@@ -526,6 +526,29 @@ train_spks = [
     "wright37a",
     "wright75a",
     "wright22a",
+    # French PWA: 7
+    "lemeur09a",
+    "lemeur11a",
+    "colin08a",
+    "colin09a",
+    "colin10a",
+    "colin10a2",
+    "colin16a",
+    # French Control: 14
+    "colin01a",
+    "colin02a",
+    "colin03a",
+    "lemeur01a",
+    "lemeur02a",
+    "lemeur03a",
+    "lemeur04a",
+    "colin04a",
+    "colin05a",
+    "lemeur05a",
+    "colin06a",
+    "colin07a",
+    "lemeur06a",
+    "lemeur07a",
 ]
 
 val_spks = [
@@ -614,6 +637,10 @@ val_spks = [
     "MMA10a",
     "kurland15a",
     "scale07a",
+    # French PWA: 3
+    "lemeur10a",
+    "colin11a",
+    "colin12a",
 ]
 
 test_spks = [
@@ -728,6 +755,10 @@ test_spks = [
     "fridriksson08b",
     "kurland15b",
     "UNH02a",
+    # French PWA: 3
+    "colin13a",
+    "colin14a",
+    "colin15a",
 ]
 
 spk_splits = [train_spks, val_spks, test_spks]
