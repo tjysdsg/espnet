@@ -24,6 +24,7 @@ inference_config=conf/decode.yaml
 ./tts.sh \
     --ngpu 1 \
     --stage 6 \
+    --inference_nj 100 \
     --use_multidecoder true \
     --lang en \
     --feats_type raw \

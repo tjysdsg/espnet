@@ -257,7 +257,7 @@ class Speech2Text:
             assert isinstance(hyp, Hypothesis), type(hyp)
 
             # remove sos/eos and get results
-            last_pos = None
+            last_pos = -1
             if isinstance(hyp.yseq, list):
                 token_int = hyp.yseq[1:last_pos]
             else:
