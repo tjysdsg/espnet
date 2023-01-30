@@ -12,9 +12,43 @@ def get_args():
 
 
 # 56% train, 19% val, 25% test
-
-train_spks = [
-    # mild: 113
+train_pwa = [
+    # no severity info: 31
+    'cmu01a',
+    'cmu01b',
+    'cmu02a',
+    'BU11a',
+    'MMA04a',
+    'aprocsa1554a',
+    'aprocsa1713a',
+    'aprocsa1731a',
+    'kurland01a',
+    'kurland01b',
+    'kurland01e',
+    'kurland01f',
+    'kurland02f',
+    'kurland02g',
+    'kurland07c',
+    'kurland07d',
+    'kurland08c',
+    'kurland09c',
+    'kurland09d',
+    'kurland12c',
+    'kurland12d',
+    'kurland13c',
+    'kurland13d',
+    'kurland15d',
+    'kurland21d',
+    'kurland21e',
+    'kurland22c',
+    'kurland15e',
+    'kurland16c',
+    'kurland16d',
+    'kurland17d',
+    # mild: 116
+    'MMA20a',
+    'UNH03b',
+    'UNH03c',
     "kurland12a",
     "scale05c",
     "kurland05a",
@@ -212,40 +246,32 @@ train_spks = [
     "thompson04a",
     "kansas13a",
     "kurland19b",
-    # severe: 34
+    # severe: 26
+    'UNH04b',
     "scale25a",
-    "kurland15c",
     "BU08a",
     "whiteside03a",
     "kansas05a",
-    "kansas01a",
     "scale28a",
     "UNH04a",
     "tcu02b",
-    "scale09a",
     "fridriksson03a",
     "MMA14a",
-    "kansas08a",
     "adler06a",
     "kansas12a",
     "ACWT11a",
     "tucson14a",
     "scale24a",
-    "tap09a",
     "tucson15a",
     "tap13a",
     "kurland22b",
-    "kansas02a",
-    "kansas06a",
     "whiteside04a",
     "ACWT08a",
-    "williamson21a",
     "tucson03a",
     "elman06a",
     "elman08a",
     "scale27a",
     "fridriksson06a",
-    "adler19a",
     "adler23a",
     # very severe: 9
     "kurland15c",
@@ -257,6 +283,17 @@ train_spks = [
     "kansas06a",
     "williamson21a",
     "adler19a",
+    # French PWA: 7
+    "lemeur09a",
+    "lemeur11a",
+    "colin08a",
+    "colin09a",
+    "colin10a",
+    "colin10a2",
+    "colin16a",
+]
+
+train_control = [
     # control: 268
     "capilouto30a",
     "UMD05",
@@ -526,14 +563,6 @@ train_spks = [
     "wright37a",
     "wright75a",
     "wright22a",
-    # French PWA: 7
-    "lemeur09a",
-    "lemeur11a",
-    "colin08a",
-    "colin09a",
-    "colin10a",
-    "colin10a2",
-    "colin16a",
     # French Control: 14
     "colin01a",
     "colin02a",
@@ -551,8 +580,22 @@ train_spks = [
     "lemeur07a",
 ]
 
-val_spks = [
-    # mild: 38
+train_spks = train_pwa + train_control
+
+val_pwa = [
+    # no severity info: 11
+    'kurland17e',
+    'kurland18c',
+    'kurland18d',
+    'kurland19d',
+    'kurland19e',
+    'aprocsa1738a',
+    'aprocsa1833a',
+    'aprocsa1944a',
+    'kurland22d',
+    'kurland22e',
+    # mild: 39
+    'UNH05b',
     "adler09a",
     "kurland21c",
     "kurland28a",
@@ -591,7 +634,8 @@ val_spks = [
     "scale16a",
     "tucson04a",
     "kurland21b",
-    # moderate: 28
+    # moderate: 29
+    'UNH07b',
     "whiteside14a",
     "tap10a",
     "MSU08a",
@@ -620,15 +664,13 @@ val_spks = [
     "ACWT03a",
     "scale33a",
     "kurland27a",
-    # severe: 12
+    # severe: 10
+    'UNH09b',
     "kurland18b",
     "UCL03a",
-    "MMA10a",
     "kurland22a",
     "kurland16b",
-    "kurland15a",
     "williamson23a",
-    "scale07a",
     "UNH02b",
     "MMA08a",
     "kansas16a",
@@ -643,8 +685,25 @@ val_spks = [
     "colin12a",
 ]
 
-test_spks = [
-    # mild: 51
+test_pwa = [
+    # no severity info: 15
+    'kurland23d',
+    'kurland23e',
+    'kurland24d',
+    'kurland24e',
+    'kurland25d',
+    'kurland25e',
+    'kurland26d',
+    'kurland26e',
+    'kurland27d',
+    'kurland27e',
+    'kurland28d',
+    'kurland29d',
+    'kurland29e',
+    'tucson17a',
+    'williamson22a',
+    # mild: 52
+    'UNH05c',
     "ACWT12a",
     "MSU06a",
     "adler22a",
@@ -734,22 +793,19 @@ test_spks = [
     "MSU05b",
     "kansas23a",
     "scale38a",
-    # severe: 15
+    # severe: 12
     "tucson19a",
     "kurland16a",
-    "adler11a",
     "tcu07a",
     "UNH07a",
     "tap06a",
-    "fridriksson08b",
-    "kurland15b",
     "tucson12a",
     "scale03a",
     "MMA06a",
     "tap03a",
     "fridriksson03b",
     "tucson02a",
-    "UNH02a",
+    'UNH09c',
     # very severe: 4
     "adler11a",
     "fridriksson08b",
@@ -761,7 +817,10 @@ test_spks = [
     "colin15a",
 ]
 
-spk_splits = [train_spks, val_spks, test_spks]
+assert len(train_spks) == len(set(train_spks)), f"Duplicated speakers in train"
+assert len(val_pwa) == len(set(val_pwa)), f"Duplicated speakers in validation"
+assert len(test_pwa) == len(set(test_pwa)), f"Duplicated speakers in test"
+spk_splits = [train_spks, val_pwa, test_pwa]
 
 
 def main():
@@ -781,14 +840,14 @@ def main():
     out_dir = args.out_dir
 
     # print percentage of speakers in each split
-    n_spks = np.asarray([len(train_spks), len(val_spks), len(test_spks)], dtype=float)
-    n_spks /= np.sum(n_spks)
-    print(f"Percentage of train, val and test speakers: {n_spks}")
+    split_percent = np.asarray([len(train_pwa), len(val_pwa), len(test_pwa)], dtype=float)
+    split_percent /= np.sum(split_percent)
+    print(f"Percentage of train, val and test speakers (PWA): {split_percent}")
 
     # make sure there is no overlap
-    assert not bool(set(train_spks) & set(test_spks)), set(train_spks) & set(test_spks)
-    assert not bool(set(train_spks) & set(val_spks)), set(train_spks) & set(val_spks)
-    assert not bool(set(test_spks) & set(val_spks)), set(test_spks) & set(val_spks)
+    assert not bool(set(train_spks) & set(test_pwa)), set(train_spks) & set(test_pwa)
+    assert not bool(set(train_spks) & set(val_pwa)), set(train_spks) & set(val_pwa)
+    assert not bool(set(test_pwa) & set(val_pwa)), set(test_pwa) & set(val_pwa)
 
     for i, s in enumerate(splits):
         subset_dir = os.path.join(out_dir, s)
@@ -802,7 +861,7 @@ def main():
         for spk in spks:
             if spk not in spk2utts:
                 print(
-                    f"Skipping utterances of {spk}"
+                    f"Skipping utterances of {spk} "
                     f"since they are not found in {args.text}"
                 )
                 continue

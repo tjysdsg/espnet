@@ -118,7 +118,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   for file in text utt2spk; do
     rm -f $tmp/$file
     touch $tmp/$file
-    for lang in English French; do
+    for lang in ${languages}; do
       cat $tmp/$lang/$file >>$tmp/$file
     done
   done

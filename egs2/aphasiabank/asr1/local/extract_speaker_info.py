@@ -34,6 +34,7 @@ spk2missing_aphasia_types = {
     'UMD24': 'control',
     'MSUC09b': 'control',
     'richardson21': 'control',
+    'richardson22': 'control',
     'richardson23': 'control',
     'richardson34': 'control',
     'richardson35': 'control',
