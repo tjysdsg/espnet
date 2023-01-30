@@ -35,6 +35,7 @@ from espnet2.layers.inversible_interface import InversibleInterface
 from espnet2.tts.abs_tts import AbsTTS
 from espnet2.tts.feats_extract.abs_feats_extract import AbsFeatsExtract
 from itertools import groupby
+
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
 else:
@@ -110,17 +111,18 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         self.frontend = frontend
         self.asr_encoder = asr_encoder
-        self.create_KL_copy=create_KL_copy
-        self.intermediate_supervision=intermediate_supervision
-        self.teacher_student=teacher_student
+        self.create_KL_copy = create_KL_copy
+        self.intermediate_supervision = intermediate_supervision
+        self.teacher_student = teacher_student
         if self.create_KL_copy or self.intermediate_supervision:
             self.asr_encoder_copy = copy.deepcopy(asr_encoder)
         self.asr_decoder = asr_decoder
         self.use_unpaired = use_unpaired
+        self.gumbel_softmax = False
         if self.use_unpaired:
-            self.idx_blank=self.token_list.index(sym_blank)
-            self.idx_space=self.token_list.index(sym_space)
-            self.gumbel_softmax=gumbel_softmax
+            self.idx_blank = self.token_list.index(sym_blank)
+            self.idx_space = self.token_list.index(sym_space)
+            self.gumbel_softmax = gumbel_softmax
 
         # if self.CRF_loss:
         #     self.criterion_st = CRF(self.vocab_size,batch_first=True)
@@ -141,7 +143,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         )
 
         # submodule for ASR task
-        assert (asr_decoder is not None), "ASR decoder needs to be present for MD"
+        assert asr_decoder is not None, "ASR decoder needs to be present for MD"
         # assert (
         #     src_token_list is not None
         # ), "Missing src_token_list, cannot add asr module to st model"
@@ -220,9 +222,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         # 1. Encoder
         if self.intermediate_supervision:
-            y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
-        elif self.create_KL_copy:    
-            encoder_out, encoder_out_lens, mse_loss = self.encode(speech, speech_lengths)
+            y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
+                speech, speech_lengths
+            )
+        elif self.create_KL_copy:
+            encoder_out, encoder_out_lens, mse_loss = self.encode(
+                speech, speech_lengths
+            )
         else:
             encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
@@ -231,12 +237,24 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         if self.use_unpaired:
             if self.intermediate_supervision:
-                y_ctc_pred_pad, seq_hat_total_lens, loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
+                (
+                    y_ctc_pred_pad,
+                    seq_hat_total_lens,
+                    loss_asr_ctc,
+                    cer_asr_ctc,
+                ) = self._calc_ctc_loss(
                     encoder_out, encoder_out_lens, y_ctc_gold, y_ctc_gold_lens
                 )
-                loss_ctc_gt = self.ctc(encoder_out, encoder_out_lens, text, text_lengths)
+                loss_ctc_gt = self.ctc(
+                    encoder_out, encoder_out_lens, text, text_lengths
+                )
             else:
-                y_ctc_pred_pad, seq_hat_total_lens, loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
+                (
+                    y_ctc_pred_pad,
+                    seq_hat_total_lens,
+                    loss_asr_ctc,
+                    cer_asr_ctc,
+                ) = self._calc_ctc_loss(
                     encoder_out, encoder_out_lens, text, text_lengths
                 )
         if self.mtlalpha > 0:
@@ -248,11 +266,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 )
         else:
             loss_asr_ctc, cer_asr_ctc = 0, None
-        
+
         # 3a. MT Encoder
         # import pdb;pdb.set_trace()
         if self.use_unpaired:
-            dec_asr_lengths = seq_hat_total_lens+1
+            dec_asr_lengths = seq_hat_total_lens + 1
         else:
             dec_asr_lengths = text_lengths + 1
         # 2a. ASR Decoder
@@ -263,9 +281,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 cer_asr_att,
                 wer_asr_att,
                 hs_dec_asr,
-            ) = self._calc_asr_att_loss(encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens)
+            ) = self._calc_asr_att_loss(
+                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens
+            )
             if self.gumbel_softmax:
-                dec_asr_lengths=dec_asr_lengths.to(dtype=int)
+                dec_asr_lengths = dec_asr_lengths.to(dtype=int)
         else:
             (
                 loss_asr_att,
@@ -273,7 +293,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 cer_asr_att,
                 wer_asr_att,
                 hs_dec_asr,
-            ) = self._calc_asr_att_loss(encoder_out, encoder_out_lens, text, text_lengths)
+            ) = self._calc_asr_att_loss(
+                encoder_out, encoder_out_lens, text, text_lengths
+            )
         # if self.encoder_mt is not None:
         #     encoder_mt_out, encoder_mt_out_lens, _ = self.encoder_mt(hs_dec_asr, dec_asr_lengths)
         # else:
@@ -333,8 +355,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             batch.update(speech_embed_lengths=encoder_out_lens)
         if spembs is not None:
             batch.update(spembs=spembs)
-        tts_loss, tts_stats, tts_weight =self.tts(**batch)
-        
+        tts_loss, tts_stats, tts_weight = self.tts(**batch)
+
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
         if self.use_unpaired:
@@ -345,17 +367,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             loss_asr = (
                 asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
             )
-        loss = (
-            (1 - self.asr_weight) * tts_loss
-            + self.asr_weight * loss_asr
-        )
+        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # import pdb;pdb.set_trace()
-            loss = (
-                (0.95) * loss
-                + 0.05 * mse_loss
-            )
+            loss = (0.95) * loss + 0.05 * mse_loss
         # import pdb;pdb.set_trace()
         # print(tts_stats)
         # import pdb;pdb.set_trace()
@@ -369,12 +385,12 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats['l1_loss'],
-                tts_l2_loss=tts_stats['l2_loss'],
-                tts_bce_loss=tts_stats['bce_loss'],
-                tts_enc_dec_attn_loss=tts_stats['enc_dec_attn_loss'],
-                tts_encoder_alpha=tts_stats['encoder_alpha'],
-                tts_decoder_alpha=tts_stats['decoder_alpha'],
+                tts_l1_loss=tts_stats["l1_loss"],
+                tts_l2_loss=tts_stats["l2_loss"],
+                tts_bce_loss=tts_stats["bce_loss"],
+                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
+                tts_encoder_alpha=tts_stats["encoder_alpha"],
+                tts_decoder_alpha=tts_stats["decoder_alpha"],
             )
         elif self.intermediate_supervision:
             stats = dict(
@@ -386,12 +402,12 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats['l1_loss'],
-                tts_l2_loss=tts_stats['l2_loss'],
-                tts_bce_loss=tts_stats['bce_loss'],
-                tts_enc_dec_attn_loss=tts_stats['enc_dec_attn_loss'],
-                tts_encoder_alpha=tts_stats['encoder_alpha'],
-                tts_decoder_alpha=tts_stats['decoder_alpha'],
+                tts_l1_loss=tts_stats["l1_loss"],
+                tts_l2_loss=tts_stats["l2_loss"],
+                tts_bce_loss=tts_stats["bce_loss"],
+                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
+                tts_encoder_alpha=tts_stats["encoder_alpha"],
+                tts_decoder_alpha=tts_stats["decoder_alpha"],
             )
         else:
             stats = dict(
@@ -402,12 +418,12 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats['l1_loss'],
-                tts_l2_loss=tts_stats['l2_loss'],
-                tts_bce_loss=tts_stats['bce_loss'],
-                tts_enc_dec_attn_loss=tts_stats['enc_dec_attn_loss'],
-                tts_encoder_alpha=tts_stats['encoder_alpha'],
-                tts_decoder_alpha=tts_stats['decoder_alpha'],
+                tts_l1_loss=tts_stats["l1_loss"],
+                tts_l2_loss=tts_stats["l2_loss"],
+                tts_bce_loss=tts_stats["bce_loss"],
+                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
+                tts_encoder_alpha=tts_stats["encoder_alpha"],
+                tts_decoder_alpha=tts_stats["decoder_alpha"],
             )
 
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
@@ -420,8 +436,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
-        src_text: Optional[torch.Tensor],
-        src_text_lengths: Optional[torch.Tensor],
+        spembs: Optional[
+            torch.Tensor
+        ] = None,  # NOTE(jiyang): not used, only for avoiding unexpected argument errors
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
             feats, feats_lengths = self._extract_feats(speech, speech_lengths)
@@ -465,13 +482,19 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # -> encoder_out: (Batch, Length2, Dim2)
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
         if self.intermediate_supervision:
-            encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(feats, feats_lengths)
-            y_ctc_gold, y_ctc_gold_lens=self._calc_ctc_output(encoder_out_copy, encoder_out_copy_lens)
+            encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
+                feats, feats_lengths
+            )
+            y_ctc_gold, y_ctc_gold_lens = self._calc_ctc_output(
+                encoder_out_copy, encoder_out_copy_lens
+            )
             # import pdb;pdb.set_trace()
         elif self.create_KL_copy:
             # import pdb;pdb.set_trace()
             mse_criterion = torch.nn.MSELoss(reduction="mean")
-            encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(feats, feats_lengths)
+            encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
+                feats, feats_lengths
+            )
             mse_loss = mse_criterion(encoder_out, encoder_out_copy)
 
         # Post-encoder, e.g. NLU
@@ -513,7 +536,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
         return feats, feats_lengths
-    
+
     def _calc_asr_att_loss(
         self,
         encoder_out: torch.Tensor,
@@ -522,18 +545,22 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
     ):
         if self.gumbel_softmax:
-            a3= torch.range(0, ys_pad.shape[-1]-1).to(ys_pad.device,dtype=ys_pad.dtype)
-            a4=torch.matmul(ys_pad,a3).to(dtype=int)
-            ys_pad_int=a4
+            a3 = torch.range(0, ys_pad.shape[-1] - 1).to(
+                ys_pad.device, dtype=ys_pad.dtype
+            )
+            a4 = torch.matmul(ys_pad, a3).to(dtype=int)
+            ys_pad_int = a4
             ys_in_pad1, ys_out_pad = add_sos_eos(a4, self.sos, self.eos, self.ignore_id)
-            a1=torch.zeros(ys_pad.shape[-1])
-            a1[self.sos]=1
-            a1=a1.to(ys_pad.device,dtype=ys_pad.dtype)
-            a1=a1.unsqueeze(0)
+            a1 = torch.zeros(ys_pad.shape[-1])
+            a1[self.sos] = 1
+            a1 = a1.to(ys_pad.device, dtype=ys_pad.dtype)
+            a1 = a1.unsqueeze(0)
             # import pdb;pdb.set_trace()
-            ys_in_pad=torch.stack([torch.cat([a1, y], dim=0) for y in ys_pad])
+            ys_in_pad = torch.stack([torch.cat([a1, y], dim=0) for y in ys_pad])
         else:
-            ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
+            ys_in_pad, ys_out_pad = add_sos_eos(
+                ys_pad, self.sos, self.eos, self.ignore_id
+            )
         ys_in_lens = ys_pad_lens + 1
 
         # 1. Forward decoder
@@ -555,7 +582,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         else:
             ys_hat = decoder_out.argmax(dim=-1)
             if self.gumbel_softmax:
-                cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ys_pad_int.cpu())
+                cer_att, wer_att = self.asr_error_calculator(
+                    ys_hat.cpu(), ys_pad_int.cpu()
+                )
             else:
                 cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu())
 
@@ -571,41 +600,45 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         if self.use_unpaired:
             if self.gumbel_softmax:
                 ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
-                seq_hat_total=[]
-                loss_ctc=self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc=0
+                seq_hat_total = []
+                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
+                cer_ctc = 0
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
                     y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
                     seq_hat = []
-                    idx_index=0
+                    idx_index = 0
                     # import pdb;pdb.set_trace()
                     for idx_len in range(len(y_hat)):
-                        idx=y_hat[idx_len]
+                        idx = y_hat[idx_len]
                         idx1 = int(idx)
                         if idx1 != -1 and idx1 != self.idx_blank:
                             seq_hat.append(ys_one_hot_hat[i][idx_index])
-                        idx_index+=y_hat_sum[idx_len]
+                        idx_index += y_hat_sum[idx_len]
                     # import pdb;pdb.set_trace()
-                    seq_hat_total.append(torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype))
-                seq_hat_total_lens=torch.Tensor([len(k) for k in seq_hat_total]).to(ys_hat.device, dtype=ys_hat.dtype)
+                    seq_hat_total.append(
+                        torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
+                    )
+                seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
+                    ys_hat.device, dtype=ys_hat.dtype
+                )
                 n_batch = len(seq_hat_total)
                 max_len = max(x.size(0) for x in seq_hat_total)
-                xs=seq_hat_total
+                xs = seq_hat_total
                 pad = xs[0].new(n_batch, max_len, *xs[0].size()[1:])
                 for i in range(n_batch):
                     for j in range(pad.shape[1]):
-                        a1=torch.zeros(pad.shape[-1])
-                        a1[-1]=1.0
-                        pad[i][j]=a1
+                        a1 = torch.zeros(pad.shape[-1])
+                        a1[-1] = 1.0
+                        pad[i][j] = a1
                     pad[i, : xs[i].size(0)] = xs[i]
                 # import pdb;pdb.set_trace()
-                y_ctc_pred_pad=pad
+                y_ctc_pred_pad = pad
             else:
                 ys_hat = self.ctc.argmax(encoder_out).data
-                seq_hat_total=[]
-                loss_ctc=self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc=0
+                seq_hat_total = []
+                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
+                cer_ctc = 0
                 # import pdb;pdb.set_trace()
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
@@ -614,10 +647,14 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                         idx1 = int(idx)
                         if idx1 != -1 and idx1 != self.idx_blank:
                             seq_hat.append(idx)
-                    seq_hat_total.append(torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype))
+                    seq_hat_total.append(
+                        torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
+                    )
                 # import pdb;pdb.set_trace()
-                seq_hat_total_lens=torch.Tensor([len(k) for k in seq_hat_total]).to(ys_hat.device, dtype=ys_hat.dtype)
-                y_ctc_pred_pad=pad_list(seq_hat_total,self.ignore_id)
+                seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
+                    ys_hat.device, dtype=ys_hat.dtype
+                )
+                y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
             return y_ctc_pred_pad, seq_hat_total_lens, loss_ctc, cer_ctc
         # Calc CTC loss
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
@@ -627,7 +664,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         if not self.training and self.asr_error_calculator is not None:
             ys_hat = self.ctc.argmax(encoder_out).data
             cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
-        
+
         return loss_ctc, cer_ctc
 
     def _calc_ctc_output(
@@ -636,8 +673,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out_lens: torch.Tensor,
     ):
         ys_hat = self.ctc_copy.argmax(encoder_out).data
-        seq_hat_total=[]
-        cer_ctc=0
+        seq_hat_total = []
+        cer_ctc = 0
         # import pdb;pdb.set_trace()
         for i, y in enumerate(ys_hat):
             y_hat = [x[0] for x in groupby(y)]
@@ -646,12 +683,15 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 idx1 = int(idx)
                 if idx1 != -1 and idx1 != self.idx_blank:
                     seq_hat.append(idx)
-            seq_hat_total.append(torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype))
+            seq_hat_total.append(
+                torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
+            )
         # import pdb;pdb.set_trace()
-        seq_hat_total_lens=torch.Tensor([len(k) for k in seq_hat_total]).to(ys_hat.device, dtype=ys_hat.dtype)
-        y_ctc_pred_pad=pad_list(seq_hat_total,self.ignore_id)
+        seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
+            ys_hat.device, dtype=ys_hat.dtype
+        )
+        y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
         return y_ctc_pred_pad, seq_hat_total_lens
-        
 
     def tts_inference(
         self,
@@ -682,7 +722,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         """
         input_dict = dict(text=text)
-        
+
         if spembs is not None:
             input_dict.update(spembs=spembs)
         if sids is not None:

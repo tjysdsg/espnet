@@ -656,6 +656,7 @@ if ! "${skip_train}"; then
                 --use_preprocessor true \
                 --token_type "${token_type}" \
                 --token_list "${token_list}" \
+                --use_multidecoder ${use_multidecoder} \
                 --non_linguistic_symbols "${nlsyms_txt}" \
                 --cleaner "${cleaner}" \
                 --g2p "${g2p}" \

@@ -371,7 +371,9 @@ class TTSTask(AbsTask):
         return retval
 
     @classmethod
-    def build_model(cls, args: argparse.Namespace) -> Union[ESPnetTTSModel,ESPnetTTSMDModel]:
+    def build_model(
+        cls, args: argparse.Namespace
+    ) -> Union[ESPnetTTSModel, ESPnetTTSMDModel]:
         assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
@@ -388,7 +390,7 @@ class TTSTask(AbsTask):
         vocab_size = len(token_list)
         logging.info(f"Vocabulary size: {vocab_size }")
         # if args.input_size is None:
-            # Extract features in the model
+        # Extract features in the model
         frontend_class = frontend_choices.get_class(args.frontend)
         frontend = frontend_class(**args.frontend_conf)
         input_size = frontend.output_size()
@@ -468,23 +470,19 @@ class TTSTask(AbsTask):
         # import pdb;pdb.set_trace()
         if use_md_model:
             # 7. ASR decoder
-            asr_encoder_class = asr_encoder_choices.get_class(
-                args.asr_encoder
-            )
+            asr_encoder_class = asr_encoder_choices.get_class(args.asr_encoder)
             asr_encoder = asr_encoder_class(
-                input_size=input_size, 
+                input_size=input_size,
                 **args.asr_encoder_conf,
             )
             encoder_output_size = asr_encoder.output_size()
-            asr_decoder_class = asr_decoder_choices.get_class(
-                args.asr_decoder
-            )
+            asr_decoder_class = asr_decoder_choices.get_class(args.asr_decoder)
             asr_decoder = asr_decoder_class(
                 vocab_size=vocab_size,
                 encoder_output_size=encoder_output_size,
                 **args.asr_decoder_conf,
             )
-            
+
             if token_list is not None:
                 ctc = CTC(
                     odim=vocab_size,
@@ -503,22 +501,22 @@ class TTSTask(AbsTask):
             #     encoder_mt= None
 
             model = ESPnetTTSMDModel(
-                    vocab_size=vocab_size,
-                    frontend=frontend,
-                    asr_encoder=asr_encoder,
-                    asr_decoder=asr_decoder,
-                    ctc=ctc,
-                    token_list=token_list,
-                    speech_attn = speech_attn,
-                    feats_extract=feats_extract,
-                    pitch_extract=pitch_extract,
-                    energy_extract=energy_extract,
-                    normalize=normalize,
-                    pitch_normalize=pitch_normalize,
-                    energy_normalize=energy_normalize,
-                    tts=tts,
-                    **args.model_conf,
-                )
+                vocab_size=vocab_size,
+                frontend=frontend,
+                asr_encoder=asr_encoder,
+                asr_decoder=asr_decoder,
+                ctc=ctc,
+                token_list=token_list,
+                speech_attn=speech_attn,
+                feats_extract=feats_extract,
+                pitch_extract=pitch_extract,
+                energy_extract=energy_extract,
+                normalize=normalize,
+                pitch_normalize=pitch_normalize,
+                energy_normalize=energy_normalize,
+                tts=tts,
+                **args.model_conf,
+            )
         else:
             model = ESPnetTTSModel(
                 feats_extract=feats_extract,
