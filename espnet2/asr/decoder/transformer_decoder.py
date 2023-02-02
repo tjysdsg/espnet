@@ -149,7 +149,7 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
             )
         # import pdb;pdb.set_trace()
         if self.gumbel_softmax:
-            x=self.embed[1](torch.matmul(tgt,self.embed[0].weight))
+            x = self.embed[1](torch.matmul(tgt, self.embed[0].weight))
         else:
             x = self.embed(tgt)
         x, tgt_mask, memory, memory_mask = self.decoders(

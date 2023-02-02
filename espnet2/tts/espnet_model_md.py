@@ -153,6 +153,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
+        self.asr_decoder.gumbel_softmax = self.gumbel_softmax
 
         # MT error calculator
         if report_bleu:
@@ -371,10 +372,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # import pdb;pdb.set_trace()
-            loss = (0.95) * loss + 0.05 * mse_loss
+            loss = 0.95 * loss + 0.05 * mse_loss
         # import pdb;pdb.set_trace()
         # print(tts_stats)
-        # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             stats = dict(
                 loss=loss.detach(),
@@ -545,7 +545,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
     ):
         if self.gumbel_softmax:
-            gumbel_idx = torch.range(0, ys_pad.shape[-1] - 1).to(
+            # ys_pad is gumbel softmax of the encoder output
+            gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
                 ys_pad.device, dtype=ys_pad.dtype
             )
             ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)

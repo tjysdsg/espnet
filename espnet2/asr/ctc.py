@@ -198,6 +198,6 @@ class CTC(torch.nn.Module):
         # import pdb; pdb.set_trace()
         # TODO(jiyang): tau annealing
         gumbel = F.gumbel_softmax(self.ctc_lo(hs_pad), tau=1, hard=True, dim=2)
-        gumbel_idx = torch.range(0, gumbel.shape[-1] - 1).to(gumbel.device, dtype=gumbel.dtype)
+        gumbel_idx = torch.arange(gumbel.shape[-1]).to(gumbel.device, dtype=gumbel.dtype)
         ys = torch.matmul(gumbel, gumbel_idx)
         return gumbel, ys
