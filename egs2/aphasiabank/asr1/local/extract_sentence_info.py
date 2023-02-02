@@ -12,17 +12,17 @@ import pylangacq as pla
 
 
 aphasia_type2label = {
-    '': 'NONAPH',
-    'control': 'NONAPH',
-    'notaphasicbywab': 'APH',
-    'conduction': 'APH',
-    'anomic': 'APH',
-    'global': 'APH',
-    'transsensory': 'APH',
-    'transmotor': 'APH',
-    'broca': 'APH',
-    'aphasia': 'APH',
-    'wernicke': 'APH',
+    "": "NONAPH",
+    "control": "NONAPH",
+    "notaphasicbywab": "APH",
+    "conduction": "APH",
+    "anomic": "APH",
+    "global": "APH",
+    "transsensory": "APH",
+    "transmotor": "APH",
+    "broca": "APH",
+    "aphasia": "APH",
+    "wernicke": "APH",
 }
 
 

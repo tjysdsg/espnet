@@ -1,39 +1,33 @@
-import os
-import re
-import shutil
 from argparse import ArgumentParser
 
 
 def get_args():
     parser = ArgumentParser()
-    parser.add_argument('hyp_dir', type=str, help='Directory that contains the hypothesis "text" file')
+    parser.add_argument("input", type=str)
+    parser.add_argument("output", type=str)
+    parser.add_argument("--token-type", type=str, required=True, choices=['char', 'word'])
     return parser.parse_args()
+
+
+def clean_line(line: str, tok: str):
+    try:
+        i = line.rindex(tok)
+    except ValueError as e:
+        print(f"{e}\n\nLine is: {line}")
+        exit(1)
+
+    assert 0 < i < len(line) - len(tok), f"Invalid line: {line}"
+    return line[i + len(tok):]
 
 
 def main():
     args = get_args()
-    hyp_dir = args.hyp_dir
 
-    hyp_file = os.path.join(hyp_dir, 'text')
-
-    # back up original text file
-    backup_num = 0
-    hyp_backup = os.path.join(hyp_dir, 'text_backup')
-    while os.path.exists(hyp_backup):
-        backup_num += 1
-        hyp_backup = os.path.join(hyp_dir, f'text_backup.{backup_num}')
-
-    shutil.copy2(hyp_file, hyp_backup)
-
-    # remove all annotations from the hypothesis
-    lines = []
-    with open(hyp_file, encoding='utf-8') as f:
+    tok = '] <space> ' if args.token_type == 'char' else '] '
+    with open(args.input, encoding="utf-8") as f, open(args.output, "w", encoding="utf-8") as of:
         for line in f:
-            lines.append(re.sub(r"\[.*]\s", "", line))
-
-    with open(hyp_file, 'w', encoding='utf-8') as f:
-        f.writelines(lines)
+            of.write(clean_line(line, tok))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
