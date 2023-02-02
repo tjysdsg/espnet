@@ -196,7 +196,8 @@ class CTC(torch.nn.Module):
             torch.Tensor: argmax applied 2d tensor (B, Tmax)
         """
         # import pdb; pdb.set_trace()
-        a1=F.gumbel_softmax(self.ctc_lo(hs_pad), tau=1, hard=True, dim=2)
-        a3= torch.range(0, a1.shape[-1]-1).to(a1.device,dtype=a1.dtype)
-        a4=torch.matmul(a1,a3)
-        return a1,a4
+        # TODO(jiyang): tau annealing
+        gumbel = F.gumbel_softmax(self.ctc_lo(hs_pad), tau=1, hard=True, dim=2)
+        gumbel_idx = torch.range(0, gumbel.shape[-1] - 1).to(gumbel.device, dtype=gumbel.dtype)
+        ys = torch.matmul(gumbel, gumbel_idx)
+        return gumbel, ys

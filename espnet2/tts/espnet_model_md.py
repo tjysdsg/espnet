@@ -80,7 +80,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
-        teacher_student: bool = False,
+        teacher_student: bool = False,  # not used right now
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight < 1.0, "asr_weight should be (0.0, 1.0)"
@@ -320,30 +320,30 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 feats, feats_lengths = speech, speech_lengths
 
             # Extract auxiliary features
-            if self.pitch_extract is not None and pitch is None:
-                pitch, pitch_lengths = self.pitch_extract(
-                    speech,
-                    speech_lengths,
-                    feats_lengths=feats_lengths,
-                    durations=durations,
-                    durations_lengths=durations_lengths,
-                )
-            if self.energy_extract is not None and energy is None:
-                energy, energy_lengths = self.energy_extract(
-                    speech,
-                    speech_lengths,
-                    feats_lengths=feats_lengths,
-                    durations=durations,
-                    durations_lengths=durations_lengths,
-                )
+            # if self.pitch_extract is not None and pitch is None:
+            #     pitch, pitch_lengths = self.pitch_extract(
+            #         speech,
+            #         speech_lengths,
+            #         feats_lengths=feats_lengths,
+            #         durations=durations,
+            #         durations_lengths=durations_lengths,
+            #     )
+            # if self.energy_extract is not None and energy is None:
+            #     energy, energy_lengths = self.energy_extract(
+            #         speech,
+            #         speech_lengths,
+            #         feats_lengths=feats_lengths,
+            #         durations=durations,
+            #         durations_lengths=durations_lengths,
+            #     )
 
             # Normalize
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-            if self.pitch_normalize is not None:
-                pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
-            if self.energy_normalize is not None:
-                energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
+            # if self.pitch_normalize is not None:
+            #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
+            # if self.energy_normalize is not None:
+            #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
         batch = dict(
             text=hs_dec_asr,
             text_lengths=dec_asr_lengths,
@@ -545,18 +545,16 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
     ):
         if self.gumbel_softmax:
-            a3 = torch.range(0, ys_pad.shape[-1] - 1).to(
+            gumbel_idx = torch.range(0, ys_pad.shape[-1] - 1).to(
                 ys_pad.device, dtype=ys_pad.dtype
             )
-            a4 = torch.matmul(ys_pad, a3).to(dtype=int)
-            ys_pad_int = a4
-            ys_in_pad1, ys_out_pad = add_sos_eos(a4, self.sos, self.eos, self.ignore_id)
-            a1 = torch.zeros(ys_pad.shape[-1])
-            a1[self.sos] = 1
-            a1 = a1.to(ys_pad.device, dtype=ys_pad.dtype)
-            a1 = a1.unsqueeze(0)
+            ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
+            _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
+            ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
+            ys_in_pad[self.sos] = 1
+            ys_in_pad = ys_in_pad.unsqueeze(0)
             # import pdb;pdb.set_trace()
-            ys_in_pad = torch.stack([torch.cat([a1, y], dim=0) for y in ys_pad])
+            ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
         else:
             ys_in_pad, ys_out_pad = add_sos_eos(
                 ys_pad, self.sos, self.eos, self.ignore_id
@@ -583,7 +581,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             ys_hat = decoder_out.argmax(dim=-1)
             if self.gumbel_softmax:
                 cer_att, wer_att = self.asr_error_calculator(
-                    ys_hat.cpu(), ys_pad_int.cpu()
+                    ys_hat.cpu(), ys_gumbel.cpu()
                 )
             else:
                 cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu())
