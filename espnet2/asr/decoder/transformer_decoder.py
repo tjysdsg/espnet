@@ -149,6 +149,7 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
             )
         # import pdb;pdb.set_trace()
         if self.gumbel_softmax:
+            # Similar to: https://github.com/facebookresearch/EGG/blob/main/egg/core/gs_wrappers.py#L203
             x = self.embed[1](torch.matmul(tgt, self.embed[0].weight))
         else:
             x = self.embed(tgt)
@@ -169,8 +170,8 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
             x = self.output_layer(x)
 
         if self.use_output_embed and return_hidden:
-            #weighted logsoftmax embeddings
-            hs_asr = torch.nn.functional.linear(torch.log_softmax(x,dim=-1), self.output_layer.weight.T)
+            # weighted logsoftmax embeddings
+            hs_asr = torch.nn.functional.linear(torch.log_softmax(x, dim=-1), self.output_layer.weight.T)
 
         olens = tgt_mask.sum(1)
 

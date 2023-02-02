@@ -258,13 +258,10 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 ) = self._calc_ctc_loss(
                     encoder_out, encoder_out_lens, text, text_lengths
                 )
-        if self.mtlalpha > 0:
-            if self.use_unpaired:
-                cer_asr_ctc = None
-            else:
-                loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
-                )
+        elif self.mtlalpha > 0:
+            loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
+                encoder_out, encoder_out_lens, text, text_lengths
+            )
         else:
             loss_asr_ctc, cer_asr_ctc = 0, None
 
@@ -360,7 +357,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
-        if self.use_unpaired:
+        if self.use_unpaired:  # TODO(jiyang): include attention loss if ASR decoder is not frozen
             loss_asr = loss_asr_ctc
         elif asr_ctc_weight == 0.0:
             loss_asr = loss_asr_att
@@ -596,12 +593,24 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
     ):
+        # Calc CTC loss
+        loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
+
+        # Calc ys_hat
         if self.use_unpaired:
             if self.gumbel_softmax:
                 ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
+            else:
+                ys_hat = self.ctc.argmax(encoder_out).data
+
+        # Calc CER using CTC
+        cer_ctc = None
+        if not self.training and self.asr_error_calculator is not None:
+            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+
+        if self.use_unpaired:
+            if self.gumbel_softmax:
                 seq_hat_total = []
-                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc = 0
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
                     y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
@@ -634,10 +643,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 # import pdb;pdb.set_trace()
                 y_ctc_pred_pad = pad
             else:
-                ys_hat = self.ctc.argmax(encoder_out).data
                 seq_hat_total = []
-                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc = 0
                 # import pdb;pdb.set_trace()
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
@@ -655,14 +661,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 )
                 y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
             return y_ctc_pred_pad, seq_hat_total_lens, loss_ctc, cer_ctc
-        # Calc CTC loss
-        loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-
-        # Calc CER using CTC
-        cer_ctc = None
-        if not self.training and self.asr_error_calculator is not None:
-            ys_hat = self.ctc.argmax(encoder_out).data
-            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
 
         return loss_ctc, cer_ctc
 
