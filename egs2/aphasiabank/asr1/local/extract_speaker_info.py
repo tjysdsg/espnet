@@ -4,57 +4,9 @@ Based on https://github.com/monirome/AphasiaBank/blob/main/clean_transcriptions.
 import json
 import os
 from argparse import ArgumentParser
+from config import spk2missing_aphasia_types
 
 import pylangacq as pla
-
-# these speakers' aphasia type information is missing, but we actually know for sure if they have Aphasia or not
-spk2missing_aphasia_types = {
-    "UMD01": "control",
-    "UMD02": "control",
-    "UMD03": "control",
-    "UMD04": "control",
-    "UMD05": "control",
-    "UMD06": "control",
-    "UMD08": "control",
-    "UMD09": "control",
-    "UMD10": "control",
-    "UMD11": "control",
-    "UMD12": "control",
-    "UMD13": "control",
-    "UMD14": "control",
-    "UMD15": "control",
-    "UMD16": "control",
-    "UMD17": "control",
-    "UMD18": "control",
-    "UMD19": "control",
-    "UMD20": "control",
-    "UMD21": "control",
-    "UMD22": "control",
-    "UMD23": "control",
-    "UMD24": "control",
-    "MSUC09b": "control",
-    "richardson21": "control",
-    "richardson22": "control",
-    "richardson23": "control",
-    "richardson34": "control",
-    "richardson35": "control",
-    "richardson36": "control",
-    "richardson37": "control",
-    "richardson38": "control",
-    "richardson39": "control",
-    "aprocsa1554a": "aphasia",
-    "aprocsa1713a": "aphasia",
-    "aprocsa1731a": "aphasia",
-    "aprocsa1738a": "aphasia",
-    "aprocsa1833a": "aphasia",
-    "aprocsa1944a": "aphasia",
-    "kurland24e": "aphasia",
-    "kurland25e": "aphasia",
-    "MMA04a": "aphasia",
-    "MMA20a": "aphasia",
-    "colin08a": "aphasia",
-    "colin10a2": "aphasia",
-}
 
 
 def get_args():

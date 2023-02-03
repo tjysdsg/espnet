@@ -7,23 +7,9 @@ import json
 import os
 import re
 from argparse import ArgumentParser
+from config import aphasia_type2label, lang2label, get_utt
 
 import pylangacq as pla
-
-
-aphasia_type2label = {
-    "": "NONAPH",
-    "control": "NONAPH",
-    "notaphasicbywab": "APH",
-    "conduction": "APH",
-    "anomic": "APH",
-    "global": "APH",
-    "transsensory": "APH",
-    "transmotor": "APH",
-    "broca": "APH",
-    "aphasia": "APH",
-    "wernicke": "APH",
-}
 
 
 def get_args():
@@ -112,8 +98,8 @@ def main():
             spk2aphasia_type = json.load(f)
 
     lang = None
-    if args.lang is not None:  # use the first two characters as language id
-        lang = args.lang[:2].upper()
+    if args.lang is not None:
+        lang = lang2label[args.lang]
 
     # get a list of all CHAT files
     files = []
@@ -143,7 +129,7 @@ def main():
                     continue
 
                 start, end = utts[i].time_marks
-                utt_id = f"{spk}-{start}_{end}"
+                utt_id = get_utt(spk, start, end)
 
                 trans = clean_trans(utts[i].tiers["PAR"])
                 if len(trans) == 0:
