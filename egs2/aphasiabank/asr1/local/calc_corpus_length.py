@@ -18,7 +18,7 @@ def main():
                 continue
 
             reco = line.split()[0]
-            start, end = reco.split("-")[1].split("_")
+            start, end = reco.split("-")[-1].split("_")
             start = float(start)
             end = float(end)
 
