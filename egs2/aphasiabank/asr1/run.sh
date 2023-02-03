@@ -24,7 +24,7 @@ inference_config=conf/decode.yaml
 ./asr.sh \
   --lang en \
   --inference_nj 100 \
-  --ngpu 1 \
+  --ngpu 2 \
   --audio_format wav \
   --feats_type raw \
   --token_type char \
