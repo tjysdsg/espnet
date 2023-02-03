@@ -25,6 +25,7 @@ inference_config=conf/decode.yaml
   --lang en \
   --inference_nj 100 \
   --ngpu 2 \
+  --max_wav_duration 33 \
   --audio_format wav \
   --feats_type raw \
   --token_type char \

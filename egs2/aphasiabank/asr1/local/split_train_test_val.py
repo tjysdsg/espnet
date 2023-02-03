@@ -1,6 +1,6 @@
 import os
 from argparse import ArgumentParser
-from config import train_spks, val_spks, test_spks
+from config import train_spks, val_spks, test_spks, utt2spk
 
 import numpy as np
 
@@ -24,7 +24,7 @@ def main():
     with open(args.text, encoding="utf-8") as f:
         for line in f:
             utt, trans = line.rstrip("\n").split(maxsplit=1)
-            spk, _ = utt.split("-")
+            spk = utt2spk(utt)
             spk2utts.setdefault(spk, []).append(utt)
             utt2trans[utt] = trans
 
@@ -44,7 +44,7 @@ def main():
 
         utt_list = open(os.path.join(subset_dir, "utt.list"), "w", encoding="utf-8")
         text = open(os.path.join(subset_dir, "text"), "w", encoding="utf-8")
-        utt2spk = open(os.path.join(subset_dir, "utt2spk"), "w", encoding="utf-8")
+        utt2spk_file = open(os.path.join(subset_dir, "utt2spk"), "w", encoding="utf-8")
 
         spks = spk_splits[i]
         for spk in spks:
@@ -58,11 +58,11 @@ def main():
             for utt in spk2utts[spk]:
                 utt_list.write(f"{utt}\n")
                 text.write(f"{utt}\t{utt2trans[utt]}\n")
-                utt2spk.write(f"{utt}\t{spk}\n")
+                utt2spk_file.write(f"{utt}\t{spk}\n")
 
         utt_list.close()
         text.close()
-        utt2spk.close()
+        utt2spk_file.close()
 
 
 if __name__ == "__main__":
