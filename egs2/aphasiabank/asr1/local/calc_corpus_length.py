@@ -4,7 +4,9 @@ from argparse import ArgumentParser
 def get_args():
     parser = ArgumentParser()
     parser.add_argument("text", type=str, help="text file")
-    parser.add_argument("--filter", type=str, help="Line filter, such as '[EN]'", default=None)
+    parser.add_argument(
+        "--filter", type=str, help="Line filter, such as '[EN]'", default=None
+    )
     return parser.parse_args()
 
 
