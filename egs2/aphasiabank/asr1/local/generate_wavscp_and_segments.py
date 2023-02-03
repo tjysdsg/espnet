@@ -1,6 +1,6 @@
 import os
 from argparse import ArgumentParser
-from config import utt2time
+from config import utt2time, utt2spk
 
 
 def get_args():
@@ -38,6 +38,7 @@ def main():
     with open(args.reco_list) as f:
         for line in f:
             seg = line.rstrip("\n")
+            reco = utt2spk(seg)
             start, end = utt2time(seg)
             start = float(start) / 1000
             end = float(end) / 1000  # ms to seconds
