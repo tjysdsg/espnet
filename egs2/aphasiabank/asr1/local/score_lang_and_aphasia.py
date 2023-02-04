@@ -13,7 +13,7 @@ from config import utt2spk, spk2lang_id, spk2aphasia_label
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--exp_folder", type=str, help="folder of experiment", required=True
+        "--exp", type=str, help="folder of experiment", required=True
     )
     parser.add_argument(
         "--out",
@@ -26,10 +26,10 @@ def get_args():
 
 def main():
     args = get_args()
-    decode_folders = next(os.walk(args.exp_folder))[1]
+    decode_folders = next(os.walk(args.exp))[1]
     for folder in decode_folders:
         if "decode_asr" in folder:
-            scoring(args.exp_folder, folder, args.out)
+            scoring(args.exp, folder, args.out)
 
 
 def scoring(exp_folder, decode_folder, out):
@@ -44,7 +44,6 @@ def scoring(exp_folder, decode_folder, out):
 
         try:
             decode_file = codecs.open(decode_file_name, "r", encoding="utf-8")
-
         except Exception:
             traceback.print_exc()
             print("\nUnable to open output file: " + decode_file_name)
@@ -60,7 +59,7 @@ def scoring(exp_folder, decode_folder, out):
                 break
 
             hyp = hyp.strip().split()  # utt [EN] [APH]
-            assert len(hyp) > 3
+            assert len(hyp) >= 3, hyp
 
             utt_id = hyp[0]
             hyp_lid = hyp[1]
