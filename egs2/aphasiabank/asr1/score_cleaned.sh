@@ -40,27 +40,36 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   ./run.sh --stage 13 --stop_stage 13
 fi
 
+for sub in score_cer score_wer; do
+  mkdir -p "${decode_dir}/${sub}_clean"
+done
+
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  for sub in score_cer score_wer; do
-    mkdir -p "${decode_dir}/${sub}_clean"
+  # CER, TODO: WER
+  cp -r "${decode_dir}/score_cer"/{hyp.trn,ref.trn} "${decode_dir}/score_cer_clean"
+  python local/clean_score_dir.py "${decode_dir}/score_cer" "${decode_dir}/score_cer_clean"
+
+  # remove tags
+  _dir="${decode_dir}/score_cer_clean"
+
+  python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
+  python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
+  for sub in en fr aph nonaph en.aph en.nonaph fr.aph fr.nonaph; do
+    python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
+    python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
   done
-
-  python local/clean_hyp_annotations.py \
-    --token-type=char "${decode_dir}/score_cer/hyp.trn" "${decode_dir}/score_cer_clean/hyp.trn"
-  python local/clean_hyp_annotations.py \
-    --token-type=char "${decode_dir}/score_cer/ref.trn" "${decode_dir}/score_cer_clean/ref.trn"
-
-  python local/clean_hyp_annotations.py \
-    --token-type=word "${decode_dir}/score_wer/hyp.trn" "${decode_dir}/score_wer_clean/hyp.trn"
-  python local/clean_hyp_annotations.py \
-    --token-type=word "${decode_dir}/score_wer/ref.trn" "${decode_dir}/score_wer_clean/ref.trn"
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-  for sub in score_cer_clean score_wer_clean; do
-    sclite -r "${decode_dir}/${sub}/ref.trn" -h "${decode_dir}/${sub}/hyp.trn" \
-      -i rm -o all stdout >"${decode_dir}/${sub}/result.txt"
+  _dir="${decode_dir}/score_cer_clean"
 
-    grep -e Avg -e SPKR -m 2 "${decode_dir}/${sub}/result.txt"
+  log "\n\nOverall error rate"
+  sclite -r "${_dir}/ref.trn.clean" -h "${_dir}/hyp.trn.clean" -i rm -o all stdout >"${_dir}/result.txt"
+  grep -e Avg -e SPKR -m 2 "${_dir}/result.txt"
+
+  for sub in en fr aph nonaph en.aph en.nonaph fr.aph fr.nonaph; do
+    log "\n\n${sub} error rate"
+    sclite -r "${_dir}/ref.${sub}.trn.clean" -h "${_dir}/hyp.${sub}.trn.clean" -i rm -o all stdout >"${_dir}/result.${sub}.txt"
+    grep -e Avg -e SPKR -m 2 "${_dir}/result.${sub}.txt"
   done
 fi

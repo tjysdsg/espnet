@@ -965,11 +965,19 @@ for spk in english_spks:
 for spk in french_spks:
     spk2lang_id[spk] = "FR"
 
+lang_id2spks = {}
+for spk, lid in spk2lang_id.items():
+    lang_id2spks.setdefault(lid, []).append(spk)
+
 spk2aphasia_label = {}
 for spk in pwa_spks:
     spk2aphasia_label[spk] = "APH"
 for spk in control_spks:
     spk2aphasia_label[spk] = "NONAPH"
+
+aph2spks = {}
+for spk, aph in spk2aphasia_label.items():
+    aph2spks.setdefault(aph, []).append(spk)
 
 
 # ======================
@@ -988,5 +996,4 @@ def utt2time(utt: str) -> (int, int):
 
 
 def utt2spk(utt: str) -> str:
-    spk, timestamps = utt.split("-")
-    return spk
+    return utt.split("-")[0]
