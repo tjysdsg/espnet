@@ -53,17 +53,22 @@ def scoring(exp_folder, decode_folder, out):
         correct_lid = 0
         correct_aph = 0
 
+        lang2correct_aph = {}  # language -> # of correct aphasia detection
+        lang2total_aph = {}  # language -> # of utterances
         while True:
             hyp = decode_file.readline()
             if not hyp:
                 break
 
             hyp = hyp.strip().split()  # utt [EN] [APH]
-            assert len(hyp) >= 3, hyp
 
             utt_id = hyp[0]
-            hyp_lid = hyp[1]
-            hyp_aph = hyp[2]
+            hyp_lid = ''
+            if len(hyp) >= 2:
+                hyp_lid = hyp[1]
+            hyp_aph = ''
+            if len(hyp) >= 3:
+                hyp_aph = hyp[2]
 
             spk = utt2spk(utt_id)
             ref_lid = spk2lang_id[spk]
@@ -75,20 +80,34 @@ def scoring(exp_folder, decode_folder, out):
             if ref_lid == hyp_lid:
                 correct_lid += 1
             if ref_aph == hyp_aph:
+                lang2correct_aph.setdefault(ref_lid, 0)
+                lang2correct_aph[ref_lid] += 1
                 correct_aph += 1
+
             utt_num += 1
+            lang2total_aph.setdefault(ref_lid, 0)
+            lang2total_aph[ref_lid] += 1
 
             output_file.write(f"{utt_id}\t{ref_lid}\t{hyp_lid}\n")
 
         out.write(f"\n{exp_decode_folder}/{folder}\n")
         out.write(
-            f"Language Identification Scoring: Accuracy "
+            f"Language Identification: Accuracy "
             f"{(correct_lid / float(utt_num)):.4f} ({correct_lid}/{utt_num})\n"
         )
+
         out.write(
-            f"Aphasia Detection Scoring: Accuracy "
+            f"Aphasia Detection: Accuracy "
             f"{(correct_aph / float(utt_num)):.4f} ({correct_aph}/{utt_num})\n"
         )
+
+        for lang in lang2total_aph.keys():
+            corr = lang2correct_aph.get(lang, 0)
+            total = lang2total_aph[lang]
+            out.write(
+                f"Aphasia Detection of {lang}: Accuracy "
+                f"{(corr / float(total)):.4f} ({corr}/{total})\n"
+            )
 
 
 if __name__ == "__main__":

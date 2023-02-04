@@ -15,8 +15,8 @@ def clean_line(line: str, tok: str):
     try:
         i = line.rindex(tok)
     except ValueError as e:
-        print(f"{e}\n\nLine is: {line}")
-        exit(1)
+        print(f"No language or aphasia tags found in:\n{line}")
+        return line
 
     assert 0 < i < len(line) - len(tok), f"Invalid line: {line}"
     return line[i + len(tok) :]
