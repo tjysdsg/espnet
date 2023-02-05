@@ -223,6 +223,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         # 1. Encoder
         if self.intermediate_supervision:
+            # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
             y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
                 speech, speech_lengths
             )
@@ -234,8 +235,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
         # 2b. CTC branch
-        # import pdb;pdb.set_trace()
-
         if self.use_unpaired:
             if self.intermediate_supervision:
                 (
@@ -618,9 +617,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     idx_index = 0
                     # import pdb;pdb.set_trace()
                     for idx_len in range(len(y_hat)):
-                        idx = y_hat[idx_len]
-                        idx1 = int(idx)
-                        if idx1 != -1 and idx1 != self.idx_blank:
+                        idx = int(y_hat[idx_len])
+                        if idx != -1 and idx != self.idx_blank:
                             seq_hat.append(ys_one_hot_hat[i][idx_index])
                         idx_index += y_hat_sum[idx_len]
                     # import pdb;pdb.set_trace()
@@ -633,12 +631,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 n_batch = len(seq_hat_total)
                 max_len = max(x.size(0) for x in seq_hat_total)
                 xs = seq_hat_total
-                pad = xs[0].new(n_batch, max_len, *xs[0].size()[1:])
+                pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
+                pad[:, :, -1] = 1.0
                 for i in range(n_batch):
-                    for j in range(pad.shape[1]):
-                        a1 = torch.zeros(pad.shape[-1])
-                        a1[-1] = 1.0
-                        pad[i][j] = a1
                     pad[i, : xs[i].size(0)] = xs[i]
                 # import pdb;pdb.set_trace()
                 y_ctc_pred_pad = pad
@@ -649,8 +644,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     y_hat = [x[0] for x in groupby(y)]
                     seq_hat = []
                     for idx in y_hat:
-                        idx1 = int(idx)
-                        if idx1 != -1 and idx1 != self.idx_blank:
+                        idx = int(idx)
+                        if idx != -1 and idx != self.idx_blank:
                             seq_hat.append(idx)
                     seq_hat_total.append(
                         torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
@@ -671,7 +666,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
     ):
         ys_hat = self.ctc_copy.argmax(encoder_out).data
         seq_hat_total = []
-        cer_ctc = 0
         # import pdb;pdb.set_trace()
         for i, y in enumerate(ys_hat):
             y_hat = [x[0] for x in groupby(y)]

@@ -23,7 +23,7 @@ class CTC(torch.nn.Module):
         dropout_rate: float = 0.0,
         ctc_type: str = "builtin",
         reduce: bool = True,
-        ignore_nan_grad: bool = None,
+        ignore_nan_grad: bool = True,
         zero_infinity: bool = True,
     ):
         assert check_argument_types()
