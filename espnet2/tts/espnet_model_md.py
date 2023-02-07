@@ -179,9 +179,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
+        sudo_text: Optional[torch.Tensor] = None,
+        sudo_text_lengths: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
-        # src_text: Optional[torch.Tensor],
-        # src_text_lengths: Optional[torch.Tensor],
         **kwargs,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
@@ -191,8 +191,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             speech_lengths: (Batch,)
             text: (Batch, Length)
             text_lengths: (Batch,)
-            src_text: (Batch, length)
-            src_text_lengths: (Batch,)
+            sudo_text: Pseudo-labels used for unpaired training, will use pretrained encoder ctc output if none
+            sudo_text_lengths: Pseudo-labels used for unpaired training
+            spembs:
             kwargs: "utt_id" is among the input.
         """
         assert text_lengths.dim() == 1, text_lengths.shape
@@ -206,20 +207,20 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ), (speech.shape, speech_lengths.shape, text.shape, text_lengths.shape)
 
         # additional checks with valid src_text
-        # assert src_text is not None, "missing source text for asr sub-task of ST"
-        # assert src_text_lengths.dim() == 1, src_text_lengths.shape
-        # assert text.shape[0] == src_text.shape[0] == src_text_lengths.shape[0], (
-        #     text.shape,
-        #     src_text.shape,
-        #     src_text_lengths.shape,
-        # )
+        if sudo_text is not None:
+            assert sudo_text_lengths.dim() == 1, sudo_text_lengths.shape
+            assert text.shape[0] == sudo_text.shape[0] == sudo_text_lengths.shape[0], (
+                text.shape,
+                sudo_text.shape,
+                sudo_text_lengths.shape,
+            )
 
         batch_size = speech.shape[0]
 
         # for data-parallel
         text = text[:, : text_lengths.max()]
-        # if src_text is not None:
-        #     src_text = src_text[:, : src_text_lengths.max()]
+        if sudo_text is not None:
+            sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
         if self.intermediate_supervision:
@@ -234,6 +235,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         else:
             encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
+        # 2a. Pseudo-labels
+        if sudo_text is None:
+            sudo_text = y_ctc_gold
+            sudo_text_lengths = y_ctc_gold_lens
+
         # 2b. CTC branch
         if self.use_unpaired:
             if self.intermediate_supervision:
@@ -243,7 +249,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     loss_asr_ctc,
                     cer_asr_ctc,
                 ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, y_ctc_gold, y_ctc_gold_lens
+                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths
                 )
                 loss_ctc_gt = self.ctc(
                     encoder_out, encoder_out_lens, text, text_lengths
@@ -279,6 +285,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 wer_asr_att,
                 hs_dec_asr,
             ) = self._calc_asr_att_loss(
+                # TODO(jiyang): use teacher forcing when sudo_text is given?
                 encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens
             )
             if self.gumbel_softmax:
@@ -432,9 +439,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
-        spembs: Optional[
-            torch.Tensor
-        ] = None,  # NOTE(jiyang): not used, only for avoiding unexpected argument errors
+        sudo_text: Optional[torch.Tensor] = None,
+        sudo_text_lengths: Optional[torch.Tensor] = None,
+        spembs: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
             feats, feats_lengths = self._extract_feats(speech, speech_lengths)
