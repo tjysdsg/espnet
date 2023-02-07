@@ -25,11 +25,12 @@ EOF
 SECONDS=0
 
 stage=1
-stop_stage=100
+stop_stage=7  # stage 8 is for interctc labels
 include_control=false
 include_aphasia_type=false
 include_lang_id=false
 languages="English French"
+asr_data_dir=  # see asr.sh stage 4
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -163,4 +164,10 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     cp -r $tmp/$x data/
     utils/fix_data_dir.sh data/$x
   done
+fi
+
+if [ ${stage} -eq 8 ]; then
+  log "Creating aph_utt for interctc aux task"
+
+  python local/create_aph_tags.py "${asr_data_dir}"
 fi

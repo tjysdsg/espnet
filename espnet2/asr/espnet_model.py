@@ -258,7 +258,7 @@ class ESPnetASRModel(AbsESPnetModel):
                                 aux_data_tensor,
                                 aux_data_lengths,
                             )
-                        else:
+                        elif self.training:
                             raise Exception(
                                 "Aux. CTC tasks were specified but no data was found"
                             )

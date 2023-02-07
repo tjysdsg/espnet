@@ -996,4 +996,4 @@ def utt2time(utt: str) -> (int, int):
 
 
 def utt2spk(utt: str) -> str:
-    return utt.split("-")[0]
+    return utt.split("-")[-2]
