@@ -249,7 +249,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     loss_asr_ctc,
                     cer_asr_ctc,
                 ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths
+                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
                 )
                 loss_ctc_gt = self.ctc(
                     encoder_out, encoder_out_lens, text, text_lengths
@@ -286,7 +286,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 hs_dec_asr,
             ) = self._calc_asr_att_loss(
                 # TODO(jiyang): use teacher forcing when sudo_text is given?
-                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens
+                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens, ground_truth=text,
             )
             if self.gumbel_softmax:
                 dec_asr_lengths = dec_asr_lengths.to(dtype=int)
@@ -546,6 +546,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out_lens: torch.Tensor,
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
+        ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
         if self.gumbel_softmax:
             # ys_pad is gumbel softmax of the encoder output
@@ -579,16 +580,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         )
 
         # Compute cer/wer using attention-decoder
-        if self.training or self.asr_error_calculator is None:
-            cer_att, wer_att = None, None
-        else:
+        cer_att, wer_att = None, None
+        if not self.training and self.asr_error_calculator is not None:
             ys_hat = decoder_out.argmax(dim=-1)
-            if self.gumbel_softmax:
-                cer_att, wer_att = self.asr_error_calculator(
-                    ys_hat.cpu(), ys_gumbel.cpu()
-                )
-            else:
-                cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu())
+
+            if ground_truth is None:
+                ground_truth = ys_pad
+            cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
         return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
 
@@ -598,6 +596,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out_lens: torch.Tensor,
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
+        ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
         # Calc CTC loss
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
@@ -612,7 +611,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # Calc CER using CTC
         cer_ctc = None
         if not self.training and self.asr_error_calculator is not None:
-            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+            if ground_truth is None:
+                ground_truth = ys_pad
+            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
 
         if self.use_unpaired:
             if self.gumbel_softmax:
