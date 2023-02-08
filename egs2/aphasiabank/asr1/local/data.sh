@@ -96,7 +96,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 
   # generate data/local/<lang>/text
   for lang in ${languages}; do
-    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} "
+    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} --append-aph-tag "
 
     if "${include_aphasia_type}"; then
       log "**Including the aphasia type**"

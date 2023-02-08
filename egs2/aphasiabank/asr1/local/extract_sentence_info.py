@@ -17,6 +17,7 @@ def get_args():
     parser.add_argument("--transcript-dir", type=str, required=True)
     parser.add_argument("--out-dir", type=str, required=True)
     parser.add_argument("--spk2aphasia-type", type=str, default=None)
+    parser.add_argument("--append-aph-tag", action='store_true')
     parser.add_argument("--lang", type=str, default=None)
     return parser.parse_args()
 
@@ -142,7 +143,10 @@ def main():
                 # add aphasia type and/or language annotation to the front if needed
                 if spk2aphasia_type is not None:
                     aphasia_type = aphasia_type2label[spk2aphasia_type[spk]]
-                    trans = f"[{aphasia_type}] {trans}"
+                    if args.append_aph_tag:
+                        trans = f"{trans} [{aphasia_type}]"
+                    else:
+                        trans = f"[{aphasia_type}] {trans}"
 
                 if lang is not None:
                     trans = f"[{lang}] {trans}"
