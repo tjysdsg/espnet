@@ -236,7 +236,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
         # 2a. Pseudo-labels
-        if sudo_text is None:
+        if self.intermediate_supervision and sudo_text is None:
             sudo_text = y_ctc_gold
             sudo_text_lengths = y_ctc_gold_lens
 
@@ -602,11 +602,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
 
         # Calc ys_hat
-        if self.use_unpaired:
-            if self.gumbel_softmax:
-                ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
-            else:
-                ys_hat = self.ctc.argmax(encoder_out).data
+        if self.use_unpaired and self.gumbel_softmax:
+            ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
+        ys_hat = self.ctc.argmax(encoder_out).data
 
         # Calc CER using CTC
         cer_ctc = None
