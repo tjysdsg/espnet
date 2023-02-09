@@ -1,7 +1,4 @@
-# Unpaired training
-
-# - with pretrained ASR and TTS models
-# - with ASR decoder and TTS encoder frozen
+# Unpaired training with pseudo-labels
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -104,7 +101,7 @@ scheduler_conf:         # keyword arguments for selected scheduler
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.7
+  asr_weight: 0.3
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true
@@ -113,12 +110,15 @@ model_conf:
 ##########################################################
 #                OTHER TRAINING SETTING                  #
 ##########################################################
-num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 50               # number of epochs
+use_amp: true
+cudnn_deterministic: false
+cudnn_benchmark: false
+
+max_epoch: 20               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
-accum_grad: 6               # gradient accumulation
-batch_bins: 3000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+accum_grad: 4               # gradient accumulation
+batch_bins: 4500000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches

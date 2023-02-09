@@ -25,6 +25,7 @@ inference_asr_config=conf/decode_asr.yaml
 ./tts.sh \
     --ngpu 1 \
     --stage 6 \
+    --stop_stage 6 \
     --inference_nj 100 \
     --use_multidecoder true \
     --lang en \
