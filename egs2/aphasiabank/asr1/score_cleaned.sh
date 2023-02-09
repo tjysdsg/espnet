@@ -52,11 +52,11 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   # remove tags
   _dir="${decode_dir}/score_cer_clean"
 
-  python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
-  python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
+  python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
+  python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
   for sub in en fr aph nonaph en.aph en.nonaph fr.aph fr.nonaph; do
-    python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
-    python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
+    python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
+    python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
   done
 fi
 
