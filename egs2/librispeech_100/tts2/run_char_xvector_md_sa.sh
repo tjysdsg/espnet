@@ -10,14 +10,14 @@ n_fft=2048
 n_shift=300
 win_length=1200
 
-tag="tts_16k_char_xvector"
+tag="sanity_check_freeze"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
 # test_sets="dev_clean"
 test_sets="test_clean dev_clean"
 
-train_config=conf/tuning/train_transformer_xvector_md_sanity_check.yaml
+train_config=conf/tuning/train_transformer_xvector_md_sanity_check_freeze.yaml
 inference_config=conf/decode.yaml
 
 

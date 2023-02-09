@@ -80,7 +80,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
-        teacher_student: bool = False,
+        teacher_student: bool = False,  # not used right now
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight < 1.0, "asr_weight should be (0.0, 1.0)"
@@ -153,6 +153,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
+        self.asr_decoder.gumbel_softmax = self.gumbel_softmax
 
         # MT error calculator
         if report_bleu:
@@ -178,9 +179,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
+        sudo_text: Optional[torch.Tensor] = None,
+        sudo_text_lengths: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
-        # src_text: Optional[torch.Tensor],
-        # src_text_lengths: Optional[torch.Tensor],
         **kwargs,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
@@ -190,8 +191,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             speech_lengths: (Batch,)
             text: (Batch, Length)
             text_lengths: (Batch,)
-            src_text: (Batch, length)
-            src_text_lengths: (Batch,)
+            sudo_text: Pseudo-labels used for unpaired training, will use pretrained encoder ctc output if none
+            sudo_text_lengths: Pseudo-labels used for unpaired training
+            spembs:
             kwargs: "utt_id" is among the input.
         """
         assert text_lengths.dim() == 1, text_lengths.shape
@@ -205,23 +207,24 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ), (speech.shape, speech_lengths.shape, text.shape, text_lengths.shape)
 
         # additional checks with valid src_text
-        # assert src_text is not None, "missing source text for asr sub-task of ST"
-        # assert src_text_lengths.dim() == 1, src_text_lengths.shape
-        # assert text.shape[0] == src_text.shape[0] == src_text_lengths.shape[0], (
-        #     text.shape,
-        #     src_text.shape,
-        #     src_text_lengths.shape,
-        # )
+        if sudo_text is not None:
+            assert sudo_text_lengths.dim() == 1, sudo_text_lengths.shape
+            assert text.shape[0] == sudo_text.shape[0] == sudo_text_lengths.shape[0], (
+                text.shape,
+                sudo_text.shape,
+                sudo_text_lengths.shape,
+            )
 
         batch_size = speech.shape[0]
 
         # for data-parallel
         text = text[:, : text_lengths.max()]
-        # if src_text is not None:
-        #     src_text = src_text[:, : src_text_lengths.max()]
+        if sudo_text is not None:
+            sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
         if self.intermediate_supervision:
+            # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
             y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
                 speech, speech_lengths
             )
@@ -232,9 +235,12 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         else:
             encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
-        # 2b. CTC branch
-        # import pdb;pdb.set_trace()
+        # 2a. Pseudo-labels
+        if sudo_text is None:
+            sudo_text = y_ctc_gold
+            sudo_text_lengths = y_ctc_gold_lens
 
+        # 2b. CTC branch
         if self.use_unpaired:
             if self.intermediate_supervision:
                 (
@@ -243,7 +249,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     loss_asr_ctc,
                     cer_asr_ctc,
                 ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, y_ctc_gold, y_ctc_gold_lens
+                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
                 )
                 loss_ctc_gt = self.ctc(
                     encoder_out, encoder_out_lens, text, text_lengths
@@ -257,13 +263,10 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 ) = self._calc_ctc_loss(
                     encoder_out, encoder_out_lens, text, text_lengths
                 )
-        if self.mtlalpha > 0:
-            if self.use_unpaired:
-                cer_asr_ctc = None
-            else:
-                loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
-                )
+        elif self.mtlalpha > 0:
+            loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
+                encoder_out, encoder_out_lens, text, text_lengths
+            )
         else:
             loss_asr_ctc, cer_asr_ctc = 0, None
 
@@ -282,7 +285,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 wer_asr_att,
                 hs_dec_asr,
             ) = self._calc_asr_att_loss(
-                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens
+                # TODO(jiyang): use teacher forcing when sudo_text is given?
+                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens, ground_truth=text,
             )
             if self.gumbel_softmax:
                 dec_asr_lengths = dec_asr_lengths.to(dtype=int)
@@ -320,30 +324,30 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 feats, feats_lengths = speech, speech_lengths
 
             # Extract auxiliary features
-            if self.pitch_extract is not None and pitch is None:
-                pitch, pitch_lengths = self.pitch_extract(
-                    speech,
-                    speech_lengths,
-                    feats_lengths=feats_lengths,
-                    durations=durations,
-                    durations_lengths=durations_lengths,
-                )
-            if self.energy_extract is not None and energy is None:
-                energy, energy_lengths = self.energy_extract(
-                    speech,
-                    speech_lengths,
-                    feats_lengths=feats_lengths,
-                    durations=durations,
-                    durations_lengths=durations_lengths,
-                )
+            # if self.pitch_extract is not None and pitch is None:
+            #     pitch, pitch_lengths = self.pitch_extract(
+            #         speech,
+            #         speech_lengths,
+            #         feats_lengths=feats_lengths,
+            #         durations=durations,
+            #         durations_lengths=durations_lengths,
+            #     )
+            # if self.energy_extract is not None and energy is None:
+            #     energy, energy_lengths = self.energy_extract(
+            #         speech,
+            #         speech_lengths,
+            #         feats_lengths=feats_lengths,
+            #         durations=durations,
+            #         durations_lengths=durations_lengths,
+            #     )
 
             # Normalize
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-            if self.pitch_normalize is not None:
-                pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
-            if self.energy_normalize is not None:
-                energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
+            # if self.pitch_normalize is not None:
+            #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
+            # if self.energy_normalize is not None:
+            #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
         batch = dict(
             text=hs_dec_asr,
             text_lengths=dec_asr_lengths,
@@ -359,7 +363,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
-        if self.use_unpaired:
+        if self.use_unpaired:  # TODO(jiyang): include attention loss if ASR decoder is not frozen
             loss_asr = loss_asr_ctc
         elif asr_ctc_weight == 0.0:
             loss_asr = loss_asr_att
@@ -371,10 +375,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # import pdb;pdb.set_trace()
-            loss = (0.95) * loss + 0.05 * mse_loss
+            loss = 0.95 * loss + 0.05 * mse_loss
         # import pdb;pdb.set_trace()
         # print(tts_stats)
-        # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             stats = dict(
                 loss=loss.detach(),
@@ -436,9 +439,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         speech_lengths: torch.Tensor,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
-        spembs: Optional[
-            torch.Tensor
-        ] = None,  # NOTE(jiyang): not used, only for avoiding unexpected argument errors
+        sudo_text: Optional[torch.Tensor] = None,
+        sudo_text_lengths: Optional[torch.Tensor] = None,
+        spembs: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
             feats, feats_lengths = self._extract_feats(speech, speech_lengths)
@@ -543,20 +546,20 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out_lens: torch.Tensor,
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
+        ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
         if self.gumbel_softmax:
-            a3 = torch.range(0, ys_pad.shape[-1] - 1).to(
+            # ys_pad is gumbel softmax of the encoder output
+            gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
                 ys_pad.device, dtype=ys_pad.dtype
             )
-            a4 = torch.matmul(ys_pad, a3).to(dtype=int)
-            ys_pad_int = a4
-            ys_in_pad1, ys_out_pad = add_sos_eos(a4, self.sos, self.eos, self.ignore_id)
-            a1 = torch.zeros(ys_pad.shape[-1])
-            a1[self.sos] = 1
-            a1 = a1.to(ys_pad.device, dtype=ys_pad.dtype)
-            a1 = a1.unsqueeze(0)
+            ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
+            _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
+            ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
+            ys_in_pad[self.sos] = 1
+            ys_in_pad = ys_in_pad.unsqueeze(0)
             # import pdb;pdb.set_trace()
-            ys_in_pad = torch.stack([torch.cat([a1, y], dim=0) for y in ys_pad])
+            ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
         else:
             ys_in_pad, ys_out_pad = add_sos_eos(
                 ys_pad, self.sos, self.eos, self.ignore_id
@@ -577,16 +580,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         )
 
         # Compute cer/wer using attention-decoder
-        if self.training or self.asr_error_calculator is None:
-            cer_att, wer_att = None, None
-        else:
+        cer_att, wer_att = None, None
+        if not self.training and self.asr_error_calculator is not None:
             ys_hat = decoder_out.argmax(dim=-1)
-            if self.gumbel_softmax:
-                cer_att, wer_att = self.asr_error_calculator(
-                    ys_hat.cpu(), ys_pad_int.cpu()
-                )
-            else:
-                cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu())
+
+            if ground_truth is None:
+                ground_truth = ys_pad
+            cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
         return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
 
@@ -596,13 +596,28 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out_lens: torch.Tensor,
         ys_pad: torch.Tensor,
         ys_pad_lens: torch.Tensor,
+        ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
+        # Calc CTC loss
+        loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
+
+        # Calc ys_hat
         if self.use_unpaired:
             if self.gumbel_softmax:
                 ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
+            else:
+                ys_hat = self.ctc.argmax(encoder_out).data
+
+        # Calc CER using CTC
+        cer_ctc = None
+        if not self.training and self.asr_error_calculator is not None:
+            if ground_truth is None:
+                ground_truth = ys_pad
+            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
+
+        if self.use_unpaired:
+            if self.gumbel_softmax:
                 seq_hat_total = []
-                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc = 0
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
                     y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
@@ -610,9 +625,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     idx_index = 0
                     # import pdb;pdb.set_trace()
                     for idx_len in range(len(y_hat)):
-                        idx = y_hat[idx_len]
-                        idx1 = int(idx)
-                        if idx1 != -1 and idx1 != self.idx_blank:
+                        idx = int(y_hat[idx_len])
+                        if idx != -1 and idx != self.idx_blank:
                             seq_hat.append(ys_one_hot_hat[i][idx_index])
                         idx_index += y_hat_sum[idx_len]
                     # import pdb;pdb.set_trace()
@@ -625,27 +639,21 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 n_batch = len(seq_hat_total)
                 max_len = max(x.size(0) for x in seq_hat_total)
                 xs = seq_hat_total
-                pad = xs[0].new(n_batch, max_len, *xs[0].size()[1:])
+                pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
+                pad[:, :, -1] = 1.0
                 for i in range(n_batch):
-                    for j in range(pad.shape[1]):
-                        a1 = torch.zeros(pad.shape[-1])
-                        a1[-1] = 1.0
-                        pad[i][j] = a1
                     pad[i, : xs[i].size(0)] = xs[i]
                 # import pdb;pdb.set_trace()
                 y_ctc_pred_pad = pad
             else:
-                ys_hat = self.ctc.argmax(encoder_out).data
                 seq_hat_total = []
-                loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-                cer_ctc = 0
                 # import pdb;pdb.set_trace()
                 for i, y in enumerate(ys_hat):
                     y_hat = [x[0] for x in groupby(y)]
                     seq_hat = []
                     for idx in y_hat:
-                        idx1 = int(idx)
-                        if idx1 != -1 and idx1 != self.idx_blank:
+                        idx = int(idx)
+                        if idx != -1 and idx != self.idx_blank:
                             seq_hat.append(idx)
                     seq_hat_total.append(
                         torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
@@ -656,14 +664,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 )
                 y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
             return y_ctc_pred_pad, seq_hat_total_lens, loss_ctc, cer_ctc
-        # Calc CTC loss
-        loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
-
-        # Calc CER using CTC
-        cer_ctc = None
-        if not self.training and self.asr_error_calculator is not None:
-            ys_hat = self.ctc.argmax(encoder_out).data
-            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
 
         return loss_ctc, cer_ctc
 
@@ -674,7 +674,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
     ):
         ys_hat = self.ctc_copy.argmax(encoder_out).data
         seq_hat_total = []
-        cer_ctc = 0
         # import pdb;pdb.set_trace()
         for i, y in enumerate(ys_hat):
             y_hat = [x[0] for x in groupby(y)]

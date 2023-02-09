@@ -19,7 +19,7 @@ from espnet2.tasks.abs_task import AbsTask
 from espnet2.text.phoneme_tokenizer import g2p_choices
 from espnet2.train.class_choices import ClassChoices
 from espnet2.train.collate_fn import CommonCollateFn
-from espnet2.train.preprocessor import CommonPreprocessor
+from espnet2.train.preprocessor import CommonPreprocessor_multi
 from espnet2.train.trainer import Trainer
 from espnet2.tts.abs_tts import AbsTTS
 from espnet2.tts.espnet_model import ESPnetTTSModel
@@ -318,7 +318,7 @@ class TTSTask(AbsTask):
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
         assert check_argument_types()
         if args.use_preprocessor:
-            retval = CommonPreprocessor(
+            retval = CommonPreprocessor_multi(
                 train=train,
                 token_type=args.token_type,
                 token_list=args.token_list,
@@ -326,6 +326,7 @@ class TTSTask(AbsTask):
                 non_linguistic_symbols=args.non_linguistic_symbols,
                 text_cleaner=args.cleaner,
                 g2p_type=args.g2p,
+                text_name=['text', 'sudo_text'],
             )
         else:
             retval = None
@@ -356,6 +357,7 @@ class TTSTask(AbsTask):
                 "energy",
                 "sids",
                 "lids",
+                "sudo_text",
             )
         else:
             # Inference mode

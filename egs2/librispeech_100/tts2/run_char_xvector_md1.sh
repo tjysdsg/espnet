@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+# Intermediate supervision using ASR output of pretrained model, decoded using CTC+Attention
+
 set -e
 set -u
 set -o pipefail
+
 
 fs=16000 # original 24000
 n_fft=2048
 n_shift=300
 win_length=1200
 
-tag="unpaired_360_gumbel"
+tag="unpaired_360_sudo"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean"
+test_sets="dev_clean test_clean test_other"
 
-train_config=conf/tuning/train_transformer_xvector_md_unpaired_gumbel.yaml
+train_config=conf/tuning/train_transformer_xvector_md_unpaired.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
@@ -24,6 +25,7 @@ inference_asr_config=conf/decode_asr.yaml
 ./tts.sh \
     --ngpu 1 \
     --stage 6 \
+    --stop_stage 6 \
     --inference_nj 100 \
     --use_multidecoder true \
     --lang en \
@@ -43,4 +45,5 @@ inference_asr_config=conf/decode_asr.yaml
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
     --srctexts "data/${train_set}/text" \
+    --sudo_text "decode_train_clean_360/text" \
     --audio_format "wav" "$@"

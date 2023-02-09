@@ -65,6 +65,7 @@ n_mels=80                  # The number of mel basis.
 f0min=80  # Maximum f0 for pitch extraction.
 f0max=400 # Minimum f0 for pitch extraction.
 score_opts=
+sudo_text=  # specify a custom text file path used for paired training
 
 # X-Vector related
 use_xvector=false   # Whether to use x-vector.
@@ -619,6 +620,18 @@ if ! "${skip_train}"; then
             _opts+="--valid_data_path_and_name_and_type ${_valid_dir}/utt2lid,lids,text_int "
         fi
 
+        # sudo_text
+        if [ -n "${sudo_text}" ]; then
+            # make sure sudo_text doesn't contain extra lines
+            ./utils/filter_scp.pl \
+                -f 1 \
+                "${data_feats}/${train_set}/text" \
+                "${sudo_text}" \
+                >"${tts_stats_dir}/train/sudo_text"
+
+            _opts+="--train_data_path_and_name_and_type ${tts_stats_dir}/train/sudo_text,sudo_text,text "
+        fi
+
         # 1. Split the key file
         _logdir="${tts_stats_dir}/logdir"
         mkdir -p "${_logdir}"
@@ -687,6 +700,11 @@ if ! "${skip_train}"; then
         <"${tts_stats_dir}/valid/text_shape" \
             awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
             >"${tts_stats_dir}/valid/text_shape.${token_type}"
+
+        # sudo_text
+        <"${tts_stats_dir}/train/sudo_text_shape" \
+            awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
+            >"${tts_stats_dir}/train/sudo_text_shape.${token_type}"
     fi
 
 
@@ -725,6 +743,7 @@ if ! "${skip_train}"; then
                 _opts+="--feats_extract_conf n_mels=${n_mels} "
             fi
 
+            # FIXME(jiyang): doesn't work with --sudo_text
             if [ "${num_splits}" -gt 1 ]; then
                 # If you met a memory error when parsing text files, this option may help you.
                 # The corpus is split into subsets and each subset is used for training one by one in order,
@@ -757,6 +776,10 @@ if ! "${skip_train}"; then
                 _opts+="--train_data_path_and_name_and_type ${_train_dir}/${_scp},speech,${_type} "
                 _opts+="--train_shape_file ${tts_stats_dir}/train/text_shape.${token_type} "
                 _opts+="--train_shape_file ${tts_stats_dir}/train/speech_shape "
+                if [ -n "${sudo_text}" ]; then
+                  _opts+="--train_data_path_and_name_and_type ${tts_stats_dir}/train/sudo_text,sudo_text,text "
+                  _opts+="--train_shape_file ${tts_stats_dir}/train/sudo_text_shape.${token_type} "
+                fi
             fi
             _opts+="--valid_data_path_and_name_and_type ${_valid_dir}/text,text,text "
             _opts+="--valid_data_path_and_name_and_type ${_valid_dir}/${_scp},speech,${_type} "
@@ -1431,7 +1454,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && [ ${use_multidecoder} ]; t
             fi
         fi
 
-        # Add X-vector to the inputs if needed        
+        # Add X-vector to the inputs if needed
         if "${use_xvector}"; then
             _xvector_dir="${dumpdir}/xvector/${dset}"
             _ex_opts+="--data_path_and_name_and_type ${_xvector_dir}/xvector.scp,spembs,kaldi_ark "
