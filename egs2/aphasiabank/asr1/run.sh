@@ -23,7 +23,7 @@ inference_config=conf/decode.yaml
 
 ./asr.sh \
   --lang en \
-  --inference_nj 100 \
+  --inference_nj 32 \
   --ngpu 2 \
   --max_wav_duration 33 \
   --audio_format wav \
