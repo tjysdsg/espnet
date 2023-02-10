@@ -3,7 +3,8 @@
 # Cyclic ASR-TTS
 # - with pretrained ASR and TTS models
 # - using ground truth text as the ASR decoder input
-# - with only TTS encoder frozen
+# - with ASR decoder and TTS encoder frozen
+# - Using only ASR loss
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -106,7 +107,7 @@ scheduler_conf: # keyword arguments for selected scheduler
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 1.0
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: false  # <--------------------------------------------------------------------------------------
@@ -159,5 +160,5 @@ init_param: [
 ]
 freeze_param: [
     "asr_decoder",
-    # "tts.encoder",
+    "tts.encoder",
 ]
