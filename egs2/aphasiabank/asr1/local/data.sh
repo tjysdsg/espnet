@@ -167,7 +167,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
 fi
 
 if [ ${stage} -eq 8 ]; then
-  log "Creating aph_utt for interctc aux task"
+  log "Creating utt2aph for interctc aux task"
 
   python local/create_aph_tags.py "${asr_data_dir}"
 fi

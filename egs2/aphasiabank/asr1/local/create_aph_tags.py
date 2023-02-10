@@ -1,3 +1,5 @@
+# Adapted from https://github.com/espnet/espnet/blob/master/egs2/fleurs/asr1/local/create_lids.py
+
 import argparse
 from config import utt2spk, spk2aphasia_label
 
@@ -8,7 +10,7 @@ def main():
     args = parser.parse_args()
 
     with open(f"{args.data_dir}/text", encoding="utf-8") as in_file, \
-            open(f"{args.data_dir}/aph_utt", "w", encoding="utf-8") as utt_file:
+            open(f"{args.data_dir}/utt2aph", "w", encoding="utf-8") as utt_file:
         for line in in_file:
             line = line.rstrip('\n')
 
