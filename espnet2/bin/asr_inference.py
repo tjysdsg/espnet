@@ -3,8 +3,9 @@ import argparse
 import logging
 import sys
 from distutils.version import LooseVersion
+from itertools import groupby
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union, Dict
 
 import numpy as np
 import torch
@@ -346,13 +347,16 @@ class Speech2Text:
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]
-    ) -> List[
-        Tuple[
-            Optional[str],
-            List[str],
-            List[int],
-            Union[Hypothesis, ExtTransHypothesis, TransHypothesis],
-        ]
+    ) -> Tuple[
+        List[
+            Tuple[
+                Optional[str],
+                List[str],
+                List[int],
+                Union[Hypothesis, ExtTransHypothesis, TransHypothesis],
+            ]
+        ],
+        Optional[Dict[int, List[str]]]
     ]:
         """Inference
 
@@ -399,20 +403,50 @@ class Speech2Text:
 
                 # c. Passed the encoder result and the beam search
                 ret = self._decode_single_sample(enc_spk[0])
-                assert check_return_type(ret)
+                assert check_return_type(ret)  # FIXME(jiyang): probably broken
                 results.append(ret)
 
         else:
             # Normal ASR
+            intermediate_outs = None
             if isinstance(enc, tuple):
+                intermediate_outs = enc[1]
                 enc = enc[0]
             assert len(enc) == 1, len(enc)
 
             # c. Passed the encoder result and the beam search
             results = self._decode_single_sample(enc[0])
+
+            # intermediate CTC predictions
+            intermediate_res = None
+            if intermediate_outs is not None:
+                intermediate_res = self._decode_intermediate(intermediate_outs)
+
+            results = (results, intermediate_res)
             assert check_return_type(results)
 
         return results
+
+    def _decode_intermediate(self, intermediate_outs: List[Tuple[int, torch.Tensor]]):
+        assert check_argument_types()
+
+        blank_id = self.asr_model.blank_id
+        sos_id = self.asr_model.sos
+        eos_id = self.asr_model.eos
+        exclude_ids = [blank_id, sos_id, eos_id]
+
+        res = {}
+        token_list = self.beam_search.token_list
+
+        for layer_idx, encoder_out in intermediate_outs:
+            y = self.asr_model.ctc.argmax(encoder_out)[0]  # batch_size = 1
+            y = [x[0] for x in groupby(y) if x[0] not in exclude_ids]
+            y = [token_list[x] for x in y]
+            print(f"interctc_layer{layer_idx}: {y}")
+
+            res[layer_idx] = y
+
+        return res
 
     def _decode_single_sample(self, enc: torch.Tensor):
         if self.beam_search_transducer:
@@ -638,7 +672,7 @@ def inference(
 
             # N-best list of (text, token, token_int, hyp_object)
             try:
-                results = speech2text(**batch)
+                results, intermediate_res = speech2text(**batch)
             except TooShortUttError as e:
                 logging.warning(f"Utterance {keys} {e}")
                 hyp = Hypothesis(score=0.0, scores={}, states={}, yseq=[])
@@ -684,6 +718,10 @@ def inference(
                     if text is not None:
                         ibest_writer["text"][key] = text
 
+                # Write intermediate predictions to interctc_layer{layer_idx}.txt
+                ibest_writer = writer[f"1best_recog"]
+                for idx, text in intermediate_res.items():
+                    ibest_writer[f"interctc_layer{idx}.txt"][key] = " ".join(text)
 
 def get_parser():
     parser = config_argparse.ArgumentParser(
