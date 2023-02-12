@@ -442,7 +442,6 @@ class Speech2Text:
             y = self.asr_model.ctc.argmax(encoder_out)[0]  # batch_size = 1
             y = [x[0] for x in groupby(y) if x[0] not in exclude_ids]
             y = [token_list[x] for x in y]
-            print(f"interctc_layer{layer_idx}: {y}")
 
             res[layer_idx] = y
 
