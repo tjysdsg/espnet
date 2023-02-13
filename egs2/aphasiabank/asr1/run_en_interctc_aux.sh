@@ -43,4 +43,5 @@ inference_config=conf/decode.yaml
   --local_data_opts "--include_control ${include_control} --include_aphasia_type ${include_aphasia_type} --include_lang_id ${include_lang_id} --languages English" \
   --auxiliary_data_tags "utt2aph" \
   --post_process_local_data_opts "--stage 8" \
+  --nlsyms_txt "local/nlsyms.txt" \
   --lm_train_text "data/${train_set}/text" "$@"

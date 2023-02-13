@@ -777,6 +777,8 @@ if ! "${skip_data_prep}"; then
                 --write_vocabulary true \
                 --add_symbol "${blank}:0" \
                 --add_symbol "${oov}:1" \
+                --add_symbol "[APH]:2" \
+                --add_symbol "[NONAPH]:3" \
                 --add_symbol "${sos_eos}:-1"
         elif grep -q "whisper" <<< ${token_type}; then
             log "Stage 5: Generate whisper token_list from ${token_type} tokenizer"
