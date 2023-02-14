@@ -93,7 +93,7 @@ tts_conf: # keyword arguments for the selected model
 ##########################################################
 optim: adam             # optimizer type
 optim_conf:             # keyword arguments for selected optimizer
-  lr: 1.0               # learning rate
+  lr: 0.2               # learning rate
 scheduler: noamlr       # scheduler type
 scheduler_conf:         # keyword arguments for selected scheduler
   model_size: 512       # model size, a.k.a., attention dimenstion
