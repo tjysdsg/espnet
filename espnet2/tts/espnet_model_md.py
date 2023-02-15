@@ -223,6 +223,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
+        # FIXME: temporarily disabled to speed up training
+        """
         if self.intermediate_supervision:
             # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
             y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
@@ -233,12 +235,20 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 speech, speech_lengths
             )
         else:
-            encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
+        """
+        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
         # 2a. Pseudo-labels
+        # If not given:
+        #     - use canonical text during validation for calculating loss
+        #     - use reference encoder's output during training
         if self.intermediate_supervision and sudo_text is None:
-            sudo_text = y_ctc_gold
-            sudo_text_lengths = y_ctc_gold_lens
+            if self.training:
+                sudo_text = y_ctc_gold
+                sudo_text_lengths = y_ctc_gold_lens
+            else:
+                sudo_text = text
+                sudo_text_lengths = text_lengths
 
         # 2b. CTC branch
         if self.use_unpaired:
@@ -250,9 +260,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     cer_asr_ctc,
                 ) = self._calc_ctc_loss(
                     encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
-                )
-                loss_ctc_gt = self.ctc(
-                    encoder_out, encoder_out_lens, text, text_lengths
                 )
             else:
                 (
@@ -359,13 +366,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             batch.update(speech_embed_lengths=encoder_out_lens)
         if spembs is not None:
             batch.update(spembs=spembs)
+
+        # import pdb; pdb.set_trace()
         tts_loss, tts_stats, tts_weight = self.tts(**batch)
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
-        if self.use_unpaired:  # TODO(jiyang): include attention loss if ASR decoder is not frozen
-            loss_asr = loss_asr_ctc
-        elif asr_ctc_weight == 0.0:
+        if asr_ctc_weight == 0.0:
             loss_asr = loss_asr_att
         else:
             loss_asr = (
@@ -399,7 +406,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             stats = dict(
                 loss=loss.detach(),
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                loss_ct_gt=loss_ctc_gt.detach(),
                 loss_tts=tts_loss.detach(),
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
@@ -484,6 +490,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # feats: (Batch, Length, Dim)
         # -> encoder_out: (Batch, Length2, Dim2)
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
+
+        # FIXME: temporarily disabled to speed up training
+        """
         if self.intermediate_supervision:
             encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
                 feats, feats_lengths
@@ -499,6 +508,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 feats, feats_lengths
             )
             mse_loss = mse_criterion(encoder_out, encoder_out_copy)
+        """
 
         # Post-encoder, e.g. NLU
         if self.postencoder is not None:
@@ -514,12 +524,16 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             encoder_out.size(),
             encoder_out_lens.max(),
         )
+
+        # FIXME: temporarily disabled to speed up training
+        """
         if self.intermediate_supervision:
             return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
         elif self.create_KL_copy:
             return encoder_out, encoder_out_lens, mse_loss
         else:
-            return encoder_out, encoder_out_lens
+        """
+        return encoder_out, encoder_out_lens
 
     def _extract_feats(
         self, speech: torch.Tensor, speech_lengths: torch.Tensor
@@ -638,7 +652,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 max_len = max(x.size(0) for x in seq_hat_total)
                 xs = seq_hat_total
                 pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
-                pad[:, :, -1] = 1.0
+                pad[:, :, 0] = 1.0
                 for i in range(n_batch):
                     pad[i, : xs[i].size(0)] = xs[i]
                 # import pdb;pdb.set_trace()
