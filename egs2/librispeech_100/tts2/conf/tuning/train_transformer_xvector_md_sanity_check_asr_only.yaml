@@ -1,4 +1,10 @@
-# Unpaired training with pseudo-labels
+# Sanity check
+
+# Cyclic ASR-TTS
+# - with pretrained ASR and TTS models
+# - using ground truth text as the ASR decoder input
+# - with ASR decoder and TTS encoder frozen
+# - Using only ASR loss
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -92,20 +98,19 @@ tts_conf: # keyword arguments for the selected model
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
 optim: adam             # optimizer type
-optim_conf:             # keyword arguments for selected optimizer
-  lr: 0.2               # learning rate
+optim_conf: # keyword arguments for selected optimizer
+  lr: 0.2             # learning rate
 scheduler: noamlr       # scheduler type
-scheduler_conf:         # keyword arguments for selected scheduler
-  model_size: 512       # model size, a.k.a., attention dimenstion
-  warmup_steps: 8000    # the number of warmup steps
+scheduler_conf: # keyword arguments for selected scheduler
+  model_size: 512     # model size, a.k.a., attention dimenstion
+  warmup_steps: 8000  # the number of warmup steps
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 1.0
   lsm_weight: 0.1
   length_normalized_loss: false
-  use_unpaired: true
-  intermediate_supervision: true
+  use_unpaired: false  # <--------------------------------------------------------------------------------------
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -132,6 +137,9 @@ best_model_criterion:
   - - valid
     - loss
     - min
+  - - valid
+    - acc_asr
+    - min
   - - train
     - loss
     - min
@@ -150,10 +158,7 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/tts_tts_16k_char_xvector/train.loss.ave.pth:tts.postnet:tts.postnet",
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/tts_tts_16k_char_xvector/train.loss.ave.pth:tts.criterion:tts.criterion",
 ]
-unused_parameters: true
 freeze_param: [
-  "asr_decoder",
-  "tts.encoder",
-  "asr_encoder_copy",
-  "ctc_copy",
+    "asr_decoder",
+    "tts.encoder",
 ]
