@@ -15,7 +15,7 @@ tag="unpaired_360_sudo"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean test_other"
+test_sets="dev_clean test_clean"
 
 train_config=conf/tuning/train_transformer_xvector_md_unpaired.yaml
 inference_config=conf/decode.yaml
@@ -26,8 +26,8 @@ inference_asr_config=conf/decode_asr.yaml
     --ngpu 1 \
     --stage 6 \
     --stop_stage 6 \
-    --gpu_inference true \
-    --inference_nj 1 \
+    --inference_model valid.loss.ave.pth \
+    --inference_nj 32 \
     --use_multidecoder true \
     --lang en \
     --feats_type raw \
