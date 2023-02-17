@@ -223,8 +223,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
-        # FIXME: temporarily disabled to speed up training
-        """
         if self.intermediate_supervision:
             # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
             y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
@@ -235,8 +233,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 speech, speech_lengths
             )
         else:
-        """
-        encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
+            encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
         # 2a. Pseudo-labels
         # If not given:
@@ -491,8 +488,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # -> encoder_out: (Batch, Length2, Dim2)
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
 
-        # FIXME: temporarily disabled to speed up training
-        """
         if self.intermediate_supervision:
             encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
                 feats, feats_lengths
@@ -508,7 +503,6 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 feats, feats_lengths
             )
             mse_loss = mse_criterion(encoder_out, encoder_out_copy)
-        """
 
         # Post-encoder, e.g. NLU
         if self.postencoder is not None:
@@ -525,15 +519,12 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             encoder_out_lens.max(),
         )
 
-        # FIXME: temporarily disabled to speed up training
-        """
         if self.intermediate_supervision:
             return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
         elif self.create_KL_copy:
             return encoder_out, encoder_out_lens, mse_loss
         else:
-        """
-        return encoder_out, encoder_out_lens
+            return encoder_out, encoder_out_lens
 
     def _extract_feats(
         self, speech: torch.Tensor, speech_lengths: torch.Tensor
