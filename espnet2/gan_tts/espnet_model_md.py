@@ -96,6 +96,13 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.pitch_normalize = pitch_normalize
         self.energy_normalize = energy_normalize
         self.tts = tts
+        assert hasattr(
+            tts, "generator"
+        ), "generator module must be registered as tts.generator"
+        assert hasattr(
+            tts, "discriminator"
+        ), "discriminator module must be registered as tts.discriminator"
+
         self.sos = vocab_size - 1
         self.eos = vocab_size - 1
         self.vocab_size = vocab_size
@@ -123,17 +130,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.idx_blank = self.token_list.index(sym_blank)
             self.idx_space = self.token_list.index(sym_space)
             self.gumbel_softmax = gumbel_softmax
-
-        # if self.CRF_loss:
-        #     self.criterion_st = CRF(self.vocab_size,batch_first=True)
-        #     # we should check the normalization that we provide in this.
-        # else:
-        #     self.criterion_st = LabelSmoothingLoss(
-        #         size=vocab_size,
-        #         padding_idx=ignore_id,
-        #         smoothing=lsm_weight,
-        #         normalize_length=token_normalized_loss,
-        #     )
 
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
@@ -182,6 +178,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         sudo_text: Optional[torch.Tensor] = None,
         sudo_text_lengths: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
+        forward_generator: bool=True,
         **kwargs,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
@@ -358,9 +355,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         batch = dict(
             text=hs_dec_asr,
             text_lengths=dec_asr_lengths,
-            feats=feats,
-            feats_lengths=feats_lengths,
+            forward_generator=forward_generator,
         )
+        if feats is not None:
+            batch.update(feats=feats, feats_lengths=feats_lengths)
         if self.speech_attn:
             batch.update(speech_embed=encoder_out)
             batch.update(speech_embed_lengths=encoder_out_lens)
@@ -387,54 +385,70 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # import pdb;pdb.set_trace()
         # print(tts_stats)
         # FIXME: figure out the output of self.tts(**batch), replace below
+        # QUESTION: what is `create_KL_copy` here?
         if self.create_KL_copy:
             stats = dict(
-                loss=loss.detach(),
-                loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
                 KL_loss=mse_loss.detach(),
-                loss_tts=tts_loss.detach(),
+                loss = loss.detach(),
+                # asr 
+                loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats["l1_loss"],
-                tts_l2_loss=tts_stats["l2_loss"],
-                tts_bce_loss=tts_stats["bce_loss"],
-                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
-                tts_encoder_alpha=tts_stats["encoder_alpha"],
-                tts_decoder_alpha=tts_stats["decoder_alpha"],
+                # tts
+                tts_loss=tts_loss.detach(),
+                tts_discriminator_loss=tts_stats["discriminator_loss"],
+                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
+                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
+                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+                tts_generator_loss=tts_stats["generator_loss"],
+                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
         elif self.intermediate_supervision:
             stats = dict(
-                loss=loss.detach(),
+                loss = loss.detach(),
+                # asr 
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                loss_tts=tts_loss.detach(),
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats["l1_loss"],
-                tts_l2_loss=tts_stats["l2_loss"],
-                tts_bce_loss=tts_stats["bce_loss"],
-                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
-                tts_encoder_alpha=tts_stats["encoder_alpha"],
-                tts_decoder_alpha=tts_stats["decoder_alpha"],
+                # tts
+                tts_loss=tts_loss.detach(),
+                tts_discriminator_loss=tts_stats["discriminator_loss"],
+                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
+                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
+                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+                tts_generator_loss=tts_stats["generator_loss"],
+                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
         else:
             stats = dict(
-                loss=loss.detach(),
+                loss = loss.detach(),
+                # asr 
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                loss_tts=tts_loss.detach(),
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                tts_l1_loss=tts_stats["l1_loss"],
-                tts_l2_loss=tts_stats["l2_loss"],
-                tts_bce_loss=tts_stats["bce_loss"],
-                tts_enc_dec_attn_loss=tts_stats["enc_dec_attn_loss"],
-                tts_encoder_alpha=tts_stats["encoder_alpha"],
-                tts_decoder_alpha=tts_stats["decoder_alpha"],
+                # tts
+                tts_loss=tts_loss.detach(),
+                tts_discriminator_loss=tts_stats["discriminator_loss"],
+                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
+                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
+                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+                tts_generator_loss=tts_stats["generator_loss"],
+                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
 
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
@@ -705,51 +719,3 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         )
         y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
         return y_ctc_pred_pad, seq_hat_total_lens
-
-    def tts_inference(
-        self,
-        text: torch.Tensor,
-        speech: Optional[torch.Tensor] = None,
-        spembs: Optional[torch.Tensor] = None,
-        sids: Optional[torch.Tensor] = None,
-        lids: Optional[torch.Tensor] = None,
-        durations: Optional[torch.Tensor] = None,
-        pitch: Optional[torch.Tensor] = None,
-        energy: Optional[torch.Tensor] = None,
-        **decode_config,
-    ) -> Dict[str, torch.Tensor]:
-        """Caclualte features and return them as a dict.
-
-        Args:
-            text (Tensor): Text index tensor (T_text).
-            speech (Tensor): Speech waveform tensor (T_wav).
-            spembs (Optional[Tensor]): Speaker embedding tensor (D,).
-            sids (Optional[Tensor]): Speaker ID tensor (1,).
-            lids (Optional[Tensor]): Language ID tensor (1,).
-            durations (Optional[Tensor): Duration tensor.
-            pitch (Optional[Tensor): Pitch tensor.
-            energy (Optional[Tensor): Energy tensor.
-
-        Returns:
-            Dict[str, Tensor]: Dict of outputs.
-
-        """
-        input_dict = dict(text=text)
-
-        if spembs is not None:
-            input_dict.update(spembs=spembs)
-        if sids is not None:
-            input_dict.update(sids=sids)
-        if lids is not None:
-            input_dict.update(lids=lids)
-
-        output_dict = self.tts.inference(**input_dict, **decode_config)
-
-        if self.normalize is not None and output_dict.get("feat_gen") is not None:
-            # NOTE: normalize.inverse is in-place operation
-            feat_gen_denorm = self.normalize.inverse(
-                output_dict["feat_gen"].clone()[None]
-            )[0][0]
-            output_dict.update(feat_gen_denorm=feat_gen_denorm)
-
-        return output_dict
