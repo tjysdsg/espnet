@@ -10,13 +10,13 @@ n_fft=2048
 n_shift=300
 win_length=1200
 
-tag="unpaired_360_gumbel"
+tag="unpaired_360_asr_only"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean"
+test_sets="dev_clean test_clean test_other"
 
-train_config=conf/tuning/train_transformer_xvector_md_unpaired_gumbel.yaml
+train_config=conf/tuning/train_transformer_xvector_md_unpaired_asr_only.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
@@ -24,7 +24,10 @@ inference_asr_config=conf/decode_asr.yaml
 ./tts.sh \
     --ngpu 1 \
     --stage 6 \
-    --inference_nj 100 \
+    --stop_stage 6 \
+    --inference_model valid.loss.ave.pth \
+    --gpu_inference true \
+    --inference_nj 2 \
     --use_multidecoder true \
     --lang en \
     --feats_type raw \
@@ -43,4 +46,5 @@ inference_asr_config=conf/decode_asr.yaml
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
     --srctexts "data/${train_set}/text" \
+    --sudo_text "decode_train_clean_360/text" \
     --audio_format "wav" "$@"
