@@ -19,7 +19,9 @@ def main():
             hyp = hyp.strip().split()  # utt [APH]
 
             utt_id = hyp[0]
-            hyp_aph = hyp[1]
+            hyp_aph = ''
+            if len(hyp) == 2:
+                hyp_aph = hyp[1]
 
             spk = utt2spk(utt_id)
             ref_aph = spk2aphasia_label[spk]
