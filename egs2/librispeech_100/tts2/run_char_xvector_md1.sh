@@ -27,7 +27,8 @@ inference_asr_config=conf/decode_asr.yaml
     --stage 6 \
     --stop_stage 6 \
     --inference_model valid.loss.ave.pth \
-    --inference_nj 32 \
+    --gpu_inference true \
+    --inference_nj 2 \
     --use_multidecoder true \
     --lang en \
     --feats_type raw \
