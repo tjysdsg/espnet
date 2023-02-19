@@ -32,7 +32,7 @@ from espnet2.layers.abs_normalize import AbsNormalize
 from espnet2.torch_utils.device_funcs import force_gatherable
 from espnet2.train.abs_espnet_model import AbsESPnetModel
 from espnet2.layers.inversible_interface import InversibleInterface
-from espnet2.tts.abs_tts import AbsTTS
+from espnet2.gan_tts.abs_gan_tts import AbsGANTTS
 from espnet2.tts.feats_extract.abs_feats_extract import AbsFeatsExtract
 from itertools import groupby
 
@@ -62,7 +62,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         normalize: Optional[AbsNormalize and InversibleInterface],
         pitch_normalize: Optional[AbsNormalize and InversibleInterface],
         energy_normalize: Optional[AbsNormalize and InversibleInterface],
-        tts: AbsTTS,
+        tts: AbsGANTTS,
         asr_weight: float = 0.5,
         mt_weight: float = 0.0,
         mtlalpha: float = 0.0,
@@ -368,6 +368,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             batch.update(spembs=spembs)
 
         # import pdb; pdb.set_trace()
+        # FIXME: adapt GANTTS api
         tts_loss, tts_stats, tts_weight = self.tts(**batch)
 
         # 3. Loss computation
@@ -385,6 +386,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             loss = 0.95 * loss + 0.05 * mse_loss
         # import pdb;pdb.set_trace()
         # print(tts_stats)
+        # FIXME: figure out the output of self.tts(**batch), replace below
         if self.create_KL_copy:
             stats = dict(
                 loss=loss.detach(),
