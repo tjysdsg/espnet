@@ -14,7 +14,7 @@ include_control=true
 include_aphasia_type=false
 include_lang_id=false
 
-asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1_hier_aph.yaml
+asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1_interctc9.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
