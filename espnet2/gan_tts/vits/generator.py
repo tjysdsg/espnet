@@ -309,6 +309,7 @@ class VITSGenerator(torch.nn.Module):
 
         """
         # forward text encoder
+        # FIXME: text_embeddings, embdlength
         x, m_p, logs_p, x_mask = self.text_encoder(text, text_lengths)
 
         # calculate global conditioning

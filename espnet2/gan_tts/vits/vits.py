@@ -185,6 +185,7 @@ class VITS(AbsGANTTS):
         lambda_dur: float = 1.0,
         lambda_kl: float = 1.0,
         cache_generator_outputs: bool = True,
+        use_md: bool = False,
     ):
         """Initialize VITS module.
 
@@ -264,6 +265,7 @@ class VITS(AbsGANTTS):
         self.spks = self.generator.spks
         self.langs = self.generator.langs
         self.spk_embed_dim = self.generator.spk_embed_dim
+        self.use_md = use_md
 
     @property
     def require_raw_speech(self):
@@ -310,6 +312,7 @@ class VITS(AbsGANTTS):
                 - optim_idx (int): Optimizer index (0 for G and 1 for D).
 
         """
+        # FIXME: add use_md in both
         if forward_generator:
             return self._forward_generator(
                 text=text,

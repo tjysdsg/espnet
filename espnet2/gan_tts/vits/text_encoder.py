@@ -119,7 +119,9 @@ class TextEncoder(torch.nn.Module):
             Tensor: Mask tensor for input tensor (B, 1, T_text).
 
         """
-        x = self.emb(x) * math.sqrt(self.attention_dim)
+        # FIXME: use_md goes up
+        if not use_md:
+            x = self.emb(x) * math.sqrt(self.attention_dim)
         x_mask = (
             make_non_pad_mask(x_lengths)
             .to(
