@@ -5,7 +5,7 @@
   hypothesis file to contain language or Aph tags. But if the input does contain, it will automatically remove them
   before calculation
 - [score_interctc_aux.sh](score_interctc_aux.sh) is used to calculate the Aphasia detection accuracy of the InterCTC
-  layers
+  layers. It can also score speaker-level aphasia detection accuracy.
 - [local/score_lang_and_aphasia.py](local/score_lang_and_aphasia.py) is used to calculate language detection accuracy
   and the Aphasia detection accuracy in experiments that the hypothesis text file contains `[EN]` and `[APH]` tags.
   Pass in `--aph-field` to specify the location of relevant tags. For example `--aph-field=-1` if the Aph tags are at
