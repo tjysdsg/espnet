@@ -7,6 +7,8 @@ from config import utt2spk, spk2aphasia_label
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("hyp", type=str)
+    parser.add_argument("--text", type=str, required=False,
+                        help='Will print which sentence is incorrect if this is given')
     parser.add_argument("--field", "-f", type=int, default=1,
                         help='The 0-based index of the field that is APH tag prediction')
     return parser.parse_args()
@@ -21,6 +23,13 @@ def main():
     spk2tags = {}
     spk2ref = {}
 
+    utt2text = {}
+    if args.text is not None:
+        with open(args.text, encoding='utf-8') as f:
+            for line in f:
+                utt, text = line.rstrip('\n').split(maxsplit=1)
+                utt2text[utt] = text
+
     # sentence-level scoring
     with open(args.hyp, encoding='utf-8') as f:
         for hyp in f:
@@ -31,7 +40,7 @@ def main():
             if len(hyp) > args.field:
                 hyp_aph = hyp[args.field]
             else:
-                print(f'WARNING: {spk} has no APH tag output')
+                print(f'WARNING: {utt_id} has no APH tag output')
 
             spk = utt2spk(utt_id)
             ref_aph = spk2aphasia_label[spk]
@@ -42,6 +51,8 @@ def main():
 
             if ref_aph == hyp_aph:
                 correct_aph += 1
+            elif utt_id in utt2text:
+                print(f'Incorrect prediction (should be {ref_aph}) of {utt_id}: {utt2text[utt_id]}')
 
             utt_num += 1
 
