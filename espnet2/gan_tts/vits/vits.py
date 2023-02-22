@@ -226,7 +226,7 @@ class VITS(AbsGANTTS):
             #   the input acoustic feature dimension.
             generator_params.update(vocabs=idim, aux_channels=odim)
         self.generator = generator_class(
-            **generator_params,
+            use_md=use_md, **generator_params 
         )
         discriminator_class = AVAILABLE_DISCRIMINATORS[discriminator_type]
         self.discriminator = discriminator_class(

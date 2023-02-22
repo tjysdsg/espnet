@@ -1,26 +1,15 @@
+import copy
+import logging
 from contextlib import contextmanager
 from distutils.version import LooseVersion
-import logging
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
-import copy
+from itertools import groupby
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
+from sklearn.metrics import f1_score
 from typeguard import check_argument_types
 
-from espnet.nets.e2e_asr_common import ErrorCalculator as ASRErrorCalculator
-from espnet.nets.e2e_mt_common import ErrorCalculator as MTErrorCalculator
-from espnet.nets.pytorch_backend.nets_utils import th_accuracy
-from espnet.nets.pytorch_backend.transformer.add_sos_eos import add_sos_eos
-from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (
-    LabelSmoothingLoss,  # noqa: H301
-)
-from espnet.nets.pytorch_backend.nets_utils import pad_list
-from sklearn.metrics import f1_score
 from espnet2.asr.ctc import CTC
 from espnet2.asr.decoder.abs_decoder import AbsDecoder
 from espnet2.asr.encoder.abs_encoder import AbsEncoder
@@ -29,12 +18,18 @@ from espnet2.asr.postencoder.abs_postencoder import AbsPostEncoder
 from espnet2.asr.preencoder.abs_preencoder import AbsPreEncoder
 from espnet2.asr.specaug.abs_specaug import AbsSpecAug
 from espnet2.layers.abs_normalize import AbsNormalize
+from espnet2.layers.inversible_interface import InversibleInterface
 from espnet2.torch_utils.device_funcs import force_gatherable
 from espnet2.train.abs_espnet_model import AbsESPnetModel
-from espnet2.layers.inversible_interface import InversibleInterface
 from espnet2.tts.abs_tts import AbsTTS
 from espnet2.tts.feats_extract.abs_feats_extract import AbsFeatsExtract
-from itertools import groupby
+from espnet.nets.e2e_asr_common import ErrorCalculator as ASRErrorCalculator
+from espnet.nets.e2e_mt_common import ErrorCalculator as MTErrorCalculator
+from espnet.nets.pytorch_backend.nets_utils import pad_list, th_accuracy
+from espnet.nets.pytorch_backend.transformer.add_sos_eos import add_sos_eos
+from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (  # noqa: H301
+    LabelSmoothingLoss,
+)
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
@@ -123,18 +118,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             self.idx_blank = self.token_list.index(sym_blank)
             self.idx_space = self.token_list.index(sym_space)
             self.gumbel_softmax = gumbel_softmax
-
-        # if self.CRF_loss:
-        #     self.criterion_st = CRF(self.vocab_size,batch_first=True)
-        #     # we should check the normalization that we provide in this.
-        # else:
-        #     self.criterion_st = LabelSmoothingLoss(
-        #         size=vocab_size,
-        #         padding_idx=ignore_id,
-        #         smoothing=lsm_weight,
-        #         normalize_length=token_normalized_loss,
-        #     )
-
+        
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
             padding_idx=ignore_id,
@@ -259,7 +243,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                     loss_asr_ctc,
                     cer_asr_ctc,
                 ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
+                    encoder_out,
+                    encoder_out_lens,
+                    sudo_text,
+                    sudo_text_lengths,
+                    ground_truth=text,
                 )
             else:
                 (
@@ -293,7 +281,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 hs_dec_asr,
             ) = self._calc_asr_att_loss(
                 # TODO(jiyang): use teacher forcing when sudo_text is given?
-                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens, ground_truth=text,
+                encoder_out,
+                encoder_out_lens,
+                y_ctc_pred_pad,
+                seq_hat_total_lens,
+                ground_truth=text,
             )
             if self.gumbel_softmax:
                 dec_asr_lengths = dec_asr_lengths.to(dtype=int)
@@ -307,21 +299,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             ) = self._calc_asr_att_loss(
                 encoder_out, encoder_out_lens, text, text_lengths
             )
-        # if self.encoder_mt is not None:
-        #     encoder_mt_out, encoder_mt_out_lens, _ = self.encoder_mt(hs_dec_asr, dec_asr_lengths)
-        # else:
-        #     encoder_mt_out, encoder_mt_out_lens = hs_dec_asr, dec_asr_lengths
 
-        # if self.speech_attn:
-        #     speech_out = encoder_out
-        #     speech_lens = encoder_out_lens
-        # else:
-        #     speech_out = None
-        #     speech_lens = None
-        # # 2a. Attention-decoder branch (ST)
-        # loss_st_att, acc_st_att, bleu_st_att = self._calc_mt_att_loss(
-        #     encoder_mt_out, encoder_mt_out_lens, text, text_lengths, speech_out, speech_lens
-        # )
         with autocast(False):
             # Extract features
             if self.feats_extract is not None:
@@ -329,32 +307,10 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             else:
                 # Use precalculated feats (feats_type != raw case)
                 feats, feats_lengths = speech, speech_lengths
-
-            # Extract auxiliary features
-            # if self.pitch_extract is not None and pitch is None:
-            #     pitch, pitch_lengths = self.pitch_extract(
-            #         speech,
-            #         speech_lengths,
-            #         feats_lengths=feats_lengths,
-            #         durations=durations,
-            #         durations_lengths=durations_lengths,
-            #     )
-            # if self.energy_extract is not None and energy is None:
-            #     energy, energy_lengths = self.energy_extract(
-            #         speech,
-            #         speech_lengths,
-            #         feats_lengths=feats_lengths,
-            #         durations=durations,
-            #         durations_lengths=durations_lengths,
-            #     )
-
             # Normalize
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-            # if self.pitch_normalize is not None:
-            #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
-            # if self.energy_normalize is not None:
-            #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
+
         batch = dict(
             text=hs_dec_asr,
             text_lengths=dec_asr_lengths,
@@ -569,7 +525,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             )
             ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
             _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
-            ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
+            ys_in_pad = torch.zeros(
+                ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype
+            )
             ys_in_pad[self.sos] = 1
             ys_in_pad = ys_in_pad.unsqueeze(0)
             # import pdb;pdb.set_trace()
@@ -600,7 +558,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
 
             if ground_truth is None:
                 ground_truth = ys_pad
-            cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
+            cer_att, wer_att = self.asr_error_calculator(
+                ys_hat.cpu(), ground_truth.cpu()
+            )
 
         return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
 
@@ -625,7 +585,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         if not self.training and self.asr_error_calculator is not None:
             if ground_truth is None:
                 ground_truth = ys_pad
-            cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
+            cer_ctc = self.asr_error_calculator(
+                ys_hat.cpu(), ground_truth.cpu(), is_ctc=True
+            )
 
         if self.use_unpaired:
             if self.gumbel_softmax:
