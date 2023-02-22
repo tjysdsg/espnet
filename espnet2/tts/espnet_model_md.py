@@ -277,7 +277,10 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         # 3a. MT Encoder
         # import pdb;pdb.set_trace()
         if self.use_unpaired:
-            dec_asr_lengths = seq_hat_total_lens + 1
+            if self.gumbel_softmax:
+                dec_asr_lengths = seq_hat_total_lens + 1
+            else:
+                dec_asr_lengths = sudo_text_lengths + 1
         else:
             dec_asr_lengths = text_lengths + 1
         # 2a. ASR Decoder
@@ -289,8 +292,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 wer_asr_att,
                 hs_dec_asr,
             ) = self._calc_asr_att_loss(
-                # TODO(jiyang): use teacher forcing when sudo_text is given?
-                encoder_out, encoder_out_lens, y_ctc_pred_pad, seq_hat_total_lens, ground_truth=text,
+                encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
             )
             if self.gumbel_softmax:
                 dec_asr_lengths = dec_asr_lengths.to(dtype=int)
