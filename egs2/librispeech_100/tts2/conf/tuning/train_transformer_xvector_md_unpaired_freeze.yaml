@@ -114,7 +114,7 @@ use_amp: true
 cudnn_deterministic: false
 cudnn_benchmark: false
 
-max_epoch: 10               # number of epochs
+max_epoch: 20               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 4               # gradient accumulation
@@ -152,6 +152,8 @@ init_param: [
 ]
 unused_parameters: true
 freeze_param: [
+  "asr_decoder",
+  "tts.encoder",
   "asr_encoder_copy",
   "ctc_copy",
 ]

@@ -11,11 +11,11 @@ n_fft=2048
 n_shift=300
 win_length=1200
 
-tag="unpaired_360_sudo"
+tag="unpaired_sudo"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean"
+test_sets="dev_clean test_clean test_other"
 
 train_config=conf/tuning/train_transformer_xvector_md_unpaired.yaml
 inference_config=conf/decode.yaml
