@@ -719,8 +719,9 @@ def inference(
 
                 # Write intermediate predictions to interctc_layer{layer_idx}.txt
                 ibest_writer = writer[f"1best_recog"]
-                for idx, text in intermediate_res.items():
-                    ibest_writer[f"interctc_layer{idx}.txt"][key] = " ".join(text)
+                if intermediate_res is not None:
+                    for idx, text in intermediate_res.items():
+                        ibest_writer[f"interctc_layer{idx}.txt"][key] = " ".join(text)
 
 def get_parser():
     parser = config_argparse.ArgumentParser(
