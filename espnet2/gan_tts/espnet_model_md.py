@@ -364,10 +364,15 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             batch.update(speech_embed_lengths=encoder_out_lens)
         if spembs is not None:
             batch.update(spembs=spembs)
+        batch.update(speech=speech, speech_lengths=speech_lengths)
 
         # import pdb; pdb.set_trace()
         # FIXME: adapt GANTTS api
-        tts_loss, tts_stats, tts_weight = self.tts(**batch)
+        vits_dict = self.tts(**batch)
+        tts_loss = vits_dict['loss']
+        tts_stats = vits_dict['stats']
+        tts_weight = vits_dict['weight']
+        # tts_loss, tts_stats, tts_weight = self.tts(**batch)
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
@@ -382,6 +387,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         if self.create_KL_copy:
             # import pdb;pdb.set_trace()
             loss = 0.95 * loss + 0.05 * mse_loss
+        # vits_dict['loss'] = loss
         # import pdb;pdb.set_trace()
         # print(tts_stats)
         # FIXME: figure out the output of self.tts(**batch), replace below
@@ -440,20 +446,23 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 wer=wer_asr_att,
                 # tts
                 tts_loss=tts_loss.detach(),
-                tts_discriminator_loss=tts_stats["discriminator_loss"],
-                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
-                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
-                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
-                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
-                tts_generator_loss=tts_stats["generator_loss"],
-                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
+                tts_discriminator_loss=tts_stats.get("discriminator_loss", 0),
+                tts_discriminator_fake_loss = tts_stats.get("discriminator_fake_loss", 0),
+                tts_discriminator_real_loss = tts_stats.get("discriminator_real_loss", 0),
+                # tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+                # tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+                # tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+                # tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+                # tts_generator_loss=tts_stats["generator_loss"],
+                # tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
 
+        # FIXME, TODO: update vits_dict with new loss and stats
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
-        return loss, stats, weight
+        # return loss, stats, weight
+        # return dict(loss=loss, stats=stats, weight=weight, optim_idx=vits_dict['optim_idx'])
+        return vits_dict
 
     def collect_feats(
         self,

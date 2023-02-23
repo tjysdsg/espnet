@@ -124,6 +124,7 @@ class TextEncoder(torch.nn.Module):
         # FIXME: use_md goes up
         if not self.use_md:
             x = self.emb(x) * math.sqrt(self.attention_dim)
+        # import pdb; pdb.set_trace()
         x_mask = (
             make_non_pad_mask(x_lengths)
             .to(
@@ -132,6 +133,7 @@ class TextEncoder(torch.nn.Module):
             )
             .unsqueeze(1)
         )
+        # print(x_mask.shape, x_lengths, x.shape)
         # encoder assume the channel last (B, T_text, attention_dim)
         # but mask shape shoud be (B, 1, T_text)
         x, _ = self.encoder(x, x_mask)
