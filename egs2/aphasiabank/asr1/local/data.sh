@@ -31,6 +31,7 @@ include_aphasia_type=false
 include_lang_id=false
 languages="English French"
 asr_data_dir=  # see asr.sh stage 4
+tag_insertion=append
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -95,8 +96,9 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   log "Extracting sentence information"
 
   # generate data/local/<lang>/text
+  log "Tag insertion method: ${tag_insertion}"
   for lang in ${languages}; do
-    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} --append-aph-tag "
+    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} --tag-insertion=${tag_insertion} "
 
     if "${include_aphasia_type}"; then
       log "**Including the aphasia type**"
