@@ -210,7 +210,7 @@ log_interval: null          # log interval in iterations
 keep_nbest_models: 5        # number of models to keep
 num_att_plot: 3             # number of attention figures to be saved in every check
 seed: 0                     # random seed number
-# unused_parameters: true
+unused_parameters: true
 best_model_criterion:
   - - valid
     - loss
@@ -221,21 +221,21 @@ best_model_criterion:
   - - train
     - loss
     - min
-# init_param: [
-#   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:encoder:asr_encoder",
-#   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:decoder:asr_decoder",
-#   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc",
-#   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:frontend:frontend",
-#   # "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:normalize:normalize",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.text_encoder:tts.generator.text_encoder",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.decoder:tts.generator.decoder",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.posterior_encoder:tts.generator.posterior_encoder",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.flow:tts.generator.flow",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.duration_predictor:tts.generator.duration_predictor",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.discriminator.msd:tts.discriminator.msd",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.discriminator.mpd:tts.discriminator.mpd",
-#   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
-# ]
+init_param: [
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:encoder:asr_encoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:decoder:asr_decoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:frontend:frontend",
+  # "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:normalize:normalize",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.text_encoder:tts.generator.text_encoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.decoder:tts.generator.decoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.posterior_encoder:tts.generator.posterior_encoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.flow:tts.generator.flow",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.generator.duration_predictor:tts.generator.duration_predictor",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.discriminator.msd:tts.discriminator.msd",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.discriminator.mpd:tts.discriminator.mpd",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/16k_xvector_char_sa/tts_char_lib100_vits_tts_all16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
+]
 freeze_param: [
     "asr_decoder",
     "tts.encoder",
