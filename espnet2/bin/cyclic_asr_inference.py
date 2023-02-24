@@ -229,28 +229,23 @@ class Speech2Text:
         batch = to_device(batch, device=self.device)
 
         # b. Forward Encoder
-        if self.cyclic_model.intermediate_supervision:
-            y_ctc_gold, y_ctc_gold_lens, enc, enc_lens = self.cyclic_model.encode(**batch)
-        else:
-            enc, enc_lens = self.cyclic_model.encode(**batch)
+        # if self.cyclic_model.intermediate_supervision:
+        #     y_ctc_gold, y_ctc_gold_lens, enc, enc_lens = self.cyclic_model.encode(**batch)
+        # else:
+        enc, enc_lens = self.cyclic_model.encode(**batch)
         if isinstance(enc, tuple):
             enc = enc[0]
         assert len(enc) == 1, len(enc)
 
         # c. Passed the encoder result and the beam search
-        # nbest_hyps = self.beam_search(
-        #     x=enc[0], maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
-        # )
-        # nbest_hyps = nbest_hyps[: self.nbest]
-        # import pdb;pdb.set_trace()
-        if self.cyclic_greedy:
-            import pdb;pdb.set_trace()
-            nbest_hyps = [Hypothesis(yseq=y_ctc_gold,score=torch.Tensor(1),scores={"ctc":torch.Tensor(1),"states":torch.Tensor(1)},hs=[])]
-        else:
-            nbest_hyps = self.beam_search(
-                x=enc[0], maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
-            )
-            nbest_hyps = nbest_hyps[: self.nbest]
+        # if self.cyclic_greedy:
+        #     import pdb;pdb.set_trace()
+        #     nbest_hyps = [Hypothesis(yseq=y_ctc_gold,score=torch.Tensor(1),scores={"ctc":torch.Tensor(1),"states":torch.Tensor(1)},hs=[])]
+        # else:
+        nbest_hyps = self.beam_search(
+            x=enc[0], maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
+        )
+        nbest_hyps = nbest_hyps[: self.nbest]
 
         results = []
         for hyp in nbest_hyps:

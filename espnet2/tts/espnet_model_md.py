@@ -223,12 +223,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
-        if self.intermediate_supervision:
-            # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
-            y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
-                speech, speech_lengths
-            )
-        elif self.create_KL_copy:
+        # if self.intermediate_supervision:
+        #     # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
+        #     y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
+        #         speech, speech_lengths
+        #     )
+        # elif self.create_KL_copy:
+        if self.create_KL_copy:
             encoder_out, encoder_out_lens, mse_loss = self.encode(
                 speech, speech_lengths
             )
@@ -241,8 +242,9 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         #     - use reference encoder's output during training
         if self.intermediate_supervision and sudo_text is None:
             if self.training:
-                sudo_text = y_ctc_gold
-                sudo_text_lengths = y_ctc_gold_lens
+                assert False  # assume we always have sudo text during unpaired training
+                # sudo_text = y_ctc_gold
+                # sudo_text_lengths = y_ctc_gold_lens
             else:
                 sudo_text = text
                 sudo_text_lengths = text_lengths
@@ -491,12 +493,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
 
         if self.intermediate_supervision:
-            encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
-                feats, feats_lengths
-            )
-            y_ctc_gold, y_ctc_gold_lens = self._calc_ctc_output(
-                encoder_out_copy, encoder_out_copy_lens
-            )
+            pass
+            # encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
+            #     feats, feats_lengths
+            # )
+            # y_ctc_gold, y_ctc_gold_lens = self._calc_ctc_output(
+            #     encoder_out_copy, encoder_out_copy_lens
+            # )
             # import pdb;pdb.set_trace()
         elif self.create_KL_copy:
             # import pdb;pdb.set_trace()
@@ -521,9 +524,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             encoder_out_lens.max(),
         )
 
-        if self.intermediate_supervision:
-            return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
-        elif self.create_KL_copy:
+        # if self.intermediate_supervision:
+        #     return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
+        # elif self.create_KL_copy:
+        #     return encoder_out, encoder_out_lens, mse_loss
+        # else:
+        #     return encoder_out, encoder_out_lens
+        if self.create_KL_copy:
             return encoder_out, encoder_out_lens, mse_loss
         else:
             return encoder_out, encoder_out_lens
