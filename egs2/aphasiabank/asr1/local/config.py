@@ -891,19 +891,19 @@ control_spks = (
 # ======================
 
 
-aphasia_type2label = {
-    "": "NONAPH",
-    "control": "NONAPH",
-    "notaphasicbywab": "APH",
-    "conduction": "APH",
-    "anomic": "APH",
-    "global": "APH",
-    "transsensory": "APH",
-    "transmotor": "APH",
-    "broca": "APH",
-    "aphasia": "APH",
-    "wernicke": "APH",
-}
+# aphasia_type2label = {
+#     "": "NONAPH",
+#     "control": "NONAPH",
+#     "notaphasicbywab": "APH",
+#     "conduction": "APH",
+#     "anomic": "APH",
+#     "global": "APH",
+#     "transsensory": "APH",
+#     "transmotor": "APH",
+#     "broca": "APH",
+#     "aphasia": "APH",
+#     "wernicke": "APH",
+# }
 
 lang2label = {
     "English": "EN",

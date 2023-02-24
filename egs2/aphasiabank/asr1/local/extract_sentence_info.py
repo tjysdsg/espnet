@@ -7,7 +7,7 @@ import json
 import os
 import re
 from argparse import ArgumentParser
-from config import aphasia_type2label, lang2label, get_utt
+from config import lang2label, get_utt, pwa_spks, control_spks
 
 import pylangacq as pla
 
@@ -16,8 +16,7 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument("--transcript-dir", type=str, required=True)
     parser.add_argument("--out-dir", type=str, required=True)
-    parser.add_argument("--spk2aphasia-type", type=str, default=None)
-    parser.add_argument("--tag-insertion", type=str, choices=['prepend', 'append', 'both'])
+    parser.add_argument("--tag-insertion", type=str, choices=['none', 'prepend', 'append', 'both'])
     parser.add_argument("--lang", type=str, default=None)
     return parser.parse_args()
 
@@ -93,11 +92,6 @@ def main():
     out_dir = args.out_dir
     os.makedirs(out_dir, exist_ok=True)
 
-    spk2aphasia_type = None
-    if args.spk2aphasia_type is not None:
-        with open(args.spk2aphasia_type, encoding="utf-8") as f:
-            spk2aphasia_type = json.load(f)
-
     lang = None
     if args.lang is not None:
         lang = lang2label[args.lang]
@@ -106,13 +100,13 @@ def main():
     files = []
     for file in os.listdir(args.transcript_dir):
         if os.path.isfile(os.path.join(args.transcript_dir, file)) and file.endswith(
-            ".cha"
+                ".cha"
         ):
             files.append(file)
 
     all_chars = set()
     with open(os.path.join(out_dir, "text"), "w", encoding="utf-8") as text, open(
-        os.path.join(out_dir, "utt2spk"), "w", encoding="utf-8"
+            os.path.join(out_dir, "utt2spk"), "w", encoding="utf-8"
     ) as utt2spk:
         for file in files:
             spk = file.split(".cha")[0]
@@ -141,8 +135,14 @@ def main():
                     all_chars.add(c)
 
                 # add aphasia type and/or language annotation to the front if needed
-                if spk2aphasia_type is not None:
-                    aphasia_type = aphasia_type2label[spk2aphasia_type[spk]]
+                if args.tag_insertion != "none":
+                    if spk in pwa_spks:
+                        aphasia_type = 'APH'
+                    elif spk in control_spks:
+                        aphasia_type = 'NONAPH'
+                    else:
+                        assert False
+
                     if args.tag_insertion == 'append':
                         trans = f"{trans} [{aphasia_type}]"
                     elif args.tag_insertion == 'prepend':

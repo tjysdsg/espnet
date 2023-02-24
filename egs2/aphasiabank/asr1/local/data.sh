@@ -31,7 +31,7 @@ include_aphasia_type=false
 include_lang_id=false
 languages="English French"
 asr_data_dir=  # see asr.sh stage 4
-tag_insertion=append
+tag_insertion=none
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -48,6 +48,15 @@ fi
 
 tmp=data/local
 mkdir -p $tmp
+
+if [ "${dataset}" = "DementiaBank" ]; then
+  ./local/dementia/data.sh --stage ${stage} --stop_stage ${stop_stage} \
+    --include_detection_tag ${include_aphasia_type} \
+    --tag_insertion ${tag_insertion} \
+    --asr_data_dir "${asr_data_dir}"
+
+  exit 0
+fi
 
 # Things to manually prepare:
 # - Download AphasiaBank data from https://aphasia.talkbank.org/
@@ -96,14 +105,10 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   log "Extracting sentence information"
 
   # generate data/local/<lang>/text
-  log "Tag insertion method: ${tag_insertion}"
   for lang in ${languages}; do
     _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} --tag-insertion=${tag_insertion} "
 
-    if "${include_aphasia_type}"; then
-      log "**Including the aphasia type**"
-      _opts+="--spk2aphasia-type=data/${lang}/spk2aphasia_type "
-    fi
+    log "Tag insertion method: ${tag_insertion}"
 
     if "${include_lang_id}"; then
       log "**Including language id**"
