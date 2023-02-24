@@ -112,6 +112,7 @@ class Transformer(AbsTTS):
         guided_attn_loss_sigma: float = 0.4,
         guided_attn_loss_lambda: float = 1.0,
         speech_attn: bool = False,
+        use_text_adapter: bool = False,
     ):
         """Initialize Transformer module.
 
@@ -237,6 +238,10 @@ class Transformer(AbsTTS):
         pos_enc_class = (
             ScaledPositionalEncoding if self.use_scaled_pos_enc else PositionalEncoding
         )
+
+        self.use_text_adapter = use_text_adapter
+        if use_text_adapter:
+            self.text_adapter = torch.nn.Linear(adim, adim)
 
         # define transformer encoder
         if self.use_md:
@@ -589,6 +594,8 @@ class Transformer(AbsTTS):
         s_embed_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # forward encoder
+        if self.use_text_adapter:
+            xs = self.text_adapter(xs)
         
         x_masks = self._source_mask(ilens)
         hs, h_masks = self.encoder(xs, x_masks)
@@ -682,7 +689,9 @@ class Transformer(AbsTTS):
 
         # add eos at the last of sequence
         if self.use_md:
-            # import pdb;pdb.set_trace()
+            if self.use_text_adapter:
+                x = self.text_adapter(x)
+
             hs, _ = self.encoder(x, None)
         else:
             x = F.pad(x, [0, 1], "constant", self.eos)
