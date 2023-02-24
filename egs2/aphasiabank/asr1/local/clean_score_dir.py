@@ -1,3 +1,6 @@
+"""
+Filter out *.trn files in score_cer and score_wer based on language and aph types
+"""
 import argparse
 import os
 from config import lang_id2spks, aph2spks, utt2spk

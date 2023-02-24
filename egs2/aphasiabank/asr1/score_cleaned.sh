@@ -36,15 +36,11 @@ if [ -z "${decode_dir}" ]; then
   exit 2
 fi
 
-if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  ./run.sh --stage 13 --stop_stage 13
-fi
-
 for sub in score_cer score_wer; do
   mkdir -p "${decode_dir}/${sub}_clean"
 done
 
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   # CER, TODO: WER
   cp -r "${decode_dir}/score_cer"/{hyp.trn,ref.trn} "${decode_dir}/score_cer_clean"
   python local/clean_score_dir.py "${decode_dir}/score_cer" "${decode_dir}/score_cer_clean"
@@ -52,15 +48,16 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   # remove tags
   _dir="${decode_dir}/score_cer_clean"
 
-  python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
-  python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
+  # TODO: tag_insertion types
+  python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
+  python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
   for sub in en fr aph nonaph en.aph en.nonaph fr.aph fr.nonaph; do
-    python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
-    python local/clean_hyp_annotations.py --appended-aph --token-type=char "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
+    python local/clean_hyp_annotations.py --token-type=char "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
+    python local/clean_hyp_annotations.py --token-type=char "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
   done
 fi
 
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   _dir="${decode_dir}/score_cer_clean"
 
   log "\n\nOverall error rate"
