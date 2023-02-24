@@ -11,6 +11,7 @@ ALFFA=downloads
 AMERICASNLP22=downloads
 AN4=downloads
 APHASIABANK=/ocean/projects/cis210027p/shared/corpora/AphasiaBank/
+DEMENTIABANK=/ocean/projects/cis210027p/shared/corpora/DementiaBank/
 AUDIOSET=
 DIRHA_ENGLISH_PHDEV=
 DIRHA_WSJ=

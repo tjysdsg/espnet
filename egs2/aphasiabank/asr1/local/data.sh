@@ -27,11 +27,11 @@ SECONDS=0
 stage=1
 stop_stage=7  # stage 8 is for interctc labels
 include_control=false
-include_aphasia_type=false
 include_lang_id=false
 languages="English French"
 asr_data_dir=  # see asr.sh stage 4
 tag_insertion=none
+dataset=AphasiaBank
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -51,7 +51,6 @@ mkdir -p $tmp
 
 if [ "${dataset}" = "DementiaBank" ]; then
   ./local/dementia/data.sh --stage ${stage} --stop_stage ${stop_stage} \
-    --include_detection_tag ${include_aphasia_type} \
     --tag_insertion ${tag_insertion} \
     --asr_data_dir "${asr_data_dir}"
 
