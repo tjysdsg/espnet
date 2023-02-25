@@ -5,14 +5,14 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="dementia_conformer"
+asr_tag="dementia_ebranchformer_wavlm"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
 tag_insertion=none
 
-asr_config=conf/tuning/train_asr_conformer_dementia.yaml
+asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
@@ -26,7 +26,7 @@ inference_config=conf/decode.yaml
   --lang en \
   --inference_nj 2 \
   --gpu_inference true \
-  --ngpu 1 \
+  --ngpu 2 \
   --max_wav_duration 33 \
   --audio_format wav \
   --feats_type raw \
