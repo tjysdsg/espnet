@@ -70,7 +70,7 @@ batch_type: numel
 batch_bins: 6000000
 accum_grad: 8
 grad_clip: 5
-max_epoch: 30
+max_epoch: 40
 patience: none
 init: none
 best_model_criterion:
