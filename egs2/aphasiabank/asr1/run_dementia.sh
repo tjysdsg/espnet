@@ -5,12 +5,12 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="dementia_ebranchformer_wavlm"
+asr_tag="dementia_ebranchformer_wavlm_tag_prepend"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
-tag_insertion=none
+tag_insertion=prepend
 
 asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm.yaml
 
@@ -37,6 +37,7 @@ inference_config=conf/decode.yaml
   --train_set "${train_set}" \
   --valid_set "${valid_set}" \
   --test_sets "${test_sets}" \
+  --nlsyms_txt "local/nlsyms.txt" \
   --speed_perturb_factors "0.9 1.0 1.1" \
   --feats_normalize ${feats_normalize} \
   --local_data_opts "--dataset DementiaBank --tag_insertion ${tag_insertion} " \
