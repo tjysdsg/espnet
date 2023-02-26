@@ -5,12 +5,12 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="dementia_ebranchformer_wavlm_tag_prepend"
+asr_tag="dementia_ebranchformer_wavlm_tag_append"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
-tag_insertion=prepend
+tag_insertion=append
 
 asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm.yaml
 
@@ -24,7 +24,7 @@ inference_config=conf/decode.yaml
 ./asr.sh \
   --asr_tag "${asr_tag}" \
   --lang en \
-  --inference_nj 2 \
+  --inference_nj 1 \
   --gpu_inference true \
   --ngpu 2 \
   --max_wav_duration 33 \
