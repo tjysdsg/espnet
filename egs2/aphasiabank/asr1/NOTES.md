@@ -11,3 +11,15 @@
   Pass in `--aph-field` to specify the location of relevant tags. For example `--aph-field=-1` if the Aph tags are at
   the end of every sentence
 - [local/config.py](local/config.py) contains the information about every speaker and the tran/test/val split
+
+# How to make the `[APH]` tag be treated as a single token
+
+https://github.com/espnet/espnet/blob/master/espnet2/text/char_tokenizer.py#L45 char tokenizer treat everything as
+length-1 string (character) except non-linguistic symbols, so I have to put `[APH]` and `[NONAPH]` into `nlsyms.txt`.
+
+Since remove_non_linguistic_symbols is true during training, it gets kept in the returned array, something
+like `[..., ..., '[APH]']`
+
+Then I put `[APH]` and `[NONAPH]` into `tokens.txt`, then
+https://github.com/espnet/espnet/blob/master/espnet2/text/token_id_converter.py#L35 token id converter will use it in
+`tokens2ids()`
