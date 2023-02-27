@@ -6,9 +6,9 @@ set -u
 set -o pipefail
 
 fs=16000 # original 24000
-n_fft=2048
-n_shift=300
-win_length=1200
+n_fft=1024
+n_shift=256
+win_length=null
 
 tag="vits_sanity_check_freeze"
 
