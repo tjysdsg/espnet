@@ -363,7 +363,15 @@ if ! "${skip_data_prep}"; then
                 # Generate the MFCC features, VAD decision, and X-vector
                 for dset in "${train_set}" "${valid_set}" ${test_sets}; do
                     # 1. Copy datadir and resample to 16k
-                    utils/copy_data_dir.sh "data/${dset}" "${dumpdir}/mfcc/${dset}"
+
+                    # NOTE(jiyang): data/*/wav.scp might points to flac files,
+                    #               so we need to use the wav.scp under dump/
+                    if [ "${dset}" = "${train_set}" ] || [ "${dset}" = "${valid_set}" ]; then
+                        _suf="/org"
+                    else
+                        _suf=""
+                    fi
+                    utils/copy_data_dir.sh "${data_feats}${_suf}/${dset}" "${dumpdir}/mfcc/${dset}"
                     utils/data/resample_data_dir.sh 16000 "${dumpdir}/mfcc/${dset}"
 
                     # 2. Extract mfcc features
@@ -623,6 +631,7 @@ if ! "${skip_train}"; then
         # sudo_text
         if [ -n "${sudo_text}" ]; then
             # make sure sudo_text doesn't contain extra lines
+            mkdir -p "${tts_stats_dir}/train/"
             ./utils/filter_scp.pl \
                 -f 1 \
                 "${data_feats}/${train_set}/text" \
