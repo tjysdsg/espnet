@@ -5,14 +5,14 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="ebranchformer_small_wavlm_large1_aph_en"
+asr_tag="ebranchformer_wavlm_aph_en_append"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
 include_control=true
 include_lang_id=false
-tag_insertion=prepend
+tag_insertion=append
 
 asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1.yaml
 
@@ -26,7 +26,7 @@ inference_config=conf/decode.yaml
 ./asr.sh \
   --asr_tag "${asr_tag}" \
   --lang en \
-  --inference_nj 1 \
+  --inference_nj 2 \
   --gpu_inference true \
   --ngpu 2 \
   --max_wav_duration 33 \
