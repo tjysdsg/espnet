@@ -109,6 +109,7 @@ model_conf:
   use_unpaired: true
   intermediate_supervision: true
   gumbel_softmax: true
+  use_asr_decoder_loss: false
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
