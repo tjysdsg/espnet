@@ -1,8 +1,4 @@
-# Unpaired training
-
-# - with pretrained ASR and TTS models
-# - using gumbel softmax of the encoder output as the ASR decoder input
-# - with ASR decoder and TTS encoder frozen
+# Unpaired training with pseudo-labels and gumbel softmax
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -87,6 +83,8 @@ tts_conf: # keyword arguments for the selected model
   num_layers_applied_guided_attn: 2                # number of heads to apply guided attention loss
   modules_applied_guided_attn: [ "encoder-decoder" ] # modules to apply guided attention loss
   use_md: true
+  skip_text_encoder: false
+  gumbel_softmax_input: true
   guided_attn_loss_sigma: 0.4                      # sigma in guided attention loss
   guided_attn_loss_lambda: 10.0                    # lambda in guided attention loss
   # spk_embed_dim: 256                               # x_vector // origin 512
@@ -96,16 +94,16 @@ tts_conf: # keyword arguments for the selected model
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
 optim: adam             # optimizer type
-optim_conf: # keyword arguments for selected optimizer
-  lr: 0.2             # learning rate
+optim_conf:             # keyword arguments for selected optimizer
+  lr: 0.2               # learning rate
 scheduler: noamlr       # scheduler type
-scheduler_conf: # keyword arguments for selected scheduler
-  model_size: 512     # model size, a.k.a., attention dimenstion
-  warmup_steps: 8000  # the number of warmup steps
+scheduler_conf:         # keyword arguments for selected scheduler
+  model_size: 512       # model size, a.k.a., attention dimenstion
+  warmup_steps: 8000    # the number of warmup steps
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.1
+  asr_weight: 0.05
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true
@@ -115,12 +113,15 @@ model_conf:
 ##########################################################
 #                OTHER TRAINING SETTING                  #
 ##########################################################
-num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 5                # number of epochs
+use_amp: true
+cudnn_deterministic: false
+cudnn_benchmark: false
+
+max_epoch: 10               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
-accum_grad: 6               # gradient accumulation
-batch_bins: 3000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+accum_grad: 4               # gradient accumulation
+batch_bins: 4500000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
@@ -138,14 +139,22 @@ best_model_criterion:
     - loss
     - min
 init_param: [
-  "/ocean/projects/cis210027p/siddhana/new_download/newer/new2/espnet/egs2/librispeech_100/tts2/exp/tts_tts_16k_char_xvector_pretrain/valid.acc_asr.ave.pth",
-  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:encoder:asr_encoder_copy",
-  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc_copy",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:encoder:asr_encoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:decoder:asr_decoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:frontend:frontend",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:normalize:normalize",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:feats_extract:feats_extract",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.encoder.encoders:tts.encoder.encoders",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.encoder.after_norm:tts.encoder.after_norm",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.decoder:tts.decoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.feat_out:tts.feat_out",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.prob_out:tts.prob_out",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.postnet:tts.postnet",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.criterion:tts.criterion",
 ]
 unused_parameters: true
 freeze_param: [
-  "asr_decoder",
-  "tts.encoder",
   "asr_encoder_copy",
   "ctc_copy",
 ]

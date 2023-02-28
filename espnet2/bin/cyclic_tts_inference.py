@@ -170,15 +170,14 @@ class Text2Speech:
             raise RuntimeError("Missing required argument: 'spembs'")
 
         # prepare batch
-        if isinstance(text, str):
-            text = self.preprocess_fn("<dummy>", dict(text=text))["text"]
-        # import pdb;pdb.set_trace()
-        text = F.pad(text, [0, 1], "constant", self.model.eos)
-        text=text.unsqueeze(0)
-        text1=F.one_hot(text,num_classes=31)
-        text1=text1.to("cuda",dtype=self.model.asr_decoder.output_layer.weight.dtype)
-        text2= torch.nn.functional.linear(text1, self.model.asr_decoder.output_layer.weight.T)
-        batch = dict(text=text2)
+        # if isinstance(text, str):
+        #     text = self.preprocess_fn("<dummy>", dict(text=text))["text"]
+        # text = F.pad(text, [0, 1], "constant", self.model.eos)
+        # text = text.unsqueeze(0)
+        # text = F.one_hot(text, num_classes=31)
+        # text = text.to("cuda", dtype=self.model.asr_decoder.output_layer.weight.dtype)
+        # text = torch.nn.functional.linear(text, self.model.asr_decoder.output_layer.weight.T)
+        batch = dict(text=text)
         if speech is not None:
             batch.update(speech=speech)
         if durations is not None:

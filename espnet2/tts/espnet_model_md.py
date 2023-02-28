@@ -117,6 +117,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         if self.create_KL_copy or self.intermediate_supervision:
             self.asr_encoder_copy = copy.deepcopy(asr_encoder)
         self.asr_decoder = asr_decoder
+
         self.use_unpaired = use_unpaired
         self.gumbel_softmax = False
         if self.use_unpaired:
@@ -124,16 +125,13 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             self.idx_space = self.token_list.index(sym_space)
             self.gumbel_softmax = gumbel_softmax
 
-        # if self.CRF_loss:
-        #     self.criterion_st = CRF(self.vocab_size,batch_first=True)
-        #     # we should check the normalization that we provide in this.
-        # else:
-        #     self.criterion_st = LabelSmoothingLoss(
-        #         size=vocab_size,
-        #         padding_idx=ignore_id,
-        #         smoothing=lsm_weight,
-        #         normalize_length=token_normalized_loss,
-        #     )
+        # decoder's output -> gumbel softmax -> TTS text encoder -> TTS encoder
+        if self.gumbel_softmax:
+            assert not self.tts.skip_text_encoder
+            assert self.tts.gumbel_softmax_input
+        elif self.use_unpaired:
+            # decoder's hidden states -> TTS encoder
+            assert self.tts.skip_text_encoder
 
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
@@ -153,7 +151,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
-        self.asr_decoder.gumbel_softmax = self.gumbel_softmax
+        # self.asr_decoder.gumbel_softmax = self.gumbel_softmax
 
         # MT error calculator
         if report_bleu:
@@ -276,15 +274,14 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         else:
             loss_asr_ctc, cer_asr_ctc = 0, None
 
-        # 3a. MT Encoder
-        # import pdb;pdb.set_trace()
         if self.use_unpaired:
-            if self.gumbel_softmax:
-                dec_asr_lengths = seq_hat_total_lens + 1
-            else:
-                dec_asr_lengths = sudo_text_lengths + 1
+            # if self.gumbel_softmax:
+            #     dec_asr_lengths = seq_hat_total_lens + 1
+            # else:
+            dec_asr_lengths = sudo_text_lengths + 1
         else:
             dec_asr_lengths = text_lengths + 1
+
         # 2a. ASR Decoder
         if self.use_unpaired:
             (
@@ -292,37 +289,23 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 acc_asr_att,
                 cer_asr_att,
                 wer_asr_att,
-                hs_dec_asr,
+                y_pred,
             ) = self._calc_asr_att_loss(
                 encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
             )
-            if self.gumbel_softmax:
-                dec_asr_lengths = dec_asr_lengths.to(dtype=int)
+            # if self.gumbel_softmax:
+            #     dec_asr_lengths = dec_asr_lengths.to(dtype=int)
         else:
             (
                 loss_asr_att,
                 acc_asr_att,
                 cer_asr_att,
                 wer_asr_att,
-                hs_dec_asr,
+                y_pred,
             ) = self._calc_asr_att_loss(
                 encoder_out, encoder_out_lens, text, text_lengths
             )
-        # if self.encoder_mt is not None:
-        #     encoder_mt_out, encoder_mt_out_lens, _ = self.encoder_mt(hs_dec_asr, dec_asr_lengths)
-        # else:
-        #     encoder_mt_out, encoder_mt_out_lens = hs_dec_asr, dec_asr_lengths
 
-        # if self.speech_attn:
-        #     speech_out = encoder_out
-        #     speech_lens = encoder_out_lens
-        # else:
-        #     speech_out = None
-        #     speech_lens = None
-        # # 2a. Attention-decoder branch (ST)
-        # loss_st_att, acc_st_att, bleu_st_att = self._calc_mt_att_loss(
-        #     encoder_mt_out, encoder_mt_out_lens, text, text_lengths, speech_out, speech_lens
-        # )
         with autocast(False):
             # Extract features
             if self.feats_extract is not None:
@@ -357,7 +340,7 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             # if self.energy_normalize is not None:
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
         batch = dict(
-            text=hs_dec_asr,
+            text=y_pred,
             text_lengths=dec_asr_lengths,
             feats=feats,
             feats_lengths=feats_lengths,
@@ -562,22 +545,22 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
         ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
-        if self.gumbel_softmax:
-            # ys_pad is gumbel softmax of the encoder output
-            gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
-                ys_pad.device, dtype=ys_pad.dtype
-            )
-            ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
-            _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
-            ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
-            ys_in_pad[self.sos] = 1
-            ys_in_pad = ys_in_pad.unsqueeze(0)
-            # import pdb;pdb.set_trace()
-            ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
-        else:
-            ys_in_pad, ys_out_pad = add_sos_eos(
-                ys_pad, self.sos, self.eos, self.ignore_id
-            )
+        # if self.gumbel_softmax:
+        #     # ys_pad is gumbel softmax of the encoder output
+        #     gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
+        #         ys_pad.device, dtype=ys_pad.dtype
+        #     )
+        #     ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
+        #     _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
+        #     ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
+        #     ys_in_pad[self.sos] = 1
+        #     ys_in_pad = ys_in_pad.unsqueeze(0)
+        #     # import pdb;pdb.set_trace()
+        #     ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
+        # else:
+        ys_in_pad, ys_out_pad = add_sos_eos(
+            ys_pad, self.sos, self.eos, self.ignore_id
+        )
         ys_in_lens = ys_pad_lens + 1
 
         # 1. Forward decoder
@@ -602,7 +585,11 @@ class ESPnetTTSMDModel(AbsESPnetModel):
                 ground_truth = ys_pad
             cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
-        return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
+        if self.gumbel_softmax:
+            y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=1, hard=True, dim=-1)
+            return loss_att, acc_att, cer_att, wer_att, y_pred_gumbel
+        else:
+            return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
 
     def _calc_ctc_loss(
         self,
@@ -616,8 +603,8 @@ class ESPnetTTSMDModel(AbsESPnetModel):
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
 
         # Calc ys_hat
-        if self.use_unpaired and self.gumbel_softmax:
-            ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
+        # if self.use_unpaired and self.gumbel_softmax:
+        #     ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
         ys_hat = self.ctc.argmax(encoder_out).data
 
         # Calc CER using CTC
@@ -628,53 +615,53 @@ class ESPnetTTSMDModel(AbsESPnetModel):
             cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
 
         if self.use_unpaired:
-            if self.gumbel_softmax:
-                seq_hat_total = []
-                for i, y in enumerate(ys_hat):
-                    y_hat = [x[0] for x in groupby(y)]
-                    y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
-                    seq_hat = []
-                    idx_index = 0
-                    # import pdb;pdb.set_trace()
-                    for idx_len in range(len(y_hat)):
-                        idx = int(y_hat[idx_len])
-                        if idx != -1 and idx != self.idx_blank:
-                            seq_hat.append(ys_one_hot_hat[i][idx_index])
-                        idx_index += y_hat_sum[idx_len]
-                    # import pdb;pdb.set_trace()
-                    seq_hat_total.append(
-                        torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
-                    )
-                seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
-                    ys_hat.device, dtype=ys_hat.dtype
+            # if self.gumbel_softmax:
+            #     seq_hat_total = []
+            #     for i, y in enumerate(ys_hat):
+            #         y_hat = [x[0] for x in groupby(y)]
+            #         y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
+            #         seq_hat = []
+            #         idx_index = 0
+            #         # import pdb;pdb.set_trace()
+            #         for idx_len in range(len(y_hat)):
+            #             idx = int(y_hat[idx_len])
+            #             if idx != -1 and idx != self.idx_blank:
+            #                 seq_hat.append(ys_one_hot_hat[i][idx_index])
+            #             idx_index += y_hat_sum[idx_len]
+            #         # import pdb;pdb.set_trace()
+            #         seq_hat_total.append(
+            #             torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
+            #         )
+            #     seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
+            #         ys_hat.device, dtype=ys_hat.dtype
+            #     )
+            #     n_batch = len(seq_hat_total)
+            #     max_len = max(x.size(0) for x in seq_hat_total)
+            #     xs = seq_hat_total
+            #     pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
+            #     pad[:, :, 0] = 1.0
+            #     for i in range(n_batch):
+            #         pad[i, : xs[i].size(0)] = xs[i]
+            #     # import pdb;pdb.set_trace()
+            #     y_ctc_pred_pad = pad
+            # else:
+            seq_hat_total = []
+            # import pdb;pdb.set_trace()
+            for i, y in enumerate(ys_hat):
+                y_hat = [x[0] for x in groupby(y)]
+                seq_hat = []
+                for idx in y_hat:
+                    idx = int(idx)
+                    if idx != -1 and idx != self.idx_blank:
+                        seq_hat.append(idx)
+                seq_hat_total.append(
+                    torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
                 )
-                n_batch = len(seq_hat_total)
-                max_len = max(x.size(0) for x in seq_hat_total)
-                xs = seq_hat_total
-                pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
-                pad[:, :, 0] = 1.0
-                for i in range(n_batch):
-                    pad[i, : xs[i].size(0)] = xs[i]
-                # import pdb;pdb.set_trace()
-                y_ctc_pred_pad = pad
-            else:
-                seq_hat_total = []
-                # import pdb;pdb.set_trace()
-                for i, y in enumerate(ys_hat):
-                    y_hat = [x[0] for x in groupby(y)]
-                    seq_hat = []
-                    for idx in y_hat:
-                        idx = int(idx)
-                        if idx != -1 and idx != self.idx_blank:
-                            seq_hat.append(idx)
-                    seq_hat_total.append(
-                        torch.Tensor(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
-                    )
-                # import pdb;pdb.set_trace()
-                seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
-                    ys_hat.device, dtype=ys_hat.dtype
-                )
-                y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
+            # import pdb;pdb.set_trace()
+            seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
+                ys_hat.device, dtype=ys_hat.dtype
+            )
+            y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
             return y_ctc_pred_pad, seq_hat_total_lens, loss_ctc, cer_ctc
 
         return loss_ctc, cer_ctc

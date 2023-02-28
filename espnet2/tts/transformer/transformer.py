@@ -2,7 +2,7 @@
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 """Transformer-TTS related modules."""
-
+from itertools import groupby
 from typing import Dict, Optional, Sequence, Tuple
 
 import torch
@@ -102,7 +102,7 @@ class Transformer(AbsTTS):
         init_dec_alpha: float = 1.0,
         use_masking: bool = False,
         use_weighted_masking: bool = False,
-        use_md: bool=False,
+        use_md: bool = False,
         bce_pos_weight: float = 5.0,
         loss_type: str = "L1",
         use_guided_attn_loss: bool = True,
@@ -112,7 +112,9 @@ class Transformer(AbsTTS):
         guided_attn_loss_sigma: float = 0.4,
         guided_attn_loss_lambda: float = 1.0,
         speech_attn: bool = False,
-        use_text_adapter: bool = False,
+        use_text_adapter: bool = False,  # ignored if skip_text_encoder is False
+        skip_text_encoder: bool = True,
+        gumbel_softmax_input: bool = False,  # input text sequence is the gumbel softmax of ASR decoder
     ):
         """Initialize Transformer module.
 
@@ -239,14 +241,21 @@ class Transformer(AbsTTS):
             ScaledPositionalEncoding if self.use_scaled_pos_enc else PositionalEncoding
         )
 
-        self.use_text_adapter = use_text_adapter
-        if use_text_adapter:
+        self.gumbel_softmax_input = gumbel_softmax_input
+        self.skip_text_encoder = skip_text_encoder
+
+        # text adapter layer is only valid if the text encoder is skipped
+        self.use_text_adapter = False
+        if skip_text_encoder:
+            self.use_text_adapter = use_text_adapter
+        if self.use_text_adapter:
             self.text_adapter = torch.nn.Linear(adim, adim)
 
         # define transformer encoder
-        if self.use_md:
+        if self.skip_text_encoder:
             encoder_input_layer = "null"
         elif eprenet_conv_layers != 0:
+            assert False  # FIXME(Jiyang): doesn't support this if self.gumbel_softmax_input is True
             # encoder prenet
             encoder_input_layer = torch.nn.Sequential(
                 EncoderPrenet(
@@ -441,7 +450,7 @@ class Transformer(AbsTTS):
         # make labels for stop prediction
         labels = make_pad_mask(olens - 1).to(ys.device, ys.dtype)
         labels = F.pad(labels, [0, 1], "constant", 1.0)
-        if self.use_md:
+        if self.skip_text_encoder:
             ilens = text_lengths
             after_outs, before_outs, logits = self._forward(
                 xs=text,
@@ -454,8 +463,26 @@ class Transformer(AbsTTS):
                 s_embed=speech_embed,
                 s_embed_lens=speech_embed_lengths,
             )
-        else:
+        elif torch.is_floating_point(text):  # gumbel softmax
+            # Add eos at the last of sequence
+            xs = F.pad(text, [0, 0, 0, 1], "constant", self.padding_idx)
+            eos = torch.zeros(xs.shape[-1], device=xs.device, dtype=xs.dtype)
+            eos[self.eos] = 1
+            for i, l in enumerate(text_lengths):
+                xs[i, l] = eos
+            ilens = text_lengths + 1
 
+            # calculate transformer outputs
+            after_outs, before_outs, logits = self._forward(
+                xs=xs,
+                ilens=ilens,
+                ys=ys,
+                olens=olens,
+                spembs=spembs,
+                sids=sids,
+                lids=lids,
+            )
+        else:
             # Add eos at the last of sequence
             xs = F.pad(text, [0, 1], "constant", self.padding_idx)
             for i, l in enumerate(text_lengths):
@@ -596,7 +623,7 @@ class Transformer(AbsTTS):
         # forward encoder
         if self.use_text_adapter:
             xs = self.text_adapter(xs)
-        
+
         x_masks = self._source_mask(ilens)
         hs, h_masks = self.encoder(xs, x_masks)
 
@@ -688,9 +715,8 @@ class Transformer(AbsTTS):
         spemb = spembs
 
         # add eos at the last of sequence
-        if self.use_md:
-            if self.use_text_adapter:
-                x = self.text_adapter(x)
+        if self.use_text_adapter:
+            x = self.text_adapter(x)
 
             hs, _ = self.encoder(x, None)
         else:
