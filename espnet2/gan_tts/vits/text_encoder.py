@@ -49,6 +49,7 @@ class TextEncoder(torch.nn.Module):
         dropout_rate: float = 0.1,
         positional_dropout_rate: float = 0.0,
         attention_dropout_rate: float = 0.0,
+        use_md: bool =False,
     ):
         """Initialize TextEncoder module.
 
@@ -100,6 +101,7 @@ class TextEncoder(torch.nn.Module):
             cnn_module_kernel=conformer_kernel_size,
         )
         self.proj = torch.nn.Conv1d(attention_dim, attention_dim * 2, 1)
+        self.use_md=use_md
 
     def forward(
         self,
@@ -119,7 +121,10 @@ class TextEncoder(torch.nn.Module):
             Tensor: Mask tensor for input tensor (B, 1, T_text).
 
         """
-        x = self.emb(x) * math.sqrt(self.attention_dim)
+        # FIXME: use_md goes up
+        if not self.use_md:
+            x = self.emb(x) * math.sqrt(self.attention_dim)
+        # import pdb; pdb.set_trace()
         x_mask = (
             make_non_pad_mask(x_lengths)
             .to(
@@ -128,6 +133,7 @@ class TextEncoder(torch.nn.Module):
             )
             .unsqueeze(1)
         )
+        # print(x_mask.shape, x_lengths, x.shape)
         # encoder assume the channel last (B, T_text, attention_dim)
         # but mask shape shoud be (B, 1, T_text)
         x, _ = self.encoder(x, x_mask)
