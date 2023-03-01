@@ -126,9 +126,8 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   done
 fi
 
-# TODO
-# if [ ${stage} -eq 6 ]; then
-#   log "Creating utt2aph for interctc aux task"
-#
-#   python local/create_aph_tags.py "${asr_data_dir}"
-# fi
+if [ ${stage} -eq 6 ]; then
+  log "Creating utt2aph for interctc aux task"
+
+  python local/dementia/create_aph_tags.py "${asr_data_dir}"
+fi
