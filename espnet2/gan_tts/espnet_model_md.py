@@ -437,9 +437,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
 
-        elif not is_discriminator: # generator
+        if not is_discriminator: # generator
             stats = dict(
-                loss = loss.detach(),
+                # loss = loss.detach(),
                 # asr 
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
                 acc_asr=acc_asr_att,
@@ -453,6 +453,15 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 tts_generator_loss=tts_stats["generator_loss"],
                 tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
+            # FIXME, TODO [DONE]: update vits_dict with new loss and stats
+            # force_gatherable: to-device and to-tensor if scalar for DataParallel
+            gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+
+            vits_dict['loss'] = gathered_loss;
+            vits_dict['stats'] = gathered_stats;
+            vits_dict['weight'] = weight;
+
+            return vits_dict
 
         else: # discriminator
             stats = dict(
@@ -470,16 +479,25 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 tts_discriminator_fake_loss = tts_stats.get("discriminator_fake_loss", 0),
                 tts_discriminator_real_loss = tts_stats.get("discriminator_real_loss", 0),
             )
+            # FIXME, TODO [DONE]: update vits_dict with new loss and stats
+            # force_gatherable: to-device and to-tensor if scalar for DataParallel
+            gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 
-        # FIXME, TODO [DONE]: update vits_dict with new loss and stats
-        # force_gatherable: to-device and to-tensor if scalar for DataParallel
-        gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+            # vits_dict['loss'] = gathered_loss;
+            vits_dict['stats'] = gathered_stats;
+            vits_dict['weight'] = weight;
 
-        vits_dict['loss'] = gathered_loss;
-        vits_dict['stats'] = gathered_stats;
-        vits_dict['weight'] = weight;
-        
-        return vits_dict
+            return vits_dict
+
+        # # FIXME, TODO [DONE]: update vits_dict with new loss and stats
+        # # force_gatherable: to-device and to-tensor if scalar for DataParallel
+        # gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+
+        # vits_dict['loss'] = gathered_loss;
+        # vits_dict['stats'] = gathered_stats;
+        # vits_dict['weight'] = weight;
+
+        # return vits_dict
 
     def collect_feats(
         self,

@@ -208,9 +208,9 @@ class GANTrainer(Trainer):
                         # Backward passes under autocast are not recommended.
                         # Backward ops run in the same dtype autocast chose
                         # for corresponding forward ops.
-                        scaler.scale(loss).backward(retain_graph=True)
+                        scaler.scale(loss).backward()
                     else:
-                        loss.backward(retain_graph=True)
+                        loss.backward()
 
                 if scaler is not None:
                     # Unscales the gradients of optimizer's assigned params in-place
