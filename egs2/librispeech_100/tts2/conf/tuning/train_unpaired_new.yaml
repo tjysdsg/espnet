@@ -1,4 +1,5 @@
 # Unpaired training with pseudo-labels
+# The newest config uses lower asr_weight and the newly trained Transformer-TTS model
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
