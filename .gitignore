@@ -27,7 +27,7 @@ test_spm.model
 *.vim
 *.swp
 *.nfs*
-**/.ipynb_checkpoint
+**/.ipynb_checkpoints
 
 # recipe related
 egs*/*/*/data*
