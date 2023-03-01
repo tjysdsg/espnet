@@ -711,9 +711,11 @@ if ! "${skip_train}"; then
             >"${tts_stats_dir}/valid/text_shape.${token_type}"
 
         # sudo_text
-        <"${tts_stats_dir}/train/sudo_text_shape" \
-            awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
-            >"${tts_stats_dir}/train/sudo_text_shape.${token_type}"
+        if [ -n "${sudo_text}" ]; then
+            <"${tts_stats_dir}/train/sudo_text_shape" \
+                awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
+                >"${tts_stats_dir}/train/sudo_text_shape.${token_type}"
+        fi
     fi
 
 
