@@ -5,7 +5,7 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="ebranchformer_small_wavlm_large1_hier_aph_en"
+asr_tag="ebranchformer_wavlm_interctc_aux"
 
 train_set="train"
 valid_set="val"
