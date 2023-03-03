@@ -50,8 +50,10 @@ class ESPnetASRModel(AbsESPnetModel):
         ctc: CTC,
         joint_network: Optional[torch.nn.Module],
         aux_ctc: dict = None,
+        decoder_aux_ctc: dict = None,
         ctc_weight: float = 0.5,
         interctc_weight: float = 0.0,
+        decoder_interctc_weight: float = 0.0,
         ignore_id: int = -1,
         lsm_weight: float = 0.0,
         length_normalized_loss: bool = False,
@@ -90,6 +92,8 @@ class ESPnetASRModel(AbsESPnetModel):
         self.ctc_weight = ctc_weight
         self.interctc_weight = interctc_weight
         self.aux_ctc = aux_ctc
+        self.decoder_interctc_weight = decoder_interctc_weight
+        self.decoder_aux_ctc = decoder_aux_ctc
         self.token_list = token_list.copy()
 
         self.frontend = frontend
@@ -103,6 +107,13 @@ class ESPnetASRModel(AbsESPnetModel):
             self.encoder.interctc_use_conditioning = False
         if self.encoder.interctc_use_conditioning:
             self.encoder.conditioning_layer = torch.nn.Linear(
+                vocab_size, self.encoder.output_size()
+            )
+
+        if not hasattr(self.decoder, "interctc_use_conditioning"):
+            self.decoder.interctc_use_conditioning = False
+        if self.decoder.interctc_use_conditioning:
+            self.decoder.conditioning_layer = torch.nn.Linear(
                 vocab_size, self.encoder.output_size()
             )
 
@@ -260,7 +271,9 @@ class ESPnetASRModel(AbsESPnetModel):
                             )
                         elif self.training:
                             raise Exception(
-                                "Aux. CTC tasks were specified but no data was found"
+                                "Aux. CTC tasks were specified but no data was found\n"
+                                "To specify, use `--auxiliary_data_tags xxx` where `xxx` matches"
+                                "the value of `aux_ctc_tasks` in experiment config"
                             )
                 if loss_ic is None:
                     loss_ic, cer_ic = self._calc_ctc_loss(
@@ -308,9 +321,19 @@ class ESPnetASRModel(AbsESPnetModel):
         else:
             # 2b. Attention decoder branch
             if self.ctc_weight != 1.0:
-                loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
+                loss_att, acc_att, cer_att, wer_att, intermediate_outs, decoder_lens = self._calc_att_loss(
                     encoder_out, encoder_out_lens, text, text_lengths
                 )
+
+                # Decoder intermediate CTC (optional)
+                if self.decoder_interctc_weight > 0:
+                    loss_interctc, stats_decoder_interctc = self.decoder_interctc(
+                        intermediate_outs, decoder_lens, kwargs,
+                    )
+                    loss_att = (
+                        1 - self.decoder_interctc_weight
+                    ) * loss_att + self.decoder_interctc_weight * loss_interctc
+                    stats.update(stats_decoder_interctc)
 
             # 3. CTC-Att loss definition
             if self.ctc_weight == 0.0:
@@ -332,6 +355,52 @@ class ESPnetASRModel(AbsESPnetModel):
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
         return loss, stats, weight
+
+    def decoder_interctc(
+        self,
+        intermediate_outs: List[torch.Tensor],
+        olens: torch.Tensor,
+        aux_kwargs: Dict[str, torch.Tensor],
+    ):
+        assert len(intermediate_outs) > 0
+
+        stats = {}
+        loss_interctc = 0.0
+        cer_ic = None
+        for layer_idx, intermediate_out in intermediate_outs:
+            loss_ic = None
+            if self.decoder_aux_ctc is not None:
+                idx_key = str(layer_idx)
+                if idx_key in self.aux_ctc:
+                    aux_data_key = self.aux_ctc[idx_key]
+                    aux_data_tensor = aux_kwargs.get(aux_data_key, None)
+                    aux_data_lengths = aux_kwargs.get(aux_data_key + "_lengths", None)
+
+                    if aux_data_tensor is not None and aux_data_lengths is not None:
+                        loss_ic, cer_ic = self._calc_ctc_loss(
+                            intermediate_out,
+                            olens,
+                            aux_data_tensor,
+                            aux_data_lengths,
+                        )
+                    elif self.training:
+                        raise Exception(
+                            "Aux. CTC tasks were specified but no data was found\n"
+                            "To specify, use --auxiliary_data_tags xxx where xxx matches"
+                            "the value of `aux_ctc_tasks` in experiment config"
+                        )
+
+            if loss_ic is not None:
+                loss_interctc = loss_interctc + loss_ic
+
+                # Intermediate CTC stats
+                stats[f"loss_decoder_interctc_layer{layer_idx}"] = (
+                    loss_ic.detach() if loss_ic is not None else None
+                )
+                stats[f"cer_decoder_interctc_layer{layer_idx}"] = cer_ic
+
+        loss_interctc = loss_interctc / len(intermediate_outs)
+        return loss_interctc, stats
 
     def collect_feats(
         self,
@@ -532,9 +601,15 @@ class ESPnetASRModel(AbsESPnetModel):
         ys_in_lens = ys_pad_lens + 1
 
         # 1. Forward decoder
-        decoder_out, _ = self.decoder(
+        decoder_out, olens = self.decoder(
             encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens
         )
+
+        # intermediate output (optional)
+        intermediate_outs = None
+        if isinstance(encoder_out, tuple):
+            intermediate_outs = encoder_out[1]
+            decoder_out = encoder_out[0]
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
@@ -551,7 +626,7 @@ class ESPnetASRModel(AbsESPnetModel):
             ys_hat = decoder_out.argmax(dim=-1)
             cer_att, wer_att = self.error_calculator(ys_hat.cpu(), ys_pad.cpu())
 
-        return loss_att, acc_att, cer_att, wer_att
+        return loss_att, acc_att, cer_att, wer_att, intermediate_outs, olens
 
     def _calc_ctc_loss(
         self,
