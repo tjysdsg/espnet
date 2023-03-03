@@ -212,7 +212,10 @@ class GANTrainer(Trainer):
                     else:
                         # print(loss)
                         # print(retval)
-                        loss.backward(retain_graph=True)
+                        # FIXME: 
+                        if turn != 'discriminator':
+                            # loss.backward(retain_graph=True)
+                            loss.backward()
 
                 if scaler is not None:
                     # Unscales the gradients of optimizer's assigned params in-place
