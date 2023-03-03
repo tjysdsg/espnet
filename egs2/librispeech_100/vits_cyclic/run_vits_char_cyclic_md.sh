@@ -20,7 +20,7 @@ train_config=conf/tuning/train_vits_xvector_md_sanity_freeze.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
-export CUDA_VISIBLE_DEVICES=1
+# export CUDA_VISIBLE_DEVICES=1
 
 ./tts.sh \
     --ngpu 1 \
@@ -37,10 +37,7 @@ export CUDA_VISIBLE_DEVICES=1
     --n_shift "${n_shift}" \
     --win_length "${win_length}" \
     --dumpdir dump \
-<<<<<<< HEAD
     --expdir exp/norm_vits_cyclic \
-=======
->>>>>>> tjy/cyclic_asr_unpaired
     --tts_task gan_tts \
     --use_multidecoder true \
     --use_xvector true \
