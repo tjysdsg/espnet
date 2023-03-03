@@ -5,7 +5,7 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="ebranchformer_wavlm_interctc_aux"
+asr_tag="ebranchformer_wavlm_interctc6"
 
 train_set="train"
 valid_set="val"
@@ -13,7 +13,7 @@ test_sets="test"
 include_control=true
 include_lang_id=false
 
-asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1_interctc9.yaml
+asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1_interctc6.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
