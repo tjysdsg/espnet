@@ -210,7 +210,9 @@ class GANTrainer(Trainer):
                         # for corresponding forward ops.
                         scaler.scale(loss).backward()
                     else:
-                        loss.backward()
+                        # print(loss)
+                        # print(retval)
+                        loss.backward(retain_graph=True)
 
                 if scaler is not None:
                     # Unscales the gradients of optimizer's assigned params in-place

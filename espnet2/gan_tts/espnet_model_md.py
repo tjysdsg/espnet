@@ -446,9 +446,13 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             vits_dict['stats'] = gathered_stats
             vits_dict['weight'] = weight
 
+            # Log the loss value
+            print('Problematic Loss: %s', loss.item())
+
             return vits_dict
 
         else:  # discriminator
+            # import pdb;pdb.set_trace()
             stats = dict(
                 # loss is independently registered, so ignore in stats
                 # loss = loss.detach(),
@@ -468,7 +472,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # force_gatherable: to-device and to-tensor if scalar for DataParallel
             gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 
-            # vits_dict['loss'] = gathered_loss
+            vits_dict['loss'] = gathered_loss
             vits_dict['stats'] = gathered_stats
             vits_dict['weight'] = weight
 
