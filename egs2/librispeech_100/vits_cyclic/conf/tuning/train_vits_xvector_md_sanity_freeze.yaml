@@ -1,9 +1,4 @@
-# Sanity check
-
-# Cyclic ASR-TTS
-# - with pretrained ASR and TTS models
-# - using ground truth text as the ASR decoder input
-# - with ASR decoder and TTS encoder frozen
+# Sanity check using VITS
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -166,10 +161,8 @@ tts_conf:
   cache_generator_outputs: true # whether to cache generator outputs in the training
 
   use_md: true
-  # guided_attn_loss_sigma: 0.4                      # sigma in guided attention loss
-  # guided_attn_loss_lambda: 10.0                    # lambda in guided attention loss
-  # spk_embed_dim: 256                               # x_vector // origin 512
-  # spk_emded_integration_type: add                  # how to integrate speaker embedding
+  # skip_text_encoder: false
+  # gumbel_softmax_input: true
 
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
@@ -185,11 +178,12 @@ scheduler_conf: # keyword arguments for selected scheduler
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 0.05
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: false 
   asr_normalize: true # <--------------------------------------------------------------------------------------
+  gumbel_softmax: true
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -198,17 +192,17 @@ use_amp: false
 cudnn_deterministic: false
 cudnn_benchmark: false
 
-max_epoch: 20               # number of epochs
+max_epoch: 10               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
-batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels) [Ziang] original 4500000
+batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
 num_workers: 1              # number of workers of data loader
 train_dtype: float32        # dtype in training
-log_interval: null          # log interval in iterations
+log_interval: 50            # log interval in iterations
 keep_nbest_models: 5        # number of models to keep
 num_att_plot: 3             # number of attention figures to be saved in every check
 seed: 0                     # random seed number
@@ -240,6 +234,5 @@ init_param: [
 ]
 freeze_param: [
     "asr_decoder",
-    # "tts.discriminator.msd",
-    # "tts.discriminator.mpd",
+    # "tts.discriminator",
 ]

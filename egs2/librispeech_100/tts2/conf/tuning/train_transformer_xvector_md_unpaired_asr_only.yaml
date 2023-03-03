@@ -101,7 +101,7 @@ scheduler_conf:         # keyword arguments for selected scheduler
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.05
+  asr_weight: 0.3
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true
@@ -152,6 +152,8 @@ init_param: [
 ]
 unused_parameters: true
 freeze_param: [
+  "tts.encoder",
+  "tts.decoder",
   "asr_encoder_copy",
   "ctc_copy",
 ]

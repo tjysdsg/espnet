@@ -11,7 +11,7 @@ n_fft=2048
 n_shift=300
 win_length=1200
 
-tag="unpaired_360_sudo"
+tag="unpaired_sudo"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
@@ -26,8 +26,9 @@ inference_asr_config=conf/decode_asr.yaml
     --ngpu 1 \
     --stage 6 \
     --stop_stage 6 \
+    --inference_model valid.loss.ave.pth \
     --gpu_inference true \
-    --inference_nj 1 \
+    --inference_nj 2 \
     --use_multidecoder true \
     --lang en \
     --feats_type raw \

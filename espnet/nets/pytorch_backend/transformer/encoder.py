@@ -159,7 +159,7 @@ class Encoder(torch.nn.Module):
             self.embed = torch.nn.Sequential(
                 pos_enc_class(attention_dim, positional_dropout_rate)
             )
-        elif input_layer=="null":
+        elif input_layer == "null":
             self.embed = None
         else:
             raise ValueError("unknown input_layer: " + input_layer)
@@ -323,7 +323,12 @@ class Encoder(torch.nn.Module):
             ):
                 xs, masks = self.embed(xs, masks)
             else:
-                xs = self.embed(xs)
+                if torch.is_floating_point(xs):  # gumbel softmax input
+                    # Similar to: https://github.com/facebookresearch/EGG/blob/main/egg/core/gs_wrappers.py#L203
+                    # FIXME(Jiyang): check if embed[0] is nn.Embedding
+                    xs = self.embed[1](torch.matmul(xs, self.embed[0].weight))
+                else:
+                    xs = self.embed(xs)
 
         if self.intermediate_layers is None:
             xs, masks = self.encoders(xs, masks)

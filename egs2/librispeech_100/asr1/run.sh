@@ -8,16 +8,13 @@ set -o pipefail
 train_set="train_clean_100"
 valid_set="dev"
 # test_sets="test_clean test_other dev_clean dev_other"
-test_sets="train_clean_360"
+test_sets="train_clean_360 test_clean test_other dev_clean dev_other"
 
 asr_tag=conformer_lr2e-3_warmup15k_amp_nondeterministic
 asr_config=conf/train_asr.yaml
 inference_config=conf/decode_asr.yaml
 
 ./asr.sh \
-    --skip_data_prep false \
-    --skip_train false \
-    --skip_eval false \
     --lang en \
     --ngpu 1 \
     --nj 32 \
@@ -25,7 +22,7 @@ inference_config=conf/decode_asr.yaml
     --token_type char \
     --max_wav_duration 30 \
     --speed_perturb_factors "0.9 1.0 1.1" \
-    --audio_format "flac.ark" \
+    --audio_format "wav" \
     --feats_type raw \
     --use_lm false \
     --asr_tag "${asr_tag}" \

@@ -6,21 +6,20 @@ set -u
 set -o pipefail
 
 fs=16000 # original 24000
-n_fft=1024
-n_shift=256
-win_length=null
+n_fft=2048
+n_shift=300
+win_length=1200
 
-tag="aligned_vits_sanity_check_freeze_normalize"
+tag="unpaired_360_asr_only"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
 test_sets="dev_clean test_clean test_other"
 
-train_config=conf/tuning/train_vits_xvector_md_sanity_freeze.yaml
+train_config=conf/tuning/train_transformer_xvector_md_unpaired_asr_only.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
-export CUDA_VISIBLE_DEVICES=1
 
 ./tts.sh \
     --ngpu 1 \
@@ -36,24 +35,16 @@ export CUDA_VISIBLE_DEVICES=1
     --n_fft "${n_fft}" \
     --n_shift "${n_shift}" \
     --win_length "${win_length}" \
-    --dumpdir dump \
-<<<<<<< HEAD
-    --expdir exp/norm_vits_cyclic \
-=======
->>>>>>> tjy/cyclic_asr_unpaired
-    --tts_task gan_tts \
-    --use_multidecoder true \
     --use_xvector true \
+    --token_type char \
     --cleaner none \
-    --g2p none \
-    --feats_extract linear_spectrogram \
+    --tag "${tag}" \
     --train_config "${train_config}" \
     --inference_config "${inference_config}" \
     --inference_asr_config "${inference_asr_config}" \
     --train_set "${train_set}" \
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
-    --token_type char \
-    --tag "${tag}" \
     --srctexts "data/${train_set}/text" \
+    --sudo_text "decode_train_clean_360/text" \
     --audio_format "wav" "$@"

@@ -148,11 +148,11 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
                 memory_mask, (0, padlen), "constant", False
             )
         # import pdb;pdb.set_trace()
-        if self.gumbel_softmax:
-            # Similar to: https://github.com/facebookresearch/EGG/blob/main/egg/core/gs_wrappers.py#L203
-            x = self.embed[1](torch.matmul(tgt, self.embed[0].weight))
-        else:
-            x = self.embed(tgt)
+        # if self.gumbel_softmax:
+        #     # Similar to: https://github.com/facebookresearch/EGG/blob/main/egg/core/gs_wrappers.py#L203
+        #     x = self.embed[1](torch.matmul(tgt, self.embed[0].weight))
+        # else:
+        x = self.embed(tgt)
         x, tgt_mask, memory, memory_mask = self.decoders(
             x, tgt_mask, memory, memory_mask
         )
