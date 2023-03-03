@@ -110,13 +110,6 @@ class ESPnetASRModel(AbsESPnetModel):
                 vocab_size, self.encoder.output_size()
             )
 
-        if not hasattr(self.decoder, "interctc_use_conditioning"):
-            self.decoder.interctc_use_conditioning = False
-        if self.decoder.interctc_use_conditioning:
-            self.decoder.conditioning_layer = torch.nn.Linear(
-                vocab_size, self.encoder.output_size()
-            )
-
         self.use_transducer_decoder = joint_network is not None
 
         self.error_calculator = None
@@ -160,6 +153,13 @@ class ESPnetASRModel(AbsESPnetModel):
                 ), "decoder should not be None when attention is used"
 
             self.decoder = decoder
+
+            if not hasattr(self.decoder, "interctc_use_conditioning"):
+                self.decoder.interctc_use_conditioning = False
+            if self.decoder.interctc_use_conditioning:
+                self.decoder.conditioning_layer = torch.nn.Linear(
+                    vocab_size, self.encoder.output_size()
+                )
 
             self.criterion_att = LabelSmoothingLoss(
                 size=vocab_size,
