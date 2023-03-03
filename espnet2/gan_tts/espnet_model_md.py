@@ -35,6 +35,7 @@ from espnet2.layers.inversible_interface import InversibleInterface
 from espnet2.gan_tts.abs_gan_tts import AbsGANTTS
 from espnet2.tts.feats_extract.abs_feats_extract import AbsFeatsExtract
 from itertools import groupby
+from espnet2.layers.global_mvn import GlobalMVN
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
@@ -77,6 +78,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         extract_feats_in_collect_stats: bool = True,
         speech_attn: bool = False,
         use_unpaired: bool = False,
+        asr_normalize:bool = False,
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
@@ -115,6 +117,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.specaug = None
         self.preencoder = None
         self.postencoder = None
+        if asr_normalize==True:
+            self.asr_normalize=GlobalMVN('/ocean/projects/cis210027p/jtang1/C/exp/backup_tts_stats_raw_char_360/train/feats_stats.npz')
+        else:
+            self.asr_normalize=None
 
         self.frontend = frontend
         self.asr_encoder = asr_encoder
@@ -346,6 +352,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     )
 
             # Normalize
+            # FIXME: adhoc solution
+            self.normalize = None
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
             # if self.pitch_normalize is not None:
@@ -541,6 +549,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
+            if self.asr_normalize is not None:
+                feats, feats_lengths = self.asr_normalize(feats, feats_lengths)
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:
