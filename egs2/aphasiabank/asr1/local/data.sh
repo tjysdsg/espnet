@@ -32,6 +32,7 @@ languages="English French"
 asr_data_dir=  # see asr.sh stage 4
 tag_insertion=none
 dataset=AphasiaBank
+include_investigators=false
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -52,7 +53,8 @@ mkdir -p $tmp
 if [ "${dataset}" = "DementiaBank" ]; then
   ./local/dementia/data.sh --stage ${stage} --stop_stage ${stop_stage} \
     --tag_insertion ${tag_insertion} \
-    --asr_data_dir "${asr_data_dir}"
+    --asr_data_dir "${asr_data_dir}" \
+    --include_investigators "${include_investigators}"
 
   exit 0
 fi

@@ -33,6 +33,8 @@ def main():
         for line in f:
             seg = line.rstrip("\n")
             spk = utt2spk(seg)
+            spk = spk.replace('I', '')  # "I" is the suffix of investigators' IDs
+
             start, end = utt2time(seg)
             start = float(start) / 1000
             end = float(end) / 1000  # ms to seconds

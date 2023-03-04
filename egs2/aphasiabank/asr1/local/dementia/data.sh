@@ -27,6 +27,7 @@ stage=1
 stop_stage=5  # stage 6 is for interctc labels
 asr_data_dir= # see asr.sh stage 4
 tag_insertion=append
+include_investigators=false
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -90,6 +91,11 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     for story in cookie fluency recall sentence; do
       _opts="--transcript-dir=${PITT_DIR}/transcripts/${group}/${story}/ --out-dir=$tmp/pitt/${group}_${story}/ --tag-insertion=${tag_insertion} --story=${story} "
 
+      if [ "${include_investigators}" = true ]; then
+        log "**Including investigators' utterances**"
+        _opts+="--include-investigators "
+      fi
+
       python local/dementia/extract_sentence_info.py ${_opts}
     done
   done
@@ -100,8 +106,14 @@ fi
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   log "Split data into train, test, and val"
 
+  _opts="--text=$tmp/pitt/text --out-dir=$tmp "
+  if [ "${include_investigators}" = true ]; then
+    log "**Including investigators' utterances**"
+    _opts+="--include-investigators "
+  fi
+
   # split data, generate text and utt2spk
-  python local/dementia/split_train_test_val.py --text=$tmp/pitt/text --out-dir=$tmp
+  python local/dementia/split_train_test_val.py ${_opts}
 fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then

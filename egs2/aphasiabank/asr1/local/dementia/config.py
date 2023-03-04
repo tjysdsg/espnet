@@ -338,6 +338,7 @@ control_test = ['2093', '2742', '0450', '1283', '2951', '2102', '3181', '7090', 
 
 # ===========================================================
 
+# Investigators' IDs are added and handled in extract_sentence_info.py and split_train_test_val.py if needed
 train_spks = dementia_train + control_train
 
 # NOTE: test set uses test_spks's cookie story segments, while validation set uses their other story sections
@@ -362,8 +363,10 @@ control_spks = control_train + control_test
 spk2aphasia_label = {}
 for spk in pwa_spks:
     spk2aphasia_label[spk] = "APH"
+    spk2aphasia_label[f'{spk}I'] = "NONAPH"  # investigators' speaker id has a suffix "I"
 for spk in control_spks:
     spk2aphasia_label[spk] = "NONAPH"
+    spk2aphasia_label[f'{spk}I'] = "NONAPH"  # investigators' speaker id has a suffix "I"
 
 aph2spks = {}
 for spk, aph in spk2aphasia_label.items():

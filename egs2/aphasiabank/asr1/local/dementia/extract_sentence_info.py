@@ -17,6 +17,7 @@ def get_args():
     parser.add_argument("--out-dir", type=str, required=True)
     parser.add_argument("--story", type=str, required=True, help='Story name is used as the prefix of utt_id')
     parser.add_argument("--tag-insertion", type=str, choices=['none', 'prepend', 'append', 'both'])
+    parser.add_argument("--include-investigators", action='store_true', help='Include investigator data')
     return parser.parse_args()
 
 
@@ -91,6 +92,8 @@ def main():
     out_dir = args.out_dir
     os.makedirs(out_dir, exist_ok=True)
 
+    utt_filter = None if args.include_investigators else 'PAR'
+
     # get a list of all CHAT files
     files = []
     for file in os.listdir(args.transcript_dir):
@@ -105,7 +108,7 @@ def main():
             path = os.path.join(args.transcript_dir, file)
             chat: pla.Reader = pla.read_chat(path)
 
-            utts = chat.utterances(participants="PAR")
+            utts = chat.utterances(participants=utt_filter)
             n_utts = len(utts)
             for i in range(n_utts):
                 time_marks = utts[i].time_marks
@@ -115,9 +118,18 @@ def main():
                     continue
 
                 start, end = utts[i].time_marks
-                utt_id = get_utt(spk, args.story, start, end)
 
-                trans = clean_trans(utts[i].tiers["PAR"])
+                tiers = utts[i].tiers
+                is_investigator = False
+                if "PAR" in tiers:
+                    trans = clean_trans(tiers["PAR"])
+                elif "INV" in tiers:
+                    assert args.include_investigators
+                    trans = clean_trans(tiers["INV"])
+                    is_investigator = True
+                else:
+                    raise RuntimeError("Cannot find participant's or investigator's transcript")
+
                 if len(trans) == 0:
                     continue
 
@@ -143,6 +155,7 @@ def main():
                     else:
                         assert False
 
+                utt_id = get_utt(f'{spk}I' if is_investigator else spk, args.story, start, end)
                 text.write(f"{utt_id}\t{trans}\n")
 
     print(all_chars)
