@@ -5,14 +5,14 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="ebranchformer"
+asr_tag="conformer"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
 include_control=true
 
-asr_config=conf/tuning/train_asr_ebranchformer_small.yaml
+asr_config=conf/tuning/train_asr_conformer.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
