@@ -403,26 +403,26 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # FIXME: figure out the output of self.tts(**batch), replace below
         if self.create_KL_copy:
             assert False
-        elif self.intermediate_supervision:
-            stats = dict(
-                loss=loss.detach(),
-                loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                acc_asr=acc_asr_att,
-                cer_ctc=cer_asr_ctc,
-                cer=cer_asr_att,
-                wer=wer_asr_att,
-                # tts
-                tts_loss=tts_loss.detach(),
-                tts_discriminator_loss=tts_stats["discriminator_loss"],
-                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
-                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
-                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
-                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
-                tts_generator_loss=tts_stats["generator_loss"],
-                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
-            )
+        # elif self.intermediate_supervision:
+        #     stats = dict(
+        #         loss=loss.detach(),
+        #         loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
+        #         acc_asr=acc_asr_att,
+        #         cer_ctc=cer_asr_ctc,
+        #         cer=cer_asr_att,
+        #         wer=wer_asr_att,
+        #         # tts
+        #         tts_loss=tts_loss.detach(),
+        #         tts_discriminator_loss=tts_stats["discriminator_loss"],
+        #         tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
+        #         tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
+        #         tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+        #         tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+        #         tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+        #         tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+        #         tts_generator_loss=tts_stats["generator_loss"],
+        #         tts_generator_mel_loss=tts_stats["generator_mel_loss"],
+        #     )
 
         if not is_discriminator:  # generator
             stats = dict(
