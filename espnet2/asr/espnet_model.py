@@ -371,8 +371,8 @@ class ESPnetASRModel(AbsESPnetModel):
             loss_ic = None
             if self.decoder_aux_ctc is not None:
                 idx_key = str(layer_idx)
-                if idx_key in self.aux_ctc:
-                    aux_data_key = self.aux_ctc[idx_key]
+                if idx_key in self.decoder_aux_ctc:
+                    aux_data_key = self.decoder_aux_ctc[idx_key]
                     aux_data_tensor = aux_kwargs.get(aux_data_key, None)
                     aux_data_lengths = aux_kwargs.get(aux_data_key + "_lengths", None)
 
@@ -602,14 +602,14 @@ class ESPnetASRModel(AbsESPnetModel):
 
         # 1. Forward decoder
         decoder_out, olens = self.decoder(
-            encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens
+            encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens, ctc=self.ctc
         )
 
         # intermediate output (optional)
         intermediate_outs = None
-        if isinstance(encoder_out, tuple):
-            intermediate_outs = encoder_out[1]
-            decoder_out = encoder_out[0]
+        if isinstance(decoder_out, tuple):
+            intermediate_outs = decoder_out[1]
+            decoder_out = decoder_out[0]
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
@@ -626,7 +626,7 @@ class ESPnetASRModel(AbsESPnetModel):
             ys_hat = decoder_out.argmax(dim=-1)
             cer_att, wer_att = self.error_calculator(ys_hat.cpu(), ys_pad.cpu())
 
-        return loss_att, acc_att, cer_att, wer_att, intermediate_outs, olens
+        return loss_att, acc_att, cer_att, wer_att, intermediate_outs, ys_in_lens
 
     def _calc_ctc_loss(
         self,
