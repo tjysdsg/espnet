@@ -145,17 +145,18 @@ init_param: [
   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc",
   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:frontend:frontend",
   "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:normalize:normalize",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:feats_extract:feats_extract",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.encoder.encoders:tts.encoder.encoders",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.encoder.after_norm:tts.encoder.after_norm",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.decoder:tts.decoder",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.feat_out:tts.feat_out",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.prob_out:tts.prob_out",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.postnet:tts.postnet",
-  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/train.loss.best.pth:tts.criterion:tts.criterion",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:feats_extract:feats_extract",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.encoder:tts.encoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.encoder.after_norm:tts.encoder.after_norm",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.decoder:tts.decoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.feat_out:tts.feat_out",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.prob_out:tts.prob_out",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.postnet:tts.postnet",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts2/exp/xvector_retro/tts_tts_16k_char_retro/valid.loss.best.pth:tts.criterion:tts.criterion",
 ]
 unused_parameters: true
 freeze_param: [
   "asr_encoder_copy",
   "ctc_copy",
+  "tts.encoder.embed"
 ]
