@@ -120,6 +120,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.postencoder = None
         if asr_normalize==True:
             self.asr_normalize=GlobalMVN('/ocean/projects/cis210027p/jtang1/C/exp/backup_tts_stats_raw_char_360/train/feats_stats.npz')
+            self.normalize = self.asr_normalize
         else:
             self.asr_normalize=None
 
@@ -144,9 +145,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         if self.gumbel_softmax:
             assert not self.tts.skip_text_encoder
             assert self.tts.gumbel_softmax_input
-        elif self.use_unpaired:
-            # decoder's hidden states -> TTS encoder
-            assert self.tts.skip_text_encoder
+        # elif self.use_unpaired:
+        #     # decoder's hidden states -> TTS encoder
+        #     assert self.tts.skip_text_encoder
 
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
@@ -350,9 +351,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
             # Normalize
             # FIXME: adhoc solution
-            self.normalize = None
-            if self.normalize is not None:
-                feats, feats_lengths = self.normalize(feats, feats_lengths)
+            # self.normalize = None
+            # FIXME: commented out the below 2 lines for now (normalization size mismatch)
+            # if self.normalize is not None:
+            #     feats, feats_lengths = self.normalize(feats, feats_lengths)
             # if self.pitch_normalize is not None:
             #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
             # if self.energy_normalize is not None:
@@ -527,8 +529,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-            if self.asr_normalize is not None:
-                feats, feats_lengths = self.asr_normalize(feats, feats_lengths)
+            # if self.asr_normalize is not None:
+            #     feats, feats_lengths = self.asr_normalize(feats, feats_lengths)
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:
