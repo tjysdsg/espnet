@@ -35,6 +35,7 @@ from espnet2.layers.inversible_interface import InversibleInterface
 from espnet2.gan_tts.abs_gan_tts import AbsGANTTS
 from espnet2.tts.feats_extract.abs_feats_extract import AbsFeatsExtract
 from itertools import groupby
+from espnet2.layers.global_mvn import GlobalMVN
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
@@ -77,6 +78,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         extract_feats_in_collect_stats: bool = True,
         speech_attn: bool = False,
         use_unpaired: bool = False,
+        asr_normalize:bool = False,
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
@@ -116,6 +118,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.specaug = None
         self.preencoder = None
         self.postencoder = None
+        if asr_normalize==True:
+            self.asr_normalize=GlobalMVN('/ocean/projects/cis210027p/jtang1/C/exp/backup_tts_stats_raw_char_360/train/feats_stats.npz')
+            self.normalize = self.asr_normalize
+        else:
+            self.asr_normalize=None
 
         self.frontend = frontend
         self.asr_encoder = asr_encoder
@@ -138,9 +145,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         if self.gumbel_softmax:
             assert not self.tts.skip_text_encoder
             assert self.tts.gumbel_softmax_input
-        elif self.use_unpaired:
-            # decoder's hidden states -> TTS encoder
-            assert self.tts.skip_text_encoder
+        # elif self.use_unpaired:
+        #     # decoder's hidden states -> TTS encoder
+        #     assert self.tts.skip_text_encoder
 
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
@@ -343,8 +350,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     )
 
             # Normalize
-            if self.normalize is not None:
-                feats, feats_lengths = self.normalize(feats, feats_lengths)
+            # FIXME: adhoc solution
+            # self.normalize = None
+            # FIXME: commented out the below 2 lines for now (normalization size mismatch)
+            # if self.normalize is not None:
+            #     feats, feats_lengths = self.normalize(feats, feats_lengths)
             # if self.pitch_normalize is not None:
             #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
             # if self.energy_normalize is not None:
@@ -393,26 +403,26 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # FIXME: figure out the output of self.tts(**batch), replace below
         if self.create_KL_copy:
             assert False
-        elif self.intermediate_supervision:
-            stats = dict(
-                loss=loss.detach(),
-                loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                acc_asr=acc_asr_att,
-                cer_ctc=cer_asr_ctc,
-                cer=cer_asr_att,
-                wer=wer_asr_att,
-                # tts
-                tts_loss=tts_loss.detach(),
-                tts_discriminator_loss=tts_stats["discriminator_loss"],
-                tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
-                tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
-                tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-                tts_generator_dur_loss=tts_stats["generator_dur_loss"],
-                tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-                tts_generator_kl_loss=tts_stats["generator_kl_loss"],
-                tts_generator_loss=tts_stats["generator_loss"],
-                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
-            )
+        # elif self.intermediate_supervision:
+        #     stats = dict(
+        #         loss=loss.detach(),
+        #         loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
+        #         acc_asr=acc_asr_att,
+        #         cer_ctc=cer_asr_ctc,
+        #         cer=cer_asr_att,
+        #         wer=wer_asr_att,
+        #         # tts
+        #         tts_loss=tts_loss.detach(),
+        #         tts_discriminator_loss=tts_stats["discriminator_loss"],
+        #         tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
+        #         tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
+        #         tts_generator_adv_loss=tts_stats["generator_adv_loss"],
+        #         tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+        #         tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
+        #         tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+        #         tts_generator_loss=tts_stats["generator_loss"],
+        #         tts_generator_mel_loss=tts_stats["generator_mel_loss"],
+        #     )
 
         if not is_discriminator:  # generator
             stats = dict(
@@ -441,6 +451,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             return vits_dict
 
         else:  # discriminator
+            # import pdb;pdb.set_trace()
             stats = dict(
                 # loss is independently registered, so ignore in stats
                 # loss = loss.detach(),
@@ -518,6 +529,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
+            # if self.asr_normalize is not None:
+            #     feats, feats_lengths = self.asr_normalize(feats, feats_lengths)
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:

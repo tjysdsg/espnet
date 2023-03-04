@@ -183,7 +183,7 @@ model_conf:
   length_normalized_loss: false
   use_unpaired: false 
   asr_normalize: true # <--------------------------------------------------------------------------------------
-  gumbel_softmax: true
+  gumbel_softmax: false
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -192,7 +192,8 @@ use_amp: false
 cudnn_deterministic: false
 cudnn_benchmark: false
 
-max_epoch: 10               # number of epochs
+num_iters_per_epoch: 1000   # number of iterations per epoch
+max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
@@ -234,5 +235,5 @@ init_param: [
 ]
 freeze_param: [
     "asr_decoder",
-    # "tts.discriminator",
+    "tts.discriminator",
 ]

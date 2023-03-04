@@ -10,13 +10,13 @@ n_fft=1024
 n_shift=256
 win_length=null
 
-tag="aligned_vits_sanity_check_freeze_normalize"
+tag="cyclic_freeze_disc_limit_1000"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean test_other"
+test_sets="dev_clean test_clean dev_other test_other" # why not dev other?
 
-train_config=conf/tuning/train_vits_xvector_md_sanity_freeze.yaml
+train_config=conf/tuning/train_vits_xvector_md_freeze_disc.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
