@@ -139,7 +139,9 @@ def main():
 
                 # insert tags if needed
                 if args.tag_insertion != "none":
-                    if spk in pwa_spks:
+                    if is_investigator:
+                        aphasia_type = 'NONAPH'
+                    elif spk in pwa_spks:
                         aphasia_type = 'APH'
                     elif spk in control_spks:
                         aphasia_type = 'NONAPH'
