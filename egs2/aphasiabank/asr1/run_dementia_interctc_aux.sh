@@ -11,6 +11,7 @@ train_set="train"
 valid_set="val"
 test_sets="test"
 tag_insertion=none
+include_investigators=true
 
 asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm_interctc6.yaml
 
@@ -39,7 +40,7 @@ inference_config=conf/decode.yaml
   --test_sets "${test_sets}" \
   --speed_perturb_factors "0.9 1.0 1.1" \
   --feats_normalize ${feats_normalize} \
-  --local_data_opts "--dataset DementiaBank --tag_insertion ${tag_insertion} " \
+  --local_data_opts "--dataset DementiaBank --tag_insertion ${tag_insertion} --include_investigators ${include_investigators} " \
   --auxiliary_data_tags "utt2aph" \
   --post_process_local_data_opts "--dataset DementiaBank --stage 6" \
   --nlsyms_txt "local/nlsyms.txt" \
