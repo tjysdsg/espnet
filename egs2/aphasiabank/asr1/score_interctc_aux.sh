@@ -37,7 +37,7 @@ if [ -z "${decode_dir}" ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  cat "${decode_dir}"/logdir/output.*/1best_recog/interctc_layer6.txt >"${decode_dir}"/interctc.txt
+  cat "${decode_dir}"/logdir/output.*/1best_recog/encoder_interctc_layer6.txt >"${decode_dir}"/interctc.txt
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
