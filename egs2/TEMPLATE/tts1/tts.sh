@@ -92,7 +92,8 @@ tts_task=tts                # TTS task (tts or gan_tts).
 
 # Decoding related
 inference_config="" # Config for decoding.
-inference_asr_config="" # Config for decoding.
+inference_asr_config="" # Config for asr decoding (overwrites --inference_config)
+inference_tts_config="" # Config for tts decoding (overwrites --inference_config)
 inference_args=""   # Arguments for decoding (e.g., "--threshold 0.75").
                     # Note that it will overwrite args in inference config.
 inference_tag=""    # Suffix for decoding directory.
@@ -1000,6 +1001,13 @@ if ! "${skip_eval}"; then
             _type=sound
         fi
 
+        if [[ "${tts_task}" == "gan_tts" ]]; then
+            _midfix="gan_asr"
+        else
+            _midfix="asr"
+        fi
+        
+
         log "Generate '${tts_exp}/${inference_tag}/run.sh'. You can resume the process from stage 7 using this script"
         mkdir -p "${tts_exp}/${inference_tag}"; echo "${run_args} --stage 7 \"\$@\"; exit \$?" > "${tts_exp}/${inference_tag}/run.sh"; chmod +x "${tts_exp}/${inference_tag}/run.sh"
 
@@ -1064,7 +1072,7 @@ if ! "${skip_eval}"; then
                 echo "${_cmd}"
                 echo "${_nj}"
                  ${_cmd} --gpu "${_ngpu}" JOB=1:"${_nj}" "${_logdir}"/asr_inference.JOB.log \
-                ${python} -m espnet2.bin.cyclic_asr_inference \
+                ${python} -m "espnet2.bin.cyclic_${_midfix}_inference" \
                     --ngpu "${_ngpu}" \
                     --data_path_and_name_and_type ${_speech_data}/${_scp},speech,${_type} \
                     --key_file "${_logdir}"/keys.JOB.scp \
@@ -1429,8 +1437,15 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && [ ${use_multidecoder} ]; t
     fi
 
     _opts=
-    if [ -n "${inference_config}" ]; then
-        _opts+="--config ${inference_config} "
+    if ${use_multidecoder}; then
+        echo "Running multidecoder decoding tts"
+        if [ -n "${inference_tts_config}" ]; then
+            _opts+="--config ${inference_tts_config} "
+        fi
+    else
+        if [ -n "${inference_config}" ]; then
+            _opts+="--config ${inference_config} "
+        fi
     fi
 
     _scp=wav.scp
@@ -1498,7 +1513,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && [ ${use_multidecoder} ]; t
         log "Decoding started... log: '${_logdir}/tts_inference.*.log'"
         # shellcheck disable=SC2046,SC2086
         ${_cmd} --gpu "${_ngpu}" JOB=1:"${_nj}" "${_logdir}"/tts_inference.JOB.log \
-            ${python} -m espnet2.bin.cyclic_tts_inference \
+            ${python} -m "espnet2.bin.${tts_task}_inference" \
                 --ngpu "${_ngpu}" \
                 --data_path_and_name_and_type "${_data}/text,text,text" \
                 --data_path_and_name_and_type ${_speech_data}/${_scp},speech,${_type} \
