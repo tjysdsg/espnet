@@ -145,9 +145,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         if self.gumbel_softmax:
             assert not self.tts.skip_text_encoder
             assert self.tts.gumbel_softmax_input
-        # elif self.use_unpaired:
-        #     # decoder's hidden states -> TTS encoder
-        #     assert self.tts.skip_text_encoder
+        elif self.use_unpaired:
+            # decoder's hidden states -> TTS encoder
+            assert self.tts.skip_text_encoder
 
         self.criterion_asr = LabelSmoothingLoss(
             size=vocab_size,
