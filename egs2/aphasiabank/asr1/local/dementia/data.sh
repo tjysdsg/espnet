@@ -52,7 +52,7 @@ mkdir -p $tmp
 # - Unzip and copy all *.cha files into ${DEMENTIABANK}/<lang>/<subset>/transcripts
 
 PITT_DIR="${DEMENTIABANK}/English/Pitt/"
-# ADRESS2020_DIR="${DEMENTIABANK}/English/ADReSS2020/"
+ADRESS2020_DIR="${DEMENTIABANK}/English/ADReSS2020/ADReSS-IS2020-data/test/"
 
 # install pylangacq
 pip install --upgrade pylangacq
@@ -101,10 +101,17 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   done
 
   cat $tmp/pitt/*/text >$tmp/pitt/text
+
+  # generate data/local/adress_test/text
+  python local/dementia/extract_sentence_info.py \
+    --transcript-dir="${ADRESS2020_DIR}/transcription/" \
+    --out-dir=$tmp/adress_test_tmp \
+    --tag-insertion=${tag_insertion} \
+    --story=adress
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-  log "Split data into train, test, and val"
+  log "Split data into train, test, val, and adress_test"
 
   _opts="--text=$tmp/pitt/text --out-dir=$tmp "
   if [ "${include_investigators}" = true ]; then
@@ -114,6 +121,8 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 
   # split data, generate text and utt2spk
   python local/dementia/split_train_test_val.py ${_opts}
+
+  python local/dementia/generate_adress_test.py --text=$tmp/adress_test_tmp/text --out-dir=$tmp/adress_test
 fi
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
@@ -126,13 +135,18 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
       --reco-list=$tmp/$x/utt.list \
       --out-dir="$tmp/$x/"
   done
+
+  python local/dementia/generate_wavscp_and_segments.py \
+    --data-root="${ADRESS2020_DIR}/Full_wave_enhanced_audio/" \
+    --reco-list=$tmp/adress_test/utt.list \
+    --out-dir="$tmp/adress_test/"
 fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   log "Finalizing data"
 
   # finalize
-  for x in train val test; do
+  for x in train val test adress_test; do
     cp -r $tmp/$x data/
     utils/fix_data_dir.sh data/$x
   done

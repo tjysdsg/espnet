@@ -1,6 +1,6 @@
 import os
 from argparse import ArgumentParser
-from config import utt2time, utt2spk, utt2story, pwa_spks
+from config import utt2time, utt2spk, utt2story, pwa_spks, adress2pitt
 
 
 def get_args():
@@ -56,6 +56,9 @@ def main():
             group = "Dementia" if spk in pwa_spks else "Control"
             story = utt2story(seg)
             wav_path = os.path.join(args.data_root, group, story, f"{spk[:-1]}-{spk[-1]}.wav")
+
+            if spk in adress2pitt:
+                wav_path = os.path.join(args.data_root, f"{spk}.wav")
 
             if not os.path.exists(wav_path):
                 print(f"WARNING: {wav_path} does not exist")

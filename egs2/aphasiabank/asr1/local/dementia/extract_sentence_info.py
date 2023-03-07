@@ -6,7 +6,7 @@ Based on https://github.com/monirome/AphasiaBank/blob/main/clean_transcriptions.
 import os
 import re
 from argparse import ArgumentParser
-from config import get_utt, pwa_spks, control_spks
+from config import get_utt, pwa_spks, control_spks, adress2pitt
 
 import pylangacq as pla
 
@@ -131,6 +131,10 @@ def main():
                     raise RuntimeError("Cannot find participant's or investigator's transcript")
 
                 if len(trans) == 0:
+                    continue
+
+                # only keep patients from ADReSS2020 data
+                if spk in adress2pitt and is_investigator:
                     continue
 
                 # gather all unique chars

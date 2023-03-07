@@ -367,6 +367,9 @@ for spk in pwa_spks:
 for spk in control_spks:
     spk2aphasia_label[spk] = "NONAPH"
     spk2aphasia_label[f'{spk}I'] = "NONAPH"  # investigators' speaker id has a suffix "I"
+# include ADReSS test set speakers
+for adr, pitt in adress2pitt.items():
+    spk2aphasia_label[adr] = spk2aphasia_label[pitt]
 
 aph2spks = {}
 for spk, aph in spk2aphasia_label.items():
