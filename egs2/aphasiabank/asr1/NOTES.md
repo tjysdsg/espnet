@@ -23,3 +23,7 @@ like `[..., ..., '[APH]']`
 Then I put `[APH]` and `[NONAPH]` into `tokens.txt`, then
 https://github.com/espnet/espnet/blob/master/espnet2/text/token_id_converter.py#L35 token id converter will use it in
 `tokens2ids()`
+
+# Remove `--nlsyms_txt "local/nlsyms.txt"` when running stage 13 for tag-based detectors
+
+# Use `local/dementia/clean_score_dir.py` and `local/dementia/score_interctc_aux.py` in `score_cleaned.sh` and `score_interctc_aux.sh` for Dementia experiments

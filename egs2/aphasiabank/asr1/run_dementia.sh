@@ -5,7 +5,7 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="tmp"
+asr_tag="dementia_ebranchformer_wavlm_tag_prepend_inv"
 
 train_set="train"
 valid_set="val"

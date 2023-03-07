@@ -17,7 +17,6 @@ log() {
 stage=1
 stop_stage=100
 decode_dir=
-tag_insertion=none
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -50,14 +49,14 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     python local/clean_score_dir.py "${decode_dir}/score_${token_type}" ${_dir}
 
     # Remove tags
-    python local/clean_hyp_annotations.py --tag-insertion=${tag_insertion} "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
-    python local/clean_hyp_annotations.py --tag-insertion=${tag_insertion} "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
+    python local/clean_hyp_annotations.py "${_dir}/hyp.trn" "${_dir}/hyp.trn.clean"
+    python local/clean_hyp_annotations.py "${_dir}/ref.trn" "${_dir}/ref.trn.clean"
 
     # for sub in en fr aph nonaph en.aph en.nonaph fr.aph fr.nonaph; do
     for sub in aph nonaph; do
       # Subset CER
-      python local/clean_hyp_annotations.py --tag-insertion=${tag_insertion} "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
-      python local/clean_hyp_annotations.py --tag-insertion=${tag_insertion} "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
+      python local/clean_hyp_annotations.py "${_dir}/hyp.${sub}.trn" "${_dir}/hyp.${sub}.trn.clean"
+      python local/clean_hyp_annotations.py "${_dir}/ref.${sub}.trn" "${_dir}/ref.${sub}.trn.clean"
     done
   done
 fi
