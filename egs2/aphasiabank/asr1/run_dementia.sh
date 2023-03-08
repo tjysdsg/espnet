@@ -5,13 +5,13 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="dementia_ebranchformer_wavlm_tag_prepend_inv"
+asr_tag="dementia_ebranchformer_wavlm_tag_prepend"
 
 train_set="train"
 valid_set="val"
-test_sets="adress_test"
-tag_insertion=none
-include_investigators=true
+test_sets="test"
+tag_insertion=prepend
+include_investigators=false
 
 asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm.yaml
 

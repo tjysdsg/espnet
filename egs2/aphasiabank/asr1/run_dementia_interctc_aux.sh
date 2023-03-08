@@ -11,7 +11,7 @@ train_set="train"
 valid_set="val"
 test_sets="test"
 tag_insertion=none
-include_investigators=true
+include_investigators=false
 
 asr_config=conf/tuning/train_asr_dementia_ebranchformer_wavlm_interctc6.yaml
 

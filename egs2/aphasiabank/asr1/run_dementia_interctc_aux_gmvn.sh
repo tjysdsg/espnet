@@ -5,7 +5,7 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="dementia_ebranchformer_wavlm_interctc6_inv_gmvn"
+asr_tag="dementia_ebranchformer_wavlm_interctc6_gmvn"
 
 train_set="train_sp_ssl"
 valid_set="val_ssl"
