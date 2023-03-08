@@ -31,6 +31,7 @@ def main():
                 utt2text[utt] = text
 
     # sentence-level scoring
+    spk2corr_total = {}
     with open(args.hyp, encoding='utf-8') as f:
         for hyp in f:
             hyp = hyp.strip().split()  # utt [APH]
@@ -48,13 +49,16 @@ def main():
             spk2ref[spk] = ref_aph
 
             spk2tags.setdefault(spk, []).append(hyp_aph)
+            spk2corr_total.setdefault(spk, [0, 0])
 
             if ref_aph == hyp_aph:
                 correct_aph += 1
+                spk2corr_total[spk][0] += 1
             elif utt_id in utt2text:
                 print(f'Incorrect prediction (should be {ref_aph}) of {utt_id}: {utt2text[utt_id]}')
 
             utt_num += 1
+            spk2corr_total[spk][1] += 1
 
     print('=' * 80)
     print(
@@ -62,6 +66,10 @@ def main():
         f"{(correct_aph / float(utt_num)):.4f} ({correct_aph}/{utt_num})"
     )
     print('=' * 80)
+
+    # per-speaker accuracy
+    for spk, (corr, total) in spk2corr_total.items():
+        print(f'Accuracy for speaker {spk} {spk2ref[spk]}:\t{corr / total} ({corr}/{total})')
 
     # speaker-level scoring
     correct_speakers = 0
