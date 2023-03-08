@@ -15,6 +15,12 @@ model_conf:
   lsm_weight: 0.1
   length_normalized_loss: false
 
+  # interctc aux task
+  interctc_weight: 0.3
+  aux_ctc:
+    '6': utt2aph
+aux_ctc_tasks: [ "utt2aph" ]
+
 
 # Based on https://github.com/espnet/espnet/blob/master/egs2/librispeech/asr1/conf/tuning/train_asr_e_branchformer.yaml
 # The encoder is smaller as we keep the size roughly the same as the conformer and transformer experiments
@@ -40,6 +46,9 @@ encoder_conf:
   positionwise_layer_type: linear
   use_ffn: true
   merge_conv_kernel: 31
+
+  interctc_layer_idx: [ 6 ]
+  interctc_use_conditioning: true
 
 decoder: transformer
 decoder_conf:
