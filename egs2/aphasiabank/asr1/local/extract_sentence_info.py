@@ -3,11 +3,10 @@ Create text and utt2spk
 
 Based on https://github.com/monirome/AphasiaBank/blob/main/clean_transcriptions.ipynb
 """
-import json
 import os
 import re
 from argparse import ArgumentParser
-from config import lang2label, get_utt, pwa_spks, control_spks
+from config import lang2label, get_utt, spk2aphasia_label
 
 import pylangacq as pla
 
@@ -136,12 +135,7 @@ def main():
 
                 # add aphasia type and/or language annotation to the front if needed
                 if args.tag_insertion != "none":
-                    if spk in pwa_spks:
-                        aphasia_type = 'APH'
-                    elif spk in control_spks:
-                        aphasia_type = 'NONAPH'
-                    else:
-                        assert False
+                    aphasia_type = spk2aphasia_label[spk]
 
                     if args.tag_insertion == 'append':
                         trans = f"{trans} [{aphasia_type}]"
