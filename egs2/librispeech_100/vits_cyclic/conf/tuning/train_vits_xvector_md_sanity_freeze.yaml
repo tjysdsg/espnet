@@ -178,7 +178,7 @@ scheduler_conf: # keyword arguments for selected scheduler
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.05
+  asr_weight: 1.0
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: false 
@@ -233,6 +233,5 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "asr_decoder",
-    # "tts.discriminator",
+    "tts",
 ]
