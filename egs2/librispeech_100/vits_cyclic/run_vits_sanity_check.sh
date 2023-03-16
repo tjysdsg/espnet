@@ -47,5 +47,4 @@ inference_asr_config=conf/decode_asr.yaml
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
     --srctexts "data/${train_set}/text" \
-    --sudo_text "decode_train_clean_360/text" \
     --audio_format "wav" "$@"

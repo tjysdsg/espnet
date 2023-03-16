@@ -86,7 +86,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         use_asr_decoder_loss: bool = True,
     ):
         assert check_argument_types()
-        assert 0.0 <= asr_weight < 1.0, "asr_weight should be (0.0, 1.0)"
+        assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
         assert 0.0 <= mt_weight < 1.0, "mt_weight should be [0.0, 1.0)"
         assert 0.0 <= mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
 
@@ -374,13 +374,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         batch.update(speech=speech, speech_lengths=speech_lengths)
 
         # import pdb; pdb.set_trace()
-        # FIXME: adapt GANTTS api
         vits_dict = self.tts(**batch)
         tts_loss = vits_dict['loss']
         tts_stats = vits_dict['stats']
         tts_weight = vits_dict['weight']
         is_discriminator = vits_dict['optim_idx']
-        # tts_loss, tts_stats, tts_weight = self.tts(**batch)
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
@@ -392,37 +390,15 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             )
         else:
             loss_asr = loss_asr_ctc
-        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
+
+        if self.asr_weight == 1.0:
+            loss = loss_asr
+        else:
+            loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
-            # import pdb;pdb.set_trace()
-            loss = 0.95 * loss + 0.05 * mse_loss
-        # vits_dict['loss'] = loss
-        # import pdb;pdb.set_trace()
-        # print(tts_stats)
-        # FIXME: figure out the output of self.tts(**batch), replace below
-        if self.create_KL_copy:
+            # FIXME: loss = 0.95 * loss + 0.05 * mse_loss
             assert False
-        # elif self.intermediate_supervision:
-        #     stats = dict(
-        #         loss=loss.detach(),
-        #         loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-        #         acc_asr=acc_asr_att,
-        #         cer_ctc=cer_asr_ctc,
-        #         cer=cer_asr_att,
-        #         wer=wer_asr_att,
-        #         # tts
-        #         tts_loss=tts_loss.detach(),
-        #         tts_discriminator_loss=tts_stats["discriminator_loss"],
-        #         tts_discriminator_fake_loss=tts_stats["discriminator_fake_loss"],
-        #         tts_discriminator_real_loss=tts_stats["discriminator_real_loss"],
-        #         tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-        #         tts_generator_dur_loss=tts_stats["generator_dur_loss"],
-        #         tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-        #         tts_generator_kl_loss=tts_stats["generator_kl_loss"],
-        #         tts_generator_loss=tts_stats["generator_loss"],
-        #         tts_generator_mel_loss=tts_stats["generator_mel_loss"],
-        #     )
 
         if not is_discriminator:  # generator
             stats = dict(
@@ -440,7 +416,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 tts_generator_loss=tts_stats["generator_loss"],
                 tts_generator_mel_loss=tts_stats["generator_mel_loss"],
             )
-            # FIXME, TODO [DONE]: update vits_dict with new loss and stats
             # force_gatherable: to-device and to-tensor if scalar for DataParallel
             gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 
@@ -476,16 +451,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             vits_dict['weight'] = weight
 
             return vits_dict
-
-        # # FIXME, TODO [DONE]: update vits_dict with new loss and stats
-        # # force_gatherable: to-device and to-tensor if scalar for DataParallel
-        # gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
-
-        # vits_dict['loss'] = gathered_loss;
-        # vits_dict['stats'] = gathered_stats;
-        # vits_dict['weight'] = weight;
-
-        # return vits_dict
 
     def collect_feats(
         self,

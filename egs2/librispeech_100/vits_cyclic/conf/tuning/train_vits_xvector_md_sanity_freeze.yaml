@@ -167,14 +167,21 @@ tts_conf:
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
-# (Ziang: since plan is to froze tts part, I leave this part unchanged)
-optim: adam             # optimizer type
-optim_conf: # keyword arguments for selected optimizer
-  lr: 0.2             # learning rate
-scheduler: noamlr       # scheduler type
-scheduler_conf: # keyword arguments for selected scheduler
-  model_size: 512     # model size, a.k.a., attention dimenstion
-  warmup_steps: 8000  # the number of warmup steps
+optim: adam
+optim_conf:
+  lr: 0.2
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 30000
+# optimizer setting for discriminator
+optim2: adam
+optim2_conf:
+  lr: 0.2
+scheduler2: warmuplr
+scheduler2_conf:
+  warmup_steps: 30000
+generator_first: false
+
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
@@ -183,7 +190,7 @@ model_conf:
   length_normalized_loss: false
   use_unpaired: false 
   asr_normalize: true # <--------------------------------------------------------------------------------------
-  gumbel_softmax: true
+  gumbel_softmax: false
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -192,6 +199,7 @@ use_amp: false
 cudnn_deterministic: false
 cudnn_benchmark: false
 
+num_iters_per_epoch: 1000   # number of iterations per epoch
 max_epoch: 10               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
