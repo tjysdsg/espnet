@@ -86,7 +86,7 @@ class VITSGenerator(torch.nn.Module):
         stochastic_duration_predictor_dropout_rate: float = 0.5,
         stochastic_duration_predictor_flows: int = 4,
         stochastic_duration_predictor_dds_conv_layers: int = 3,
-        use_md: bool = False,
+        skip_text_encoder: bool = False,
     ):
         """Initialize VITS generator module.
 
@@ -188,7 +188,7 @@ class VITSGenerator(torch.nn.Module):
             conformer_kernel_size=text_encoder_conformer_kernel_size,
             use_macaron_style=use_macaron_style_in_text_encoder,
             use_conformer_conv=use_conformer_conv_in_text_encoder,
-            use_md=use_md,
+            skip_text_encoder=skip_text_encoder,
         )
         self.decoder = HiFiGANGenerator(
             in_channels=hidden_channels,

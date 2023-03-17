@@ -202,18 +202,18 @@ class GANTrainer(Trainer):
                 reporter.register(stats, weight)
 
                 with reporter.measure_time(f"{turn}_backward_time"):
-                    if scaler is not None:
-                        # Scales loss.  Calls backward() on scaled loss
-                        # to create scaled gradients.
-                        # Backward passes under autocast are not recommended.
-                        # Backward ops run in the same dtype autocast chose
-                        # for corresponding forward ops.
-                        scaler.scale(loss).backward()
-                    else:
-                        # print(loss)
-                        # print(retval)
-                        # FIXME: 
-                        if turn != 'discriminator':
+                    # FIXME: should we backprop discriminator loss
+                    if turn != 'discriminator':
+                        if scaler is not None:
+                            # Scales loss.  Calls backward() on scaled loss
+                            # to create scaled gradients.
+                            # Backward passes under autocast are not recommended.
+                            # Backward ops run in the same dtype autocast chose
+                            # for corresponding forward ops.
+                            scaler.scale(loss).backward()
+                        else:
+                            # print(loss)
+                            # print(retval)
                             # loss.backward(retain_graph=True)
                             loss.backward()
 

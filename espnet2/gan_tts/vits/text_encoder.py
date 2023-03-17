@@ -49,7 +49,7 @@ class TextEncoder(torch.nn.Module):
         dropout_rate: float = 0.1,
         positional_dropout_rate: float = 0.0,
         attention_dropout_rate: float = 0.0,
-        use_md: bool =False,
+        skip_text_encoder: bool = False,
     ):
         """Initialize TextEncoder module.
 
@@ -101,7 +101,7 @@ class TextEncoder(torch.nn.Module):
             cnn_module_kernel=conformer_kernel_size,
         )
         self.proj = torch.nn.Conv1d(attention_dim, attention_dim * 2, 1)
-        self.use_md=use_md
+        self.skip_text_encoder = skip_text_encoder
 
     def forward(
         self,
@@ -121,9 +121,12 @@ class TextEncoder(torch.nn.Module):
             Tensor: Mask tensor for input tensor (B, 1, T_text).
 
         """
-        # FIXME: use_md goes up
-        if not self.use_md:
-            x = self.emb(x) * math.sqrt(self.attention_dim)
+        if not self.skip_text_encoder:
+            if torch.is_floating_point(x):  # gumbel softmax
+                # Similar to: https://github.com/facebookresearch/EGG/blob/main/egg/core/gs_wrappers.py#L203
+                x = torch.matmul(x, self.emb.weight) * math.sqrt(self.attention_dim)
+            else:
+                x = self.emb(x) * math.sqrt(self.attention_dim)
         # import pdb; pdb.set_trace()
         x_mask = (
             make_non_pad_mask(x_lengths)

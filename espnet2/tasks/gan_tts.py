@@ -557,13 +557,13 @@ class GANTTSTask(AbsTask):
             except ImportError:
                 raise RuntimeError("Requiring fairscale. Do 'pip install fairscale'")
             optim_g = fairscale.optim.oss.OSS(
-                params=model.tts.generator.parameters(),
+                params=model.parameters(),
                 optim=optim_g_class,
                 **args.optim_conf,
             )
         else:
             optim_g = optim_g_class(
-                model.tts.generator.parameters(),
+                model.parameters(),
                 **args.optim_conf,
             )
         optimizers = [optim_g]
@@ -583,6 +583,7 @@ class GANTTSTask(AbsTask):
                 **args.optim2_conf,
             )
         else:
+            # FIXME: optimizer parameters
             optim_d = optim_d_class(
                 model.tts.discriminator.parameters(),
                 **args.optim2_conf,

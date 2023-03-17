@@ -186,6 +186,8 @@ class VITS(AbsGANTTS):
         lambda_kl: float = 1.0,
         cache_generator_outputs: bool = True,
         use_md: bool = False,
+        skip_text_encoder: bool = True,
+        gumbel_softmax_input: bool = False,  # input text sequence is the gumbel softmax of ASR decoder
     ):
         """Initialize VITS module.
 
@@ -225,8 +227,12 @@ class VITS(AbsGANTTS):
             #   where idim represents #vocabularies and odim represents
             #   the input acoustic feature dimension.
             generator_params.update(vocabs=idim, aux_channels=odim)
+
+        if use_md and not skip_text_encoder:
+            assert gumbel_softmax_input
         self.generator = generator_class(
-            use_md=use_md, **generator_params 
+            skip_text_encoder=skip_text_encoder,
+            **generator_params,
         )
         discriminator_class = AVAILABLE_DISCRIMINATORS[discriminator_type]
         self.discriminator = discriminator_class(
@@ -266,6 +272,8 @@ class VITS(AbsGANTTS):
         self.langs = self.generator.langs
         self.spk_embed_dim = self.generator.spk_embed_dim
         self.use_md = use_md
+        self.gumbel_softmax_input = gumbel_softmax_input
+        self.skip_text_encoder = skip_text_encoder
 
     @property
     def require_raw_speech(self):

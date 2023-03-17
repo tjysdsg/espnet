@@ -161,22 +161,22 @@ tts_conf:
   cache_generator_outputs: true # whether to cache generator outputs in the training
 
   use_md: true
-  # skip_text_encoder: false
-  # gumbel_softmax_input: true
+  skip_text_encoder: false
+  gumbel_softmax_input: true
 
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
 optim: adam
 optim_conf:
-  lr: 0.001  # ASR-only model requires a smaller learning rate
+  lr: 0.2
 scheduler: warmuplr
 scheduler_conf:
   warmup_steps: 30000
 # optimizer setting for discriminator
 optim2: adam
 optim2_conf:
-  lr: 0.001
+  lr: 0.2
 scheduler2: warmuplr
 scheduler2_conf:
   warmup_steps: 30000
@@ -185,12 +185,13 @@ generator_first: false
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 1.0
+  asr_weight: 0.3
   lsm_weight: 0.1
   length_normalized_loss: false
-  use_unpaired: false
+  use_unpaired: true 
+  intermediate_supervision: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
-  gumbel_softmax: false
+  gumbel_softmax: true
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -200,7 +201,7 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 10               # number of epochs
+max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
@@ -241,5 +242,4 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "tts",
 ]
