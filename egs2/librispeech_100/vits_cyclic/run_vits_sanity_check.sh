@@ -17,13 +17,14 @@ test_sets="dev_clean test_clean dev_other test_other"
 train_config=conf/tuning/train_vits_xvector_md_sanity_freeze.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
+inference_tts_config=conf/tuning/decode_vits.yaml
 
 
 ./tts.sh \
     --ngpu 1 \
     --stage 6 \
     --stop_stage 6 \
-    --inference_model valid.loss.ave.pth \
+    --inference_model valid.loss.best.pth \
     --inference_nj 32 \
     --use_multidecoder true \
     --lang en \
@@ -43,6 +44,7 @@ inference_asr_config=conf/decode_asr.yaml
     --feats_extract linear_spectrogram \
     --inference_config "${inference_config}" \
     --inference_asr_config "${inference_asr_config}" \
+    --inference_tts_config "${inference_tts_config}" \
     --train_set "${train_set}" \
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
