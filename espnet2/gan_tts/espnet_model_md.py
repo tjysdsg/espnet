@@ -391,10 +391,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         else:
             loss_asr = loss_asr_ctc
 
-        if self.asr_weight == 1.0:
-            loss = loss_asr
-        else:
-            loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
+        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # FIXME: loss = 0.95 * loss + 0.05 * mse_loss
@@ -402,8 +399,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         if not is_discriminator:  # generator
             stats = dict(
-                # loss = loss.detach(),
-                # asr 
+                loss=loss.detach(),
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
@@ -428,19 +424,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         else:  # discriminator
             # import pdb;pdb.set_trace()
             stats = dict(
-                # loss is independently registered, so ignore in stats
-                # loss = loss.detach(),
-                # # asr 
-                # loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                # acc_asr=acc_asr_att,
-                # cer_ctc=cer_asr_ctc,
-                # cer=cer_asr_att,
-                # wer=wer_asr_att,
                 # tts
-                tts_loss=tts_loss.detach(),
                 tts_discriminator_loss=tts_stats.get("discriminator_loss", 0),
-                tts_discriminator_fake_loss = tts_stats.get("discriminator_fake_loss", 0),
-                tts_discriminator_real_loss = tts_stats.get("discriminator_real_loss", 0),
+                tts_discriminator_fake_loss=tts_stats.get("discriminator_fake_loss", 0),
+                tts_discriminator_real_loss= tts_stats.get("discriminator_real_loss", 0),
             )
             # FIXME, TODO [DONE]: update vits_dict with new loss and stats
             # force_gatherable: to-device and to-tensor if scalar for DataParallel

@@ -1,0 +1,247 @@
+# Sanity check using VITS
+
+##########################################################
+#                  ASR MODEL SETTING                     #
+##########################################################
+asr_encoder: conformer
+asr_encoder_conf:
+  output_size: 256
+  attention_heads: 4
+  linear_units: 1024
+  num_blocks: 12
+  dropout_rate: 0.1
+  positional_dropout_rate: 0.1
+  attention_dropout_rate: 0.1
+  input_layer: conv2d
+  normalize_before: true
+  macaron_style: true
+  rel_pos_type: latest
+  pos_enc_layer_type: rel_pos
+  selfattention_layer_type: rel_selfattn
+  activation_type: swish
+  use_cnn_module: true
+  cnn_module_kernel: 31
+
+asr_decoder: transformer
+asr_decoder_conf:
+  attention_heads: 4
+  linear_units: 2048
+  num_blocks: 6
+  dropout_rate: 0.1
+  positional_dropout_rate: 0.1
+  self_attention_dropout_rate: 0.1
+  src_attention_dropout_rate: 0.1
+
+frontend_conf:
+  n_fft: 512
+  win_length: 400
+  hop_length: 160
+##########################################################
+#                  TTS MODEL SETTING                     #
+##########################################################
+tts: vits
+tts_conf:
+  # generator related
+  generator_type: vits_generator
+  generator_params:
+    hidden_channels: 256
+    spks: -1
+    spk_embed_dim: 512
+    global_channels: 256
+    segment_size: 32
+    text_encoder_attention_heads: 2
+    text_encoder_ffn_expand: 4
+    text_encoder_blocks: 6
+    text_encoder_positionwise_layer_type: "conv1d"
+    text_encoder_positionwise_conv_kernel_size: 3
+    text_encoder_positional_encoding_layer_type: "rel_pos"
+    text_encoder_self_attention_layer_type: "rel_selfattn"
+    text_encoder_activation_type: "swish"
+    text_encoder_normalize_before: true
+    text_encoder_dropout_rate: 0.1
+    text_encoder_positional_dropout_rate: 0.0
+    text_encoder_attention_dropout_rate: 0.1
+    use_macaron_style_in_text_encoder: true
+    # NOTE(kan-bayashi): Conformer conv requires BatchNorm1d which causes
+    #   errors when multiple GPUs in pytorch 1.7.1. Therefore, we disable
+    #   it as a default. We need to consider the alternative normalization
+    #   or different version pytorch may solve this issue.
+    use_conformer_conv_in_text_encoder: false
+    text_encoder_conformer_kernel_size: -1
+    decoder_kernel_size: 7
+    decoder_channels: 512
+    decoder_upsample_scales: [8, 8, 2, 2]
+    decoder_upsample_kernel_sizes: [16, 16, 4, 4]
+    decoder_resblock_kernel_sizes: [3, 7, 11]
+    decoder_resblock_dilations: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+    use_weight_norm_in_decoder: true
+    posterior_encoder_kernel_size: 5
+    posterior_encoder_layers: 16
+    posterior_encoder_stacks: 1
+    posterior_encoder_base_dilation: 1
+    posterior_encoder_dropout_rate: 0.0
+    use_weight_norm_in_posterior_encoder: true
+    flow_flows: 4
+    flow_kernel_size: 5
+    flow_base_dilation: 1
+    flow_layers: 4
+    flow_dropout_rate: 0.0
+    use_weight_norm_in_flow: true
+    use_only_mean_in_flow: true
+    stochastic_duration_predictor_kernel_size: 3
+    stochastic_duration_predictor_dropout_rate: 0.5
+    stochastic_duration_predictor_flows: 4
+    stochastic_duration_predictor_dds_conv_layers: 3
+  # discriminator related
+  discriminator_type: hifigan_multi_scale_multi_period_discriminator
+  discriminator_params:
+    scales: 1
+    scale_downsample_pooling: "AvgPool1d"
+    scale_downsample_pooling_params:
+      kernel_size: 4
+      stride: 2
+      padding: 2
+    scale_discriminator_params:
+      in_channels: 1
+      out_channels: 1
+      kernel_sizes: [15, 41, 5, 3]
+      channels: 128
+      max_downsample_channels: 1024
+      max_groups: 16
+      bias: True
+      downsample_scales: [2, 2, 4, 4, 1]
+      nonlinear_activation: "LeakyReLU"
+      nonlinear_activation_params:
+          negative_slope: 0.1
+      use_weight_norm: True
+      use_spectral_norm: False
+    follow_official_norm: False
+    periods: [2, 3, 5, 7, 11]
+    period_discriminator_params:
+      in_channels: 1
+      out_channels: 1
+      kernel_sizes: [5, 3]
+      channels: 32
+      downsample_scales: [3, 3, 3, 3, 1]
+      max_downsample_channels: 1024
+      bias: True
+      nonlinear_activation: "LeakyReLU"
+      nonlinear_activation_params:
+          negative_slope: 0.1
+      use_weight_norm: True
+      use_spectral_norm: False
+  # loss function related
+  generator_adv_loss_params:
+    average_by_discriminators: false # whether to average loss value by #discriminators
+    loss_type: mse                   # loss type, "mse" or "hinge"
+  discriminator_adv_loss_params:
+    average_by_discriminators: false # whether to average loss value by #discriminators
+    loss_type: mse                   # loss type, "mse" or "hinge"
+  feat_match_loss_params:
+    average_by_discriminators: false # whether to average loss value by #discriminators
+    average_by_layers: false         # whether to average loss value by #layers of each discriminator
+    include_final_outputs: true      # whether to include final outputs for loss calculation
+  mel_loss_params:
+    fs: 16000          # must be the same as the training data
+    n_fft: 1024        # fft points
+    hop_length: 256    # hop size
+    win_length: null   # window length
+    window: hann       # window type
+    n_mels: 80         # number of Mel basis
+    fmin: 0            # minimum frequency for Mel basis
+    fmax: null         # maximum frequency for Mel basis
+    log_base: null     # null represent natural log
+  lambda_adv: 1.0        # loss scaling coefficient for adversarial loss
+  lambda_mel: 45.0       # loss scaling coefficient for Mel loss
+  lambda_feat_match: 2.0 # loss scaling coefficient for feat match loss
+  lambda_dur: 1.0        # loss scaling coefficient for duration loss
+  lambda_kl: 1.0         # loss scaling coefficient for KL divergence loss
+  # others
+  sampling_rate: 16000          # needed in the inference for saving wav
+  cache_generator_outputs: true # whether to cache generator outputs in the training
+
+  use_md: true
+  # skip_text_encoder: false
+  # gumbel_softmax_input: true
+
+##########################################################
+#            OPTIMIZER & SCHEDULER SETTING               #
+##########################################################
+optim: adam
+optim_conf:
+  lr: 0.0001  # ASR-only model requires a smaller learning rate
+scheduler: warmuplr
+scheduler_conf:
+  warmup_steps: 30000
+# optimizer setting for discriminator
+optim2: adam
+optim2_conf:
+  lr: 0.001  # whatever, not used in sanity check
+scheduler2: warmuplr
+scheduler2_conf:
+  warmup_steps: 30000
+generator_first: false
+
+freeze_discriminator: true # <--------------------------------------------------------------------------------------
+
+model_conf:
+  mtlalpha: 0.3
+  mt_weight: 0.0
+  asr_weight: 1.0
+  lsm_weight: 0.1
+  length_normalized_loss: false
+  use_unpaired: false
+  asr_normalize: true # <--------------------------------------------------------------------------------------
+  gumbel_softmax: false
+
+##########################################################
+#                OTHER TRAINING SETTING                  #
+##########################################################
+use_amp: false
+cudnn_deterministic: false
+cudnn_benchmark: false
+
+num_iters_per_epoch: 1000   # number of iterations per epoch
+max_epoch: 200               # number of epochs
+grad_clip: 1.0              # gradient clipping norm
+grad_noise: false           # whether to use gradient noise injection
+accum_grad: 1               # gradient accumulation
+batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+batch_type: numel           # how to make batch
+sort_in_batch: descending   # how to sort data in making batch
+sort_batch: descending      # how to sort created batches
+num_workers: 1              # number of workers of data loader
+train_dtype: float32        # dtype in training
+log_interval: 50            # log interval in iterations
+keep_nbest_models: 5        # number of models to keep
+num_att_plot: 3             # number of attention figures to be saved in every check
+seed: 0                     # random seed number
+unused_parameters: true
+best_model_criterion:
+  - - valid
+    - loss
+    - min
+  - - valid
+    - acc_asr
+    - min
+  - - train
+    - loss
+    - min
+init_param: [
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:encoder:asr_encoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:decoder:asr_decoder",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:ctc:ctc",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:frontend:frontend",
+  "/ocean/projects/cis210027p/jtang1/espnet/egs2/librispeech_100/asr1/exp/asr_conformer_lr2e-3_warmup15k_amp_nondeterministic/valid.acc.ave.pth:normalize:normalize",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.generator.text_encoder:tts.generator.text_encoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.generator.decoder:tts.generator.decoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.generator.posterior_encoder:tts.generator.posterior_encoder",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.generator.flow:tts.generator.flow",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.generator.duration_predictor:tts.generator.duration_predictor",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.discriminator.msd:tts.discriminator.msd",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.discriminator.mpd:tts.discriminator.mpd",
+  "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
+]
+freeze_param: [
+    "tts",
+]

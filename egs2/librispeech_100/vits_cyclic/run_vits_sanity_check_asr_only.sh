@@ -8,13 +8,13 @@ n_fft=1024
 n_shift=256
 win_length=null
 
-tag="vits_sanity_check_freeze"
+tag="vits_sanity_check_asr_only"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean dev_other test_other"
+test_sets="dev_clean test_clean test_other"
 
-train_config=conf/tuning/train_vits_xvector_md_sanity_freeze.yaml
+train_config=conf/tuning/train_vits_sanity_check_asr_only.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 inference_tts_config=conf/tuning/decode_vits.yaml

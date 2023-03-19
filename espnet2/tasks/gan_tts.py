@@ -563,7 +563,7 @@ class GANTTSTask(AbsTask):
             )
         else:
             optim_g = optim_g_class(
-                model.parameters(),
+                model.parameters(),  # NOTE(Jiyang): We backprop ASR sub-module using generator's optimizer
                 **args.optim_conf,
             )
         optimizers = [optim_g]

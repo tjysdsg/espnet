@@ -489,38 +489,42 @@ class VITS(AbsGANTTS):
                 * optim_idx (int): Optimizer index (0 for G and 1 for D).
 
         """
-        # setup
-        batch_size = text.size(0)
-        feats = feats.transpose(1, 2)
-        speech = speech.unsqueeze(1)
 
-        # calculate generator outputs
-        reuse_cache = True
-        if not self.cache_generator_outputs or self._cache is None:
-            reuse_cache = False
-            outs = self.generator(
-                text=text,
-                text_lengths=text_lengths,
-                feats=feats,
-                feats_lengths=feats_lengths,
-                sids=sids,
-                spembs=spembs,
-                lids=lids,
+        # NOTE(Jiyang): make sure parameters of the generator is not optimized during the discriminator pass
+        # See also build_optimizers() in gan_tts.py
+        with torch.no_grad():
+            # setup
+            batch_size = text.size(0)
+            feats = feats.transpose(1, 2)
+            speech = speech.unsqueeze(1)
+
+            # calculate generator outputs
+            reuse_cache = True
+            if not self.cache_generator_outputs or self._cache is None:
+                reuse_cache = False
+                outs = self.generator(
+                    text=text,
+                    text_lengths=text_lengths,
+                    feats=feats,
+                    feats_lengths=feats_lengths,
+                    sids=sids,
+                    spembs=spembs,
+                    lids=lids,
+                )
+            else:
+                outs = self._cache
+
+            # store cache
+            if self.cache_generator_outputs and not reuse_cache:
+                self._cache = outs
+
+            # parse outputs
+            speech_hat_, _, _, start_idxs, *_ = outs
+            speech_ = get_segments(
+                x=speech,
+                start_idxs=start_idxs * self.generator.upsample_factor,
+                segment_size=self.generator.segment_size * self.generator.upsample_factor,
             )
-        else:
-            outs = self._cache
-
-        # store cache
-        if self.cache_generator_outputs and not reuse_cache:
-            self._cache = outs
-
-        # parse outputs
-        speech_hat_, _, _, start_idxs, *_ = outs
-        speech_ = get_segments(
-            x=speech,
-            start_idxs=start_idxs * self.generator.upsample_factor,
-            segment_size=self.generator.segment_size * self.generator.upsample_factor,
-        )
 
         # calculate discriminator outputs
         p_hat = self.discriminator(speech_hat_.detach())
