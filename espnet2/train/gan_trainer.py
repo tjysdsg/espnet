@@ -227,6 +227,15 @@ class GANTrainer(Trainer):
                             # loss.backward(retain_graph=True)
                             loss.backward()
 
+                            # print(model.tts.generator.decoder.input_conv.weight.grad)
+                            # print("flow:", model.tts.generator.flow.flows[0].proj.weight.grad)
+                            # print("generator block", model.tts.generator.decoder.blocks[-1].convs1[0][1].weight.grad)
+                            # print("text encoder:",
+                            #       model.tts.generator.text_encoder.encoder.encoders[0].feed_forward.w_2.weight.grad)
+
+                # print(model.tts.discriminator.msd.discriminators[0].layers[0][0].weight.grad)
+                # import pdb; pdb.set_trace()
+
                 if scaler is not None:
                     # Unscales the gradients of optimizer's assigned params in-place
                     for iopt, optimizer in enumerate(optimizers):

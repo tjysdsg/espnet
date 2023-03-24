@@ -158,11 +158,11 @@ tts_conf:
   lambda_kl: 1.0         # loss scaling coefficient for KL divergence loss
   # others
   sampling_rate: 16000          # needed in the inference for saving wav
-  cache_generator_outputs: true # whether to cache generator outputs in the training
+  cache_generator_outputs: false # whether to cache generator outputs in the training
 
   use_md: true
-  # skip_text_encoder: false
-  # gumbel_softmax_input: true
+  skip_text_encoder: false
+  gumbel_softmax_input: true
 
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
@@ -170,7 +170,7 @@ tts_conf:
 ##########################################################
 optim: adamw
 optim_conf:
-  lr: 2.0e-4
+  lr: 1.0e-3
   betas: [0.8, 0.99]
   eps: 1.0e-9
   weight_decay: 0.0
@@ -180,7 +180,7 @@ scheduler_conf:
 # optimizer setting for discriminator
 optim2: adamw
 optim2_conf:
-  lr: 2.0e-4
+  lr: 1.0e-3
   betas: [0.8, 0.99]
   eps: 1.0e-9
   weight_decay: 0.0
@@ -197,7 +197,7 @@ model_conf:
   length_normalized_loss: false
   use_unpaired: false
   asr_normalize: true # <--------------------------------------------------------------------------------------
-  gumbel_softmax: false
+  gumbel_softmax: true
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
