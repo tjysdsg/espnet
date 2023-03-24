@@ -127,7 +127,6 @@ class TextEncoder(torch.nn.Module):
                 x = torch.matmul(x, self.emb.weight) * math.sqrt(self.attention_dim)
             else:
                 x = self.emb(x) * math.sqrt(self.attention_dim)
-        # import pdb; pdb.set_trace()
         x_mask = (
             make_non_pad_mask(x_lengths)
             .to(

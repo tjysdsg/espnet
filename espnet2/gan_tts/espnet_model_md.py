@@ -135,13 +135,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         self.use_unpaired = use_unpaired
         self.use_asr_decoder_loss = use_asr_decoder_loss
-        self.gumbel_softmax = False
-        if self.use_unpaired:
-            self.idx_blank = self.token_list.index(sym_blank)
-            self.idx_space = self.token_list.index(sym_space)
-            self.gumbel_softmax = gumbel_softmax
+        self.idx_blank = self.token_list.index(sym_blank)
+        self.idx_space = self.token_list.index(sym_space)
 
         # decoder's output -> gumbel softmax -> TTS text encoder -> TTS encoder
+        self.gumbel_softmax = gumbel_softmax
         if self.gumbel_softmax:
             assert not self.tts.skip_text_encoder
             assert self.tts.gumbel_softmax_input
@@ -167,7 +165,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
-        # self.asr_decoder.gumbel_softmax = self.gumbel_softmax
+        self.asr_decoder.gumbel_softmax = self.gumbel_softmax
 
         # MT error calculator
         if report_bleu:
@@ -292,10 +290,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             loss_asr_ctc, cer_asr_ctc = 0, None
 
         if self.use_unpaired:
-            # if self.gumbel_softmax:
-            #     dec_asr_lengths = seq_hat_total_lens + 1
-            # else:
-            dec_asr_lengths = sudo_text_lengths + 1
+            if self.gumbel_softmax:
+                dec_asr_lengths = seq_hat_total_lens + 1
+            else:
+                dec_asr_lengths = sudo_text_lengths + 1
         else:
             dec_asr_lengths = text_lengths + 1
 
@@ -310,8 +308,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             ) = self._calc_asr_att_loss(
                 encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
             )
-            # if self.gumbel_softmax:
-            #     dec_asr_lengths = dec_asr_lengths.to(dtype=int)
+            if self.gumbel_softmax:
+                dec_asr_lengths = dec_asr_lengths.to(dtype=int)
         else:
             (
                 loss_asr_att,
@@ -563,19 +561,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
         ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
-        # if self.gumbel_softmax:
-        #     # ys_pad is gumbel softmax of the encoder output
-        #     gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
-        #         ys_pad.device, dtype=ys_pad.dtype
-        #     )
-        #     ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
-        #     _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
-        #     ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
-        #     ys_in_pad[self.sos] = 1
-        #     ys_in_pad = ys_in_pad.unsqueeze(0)
-        #     # import pdb;pdb.set_trace()
-        #     ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
-        # else:
         ys_in_pad, ys_out_pad = add_sos_eos(
             ys_pad, self.sos, self.eos, self.ignore_id
         )
@@ -621,8 +606,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
 
         # Calc ys_hat
-        # if self.use_unpaired and self.gumbel_softmax:
-        #     ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
         ys_hat = self.ctc.argmax(encoder_out).data
 
         # Calc CER using CTC
@@ -633,36 +616,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
 
         if self.use_unpaired:
-            # if self.gumbel_softmax:
-            #     seq_hat_total = []
-            #     for i, y in enumerate(ys_hat):
-            #         y_hat = [x[0] for x in groupby(y)]
-            #         y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
-            #         seq_hat = []
-            #         idx_index = 0
-            #         # import pdb;pdb.set_trace()
-            #         for idx_len in range(len(y_hat)):
-            #             idx = int(y_hat[idx_len])
-            #             if idx != -1 and idx != self.idx_blank:
-            #                 seq_hat.append(ys_one_hot_hat[i][idx_index])
-            #             idx_index += y_hat_sum[idx_len]
-            #         # import pdb;pdb.set_trace()
-            #         seq_hat_total.append(
-            #             torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
-            #         )
-            #     seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
-            #         ys_hat.device, dtype=ys_hat.dtype
-            #     )
-            #     n_batch = len(seq_hat_total)
-            #     max_len = max(x.size(0) for x in seq_hat_total)
-            #     xs = seq_hat_total
-            #     pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
-            #     pad[:, :, 0] = 1.0
-            #     for i in range(n_batch):
-            #         pad[i, : xs[i].size(0)] = xs[i]
-            #     # import pdb;pdb.set_trace()
-            #     y_ctc_pred_pad = pad
-            # else:
             seq_hat_total = []
             # import pdb;pdb.set_trace()
             for i, y in enumerate(ys_hat):
