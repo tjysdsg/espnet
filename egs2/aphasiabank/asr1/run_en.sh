@@ -5,14 +5,14 @@ set -e
 set -u
 set -o pipefail
 
-asr_tag="ebranchformer_wavlm_aph_en_both"
+asr_tag="ebranchformer_wavlm"
 
 train_set="train"
 valid_set="val"
 test_sets="test"
 include_control=true
 include_lang_id=false
-tag_insertion=both
+tag_insertion=none
 
 asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1.yaml
 
