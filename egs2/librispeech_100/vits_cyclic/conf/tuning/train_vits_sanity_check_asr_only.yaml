@@ -182,7 +182,7 @@ scheduler2_conf:
   warmup_steps: 30000
 generator_first: false
 
-freeze_discriminator: true # <--------------------------------------------------------------------------------------
+no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
   mtlalpha: 0.3

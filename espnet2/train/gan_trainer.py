@@ -47,7 +47,7 @@ class GANTrainerOptions(TrainerOptions):
     """Trainer option dataclass for GANTrainer."""
 
     generator_first: bool
-    freeze_discriminator: bool
+    no_discriminator_backprop: bool
 
 
 class GANTrainer(Trainer):
@@ -74,7 +74,7 @@ class GANTrainer(Trainer):
             help="Whether to update generator first.",
         )
         parser.add_argument(
-            "--freeze_discriminator",
+            "--no_discriminator_backprop",
             type=str2bool,
             default=False,
             help="Whether discriminator is frozen.",
@@ -106,8 +106,8 @@ class GANTrainer(Trainer):
         use_wandb = options.use_wandb
         generator_first = options.generator_first
         distributed = distributed_option.distributed
-        freeze_discriminator = options.freeze_discriminator
-        logging.info(f"freeze_discriminator = {freeze_discriminator}")
+        no_discriminator_backprop = options.no_discriminator_backprop
+        logging.info(f"no_discriminator_backprop = {no_discriminator_backprop}")
 
         # Check unavailable options
         # TODO(kan-bayashi): Support the use of these options
@@ -213,7 +213,7 @@ class GANTrainer(Trainer):
                 with reporter.measure_time(f"{turn}_backward_time"):
                     # NOTE(Jiyang): we can't backprop discriminator if it's frozen
                     # See also build_optimizers() in gan_tts.py
-                    if turn != 'discriminator' or not freeze_discriminator:
+                    if turn != 'discriminator' or not no_discriminator_backprop:
                         if scaler is not None:
                             # Scales loss.  Calls backward() on scaled loss
                             # to create scaled gradients.
