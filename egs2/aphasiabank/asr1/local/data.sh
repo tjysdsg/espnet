@@ -25,11 +25,14 @@ EOF
 SECONDS=0
 
 stage=1
-stop_stage=100
+stop_stage=7  # stage 8 is for interctc labels
 include_control=false
-include_aphasia_type=false
 include_lang_id=false
 languages="English French"
+asr_data_dir=  # see asr.sh stage 4
+tag_insertion=none
+dataset=AphasiaBank
+include_investigators=false
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -46,6 +49,15 @@ fi
 
 tmp=data/local
 mkdir -p $tmp
+
+if [ "${dataset}" = "DementiaBank" ]; then
+  ./local/dementia/data.sh --stage ${stage} --stop_stage ${stop_stage} \
+    --tag_insertion ${tag_insertion} \
+    --asr_data_dir "${asr_data_dir}" \
+    --include_investigators "${include_investigators}"
+
+  exit 0
+fi
 
 # Things to manually prepare:
 # - Download AphasiaBank data from https://aphasia.talkbank.org/
@@ -95,12 +107,9 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 
   # generate data/local/<lang>/text
   for lang in ${languages}; do
-    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} "
+    _opts="--transcript-dir=${APHASIABANK}/${lang}/transcripts --out-dir=$tmp/${lang} --tag-insertion=${tag_insertion} "
 
-    if "${include_aphasia_type}"; then
-      log "**Including the aphasia type**"
-      _opts+="--spk2aphasia-type=data/${lang}/spk2aphasia_type "
-    fi
+    log "Tag insertion method: ${tag_insertion}"
 
     if "${include_lang_id}"; then
       log "**Including language id**"
@@ -163,4 +172,10 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     cp -r $tmp/$x data/
     utils/fix_data_dir.sh data/$x
   done
+fi
+
+if [ ${stage} -eq 8 ]; then
+  log "Creating utt2aph for interctc aux task"
+
+  python local/create_aph_tags.py "${asr_data_dir}"
 fi

@@ -1,10 +1,10 @@
+"""
+Filter out *.trn files in score_cer and score_wer based on language and aph types
+"""
 import argparse
 import os
 from config import lang_id2spks, aph2spks, utt2spk
 from typing import Iterable
-
-
-# TODO: WER
 
 
 def filter_text(in_file: str, out_file: str, spks: Iterable[str]):

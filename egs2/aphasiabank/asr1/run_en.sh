@@ -5,12 +5,14 @@ set -e
 set -u
 set -o pipefail
 
+asr_tag="ebranchformer_wavlm"
+
 train_set="train"
 valid_set="val"
 test_sets="test"
 include_control=true
-include_aphasia_type=false
 include_lang_id=false
+tag_insertion=none
 
 asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1.yaml
 
@@ -22,8 +24,10 @@ fi
 inference_config=conf/decode.yaml
 
 ./asr.sh \
+  --asr_tag "${asr_tag}" \
   --lang en \
-  --inference_nj 100 \
+  --inference_nj 2 \
+  --gpu_inference true \
   --ngpu 2 \
   --max_wav_duration 33 \
   --audio_format wav \
@@ -35,7 +39,8 @@ inference_config=conf/decode.yaml
   --train_set "${train_set}" \
   --valid_set "${valid_set}" \
   --test_sets "${test_sets}" \
+  --nlsyms_txt "local/nlsyms.txt" \
   --speed_perturb_factors "0.9 1.0 1.1" \
   --feats_normalize ${feats_normalize} \
-  --local_data_opts "--include_control ${include_control} --include_aphasia_type ${include_aphasia_type} --include_lang_id ${include_lang_id} --languages English" \
+  --local_data_opts "--include_control ${include_control} --tag_insertion ${tag_insertion} --include_lang_id ${include_lang_id} --languages English" \
   --lm_train_text "data/${train_set}/text" "$@"

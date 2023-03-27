@@ -63,7 +63,7 @@ decoder_conf:
 seed: 2022
 log_interval: 200
 num_att_plot: 0
-num_workers: 4
+num_workers: 2
 sort_in_batch: descending
 sort_batch: descending
 batch_type: numel

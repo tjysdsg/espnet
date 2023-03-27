@@ -16,6 +16,12 @@ def get_args():
         "--exp", type=str, help="folder of experiment", required=True
     )
     parser.add_argument(
+        "--lid-field", type=int, default=1
+    )
+    parser.add_argument(
+        "--aph-field", type=int, default=2
+    )
+    parser.add_argument(
         "--out",
         type=argparse.FileType("w"),
         default=sys.stdout,
@@ -29,10 +35,10 @@ def main():
     decode_folders = next(os.walk(args.exp))[1]
     for folder in decode_folders:
         if "decode_asr" in folder:
-            scoring(args.exp, folder, args.out)
+            scoring(args.exp, folder, args.out, args.lid_field, args.aph_field)
 
 
-def scoring(exp_folder, decode_folder, out):
+def scoring(exp_folder: str, decode_folder: str, out, lid_field: int, aph_field: int):
     exp_decode_folder = f"{exp_folder}/{decode_folder}"
     subfolders = next(os.walk(exp_decode_folder))[1]
     for folder in subfolders:
@@ -65,10 +71,10 @@ def scoring(exp_folder, decode_folder, out):
             utt_id = hyp[0]
             hyp_lid = ''
             if len(hyp) >= 2:
-                hyp_lid = hyp[1]
+                hyp_lid = hyp[lid_field]
             hyp_aph = ''
             if len(hyp) >= 3:
-                hyp_aph = hyp[2]
+                hyp_aph = hyp[aph_field]
 
             spk = utt2spk(utt_id)
             ref_lid = spk2lang_id[spk]

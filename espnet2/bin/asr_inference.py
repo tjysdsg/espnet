@@ -3,8 +3,9 @@ import argparse
 import logging
 import sys
 from distutils.version import LooseVersion
+from itertools import groupby
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union, Dict
 
 import numpy as np
 import torch
@@ -37,6 +38,7 @@ from espnet.nets.scorer_interface import BatchScorerInterface
 from espnet.nets.scorers.ctc import CTCPrefixScorer
 from espnet.nets.scorers.length_bonus import LengthBonus
 from espnet.utils.cli_utils import get_commandline_args
+from espnet.nets.pytorch_backend.transformer.add_sos_eos import add_sos_eos
 
 try:
     from transformers import AutoModelForSeq2SeqLM
@@ -346,13 +348,17 @@ class Speech2Text:
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]
-    ) -> List[
-        Tuple[
-            Optional[str],
-            List[str],
-            List[int],
-            Union[Hypothesis, ExtTransHypothesis, TransHypothesis],
-        ]
+    ) -> Tuple[
+        List[
+            Tuple[
+                Optional[str],
+                List[str],
+                List[int],
+                Union[Hypothesis, ExtTransHypothesis, TransHypothesis],
+            ]
+        ],
+        Optional[Dict[int, List[str]]],
+        Optional[Dict[int, List[str]]],
     ]:
         """Inference
 
@@ -379,7 +385,7 @@ class Speech2Text:
         batch = to_device(batch, device=self.device)
 
         # b. Forward Encoder
-        enc, _ = self.asr_model.encode(**batch)
+        enc, enc_olens = self.asr_model.encode(**batch)
         if self.multi_asr:
             enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
         if self.enh_s2t_task or self.multi_asr:
@@ -399,20 +405,92 @@ class Speech2Text:
 
                 # c. Passed the encoder result and the beam search
                 ret = self._decode_single_sample(enc_spk[0])
-                assert check_return_type(ret)
+                assert check_return_type(ret)  # FIXME(jiyang): probably broken
                 results.append(ret)
 
         else:
             # Normal ASR
+            intermediate_outs = None
             if isinstance(enc, tuple):
+                intermediate_outs = enc[1]
                 enc = enc[0]
             assert len(enc) == 1, len(enc)
 
             # c. Passed the encoder result and the beam search
             results = self._decode_single_sample(enc[0])
+
+            # Encoder intermediate CTC predictions
+            encoder_interctc_res = None
+            if intermediate_outs is not None:
+                encoder_interctc_res = self._decode_intermediate(intermediate_outs)
+
+            # Decoder intermediate CTC predictions
+            decoder_interctc_res = None
+            if self.asr_model.decoder_aux_ctc is not None:
+                # Use 1best beam search result as the input text
+                (_, _, token_int, _) = results[0]
+                text = torch.as_tensor(token_int, device=enc.device, dtype=torch.long)
+                text = text.unsqueeze(0)
+                decoder_interctc_res = self._decode_decoder_intermediate(enc, enc_olens, text)
+
+            results = (results, encoder_interctc_res, decoder_interctc_res)
             assert check_return_type(results)
 
         return results
+
+    def _decode_intermediate(self, intermediate_outs: List[Tuple[int, torch.Tensor]]):
+        assert check_argument_types()
+
+        blank_id = self.asr_model.blank_id
+        sos_id = self.asr_model.sos
+        eos_id = self.asr_model.eos
+        exclude_ids = [blank_id, sos_id, eos_id]
+
+        res = {}
+        token_list = self.beam_search.token_list
+
+        for layer_idx, encoder_out in intermediate_outs:
+            y = self.asr_model.ctc.argmax(encoder_out)[0]  # batch_size = 1
+            y = [x[0] for x in groupby(y) if x[0] not in exclude_ids]
+            y = [token_list[x] for x in y]
+
+            res[layer_idx] = y
+
+        return res
+
+    def _decode_decoder_intermediate(
+        self,
+        encoder_out: torch.Tensor,
+        encoder_out_lens: torch.Tensor,
+        text: torch.Tensor,
+    ):
+        # assume batch size is 1
+        assert encoder_out.size(0) == 1
+
+        ys_in_pad, _ = add_sos_eos(text, self.asr_model.sos, self.asr_model.eos, self.asr_model.ignore_id)
+        # assume no padding
+        ys_in_lens = torch.as_tensor([ys_in_pad.size(1)], dtype=torch.long, device=ys_in_pad.device)
+
+        decoder_out, _ = self.asr_model.decoder(
+            encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens, ctc=self.asr_model.ctc
+        )
+        assert isinstance(decoder_out, tuple)
+        intermediate_outs = decoder_out[1]
+
+        blank_id = self.asr_model.blank_id
+        sos_id = self.asr_model.sos
+        eos_id = self.asr_model.eos
+        exclude_ids = [blank_id, sos_id, eos_id]
+        token_list = self.beam_search.token_list
+        res = {}
+        for layer_idx, intermediate_out in intermediate_outs:
+            y = self.asr_model.ctc.argmax(intermediate_out)[0]  # batch_size = 1
+            y = [x[0] for x in groupby(y) if x[0] not in exclude_ids]
+            y = [token_list[x] for x in y]
+
+            res[layer_idx] = y
+
+        return res
 
     def _decode_single_sample(self, enc: torch.Tensor):
         if self.beam_search_transducer:
@@ -638,7 +716,7 @@ def inference(
 
             # N-best list of (text, token, token_int, hyp_object)
             try:
-                results = speech2text(**batch)
+                results, encoder_interctc_res, decoder_interctc_res = speech2text(**batch)
             except TooShortUttError as e:
                 logging.warning(f"Utterance {keys} {e}")
                 hyp = Hypothesis(score=0.0, scores={}, states={}, yseq=[])
@@ -684,6 +762,14 @@ def inference(
                     if text is not None:
                         ibest_writer["text"][key] = text
 
+                # Write intermediate predictions to {encoder,decoder}_interctc_layer<layer_idx>.txt
+                ibest_writer = writer[f"1best_recog"]
+                if encoder_interctc_res is not None:
+                    for idx, text in encoder_interctc_res.items():
+                        ibest_writer[f"encoder_interctc_layer{idx}.txt"][key] = " ".join(text)
+                if decoder_interctc_res is not None:
+                    for idx, text in decoder_interctc_res.items():
+                        ibest_writer[f"decoder_interctc_layer{idx}.txt"][key] = " ".join(text)
 
 def get_parser():
     parser = config_argparse.ArgumentParser(

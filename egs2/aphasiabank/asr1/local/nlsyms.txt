@@ -1,4 +1,2 @@
-[APH] 
-[NONAPH] 
-[EN] 
-[FR] 
+[APH]
+[NONAPH]
