@@ -174,11 +174,12 @@ class Text2Speech:
         # FIXME: fix the padding issue
         if isinstance(text, str):
             text = self.preprocess_fn("<dummy>", dict(text=text))["text"]
-        text = F.pad(text, [0, 1], "constant", self.model.eos)
-        # text = text.unsqueeze(0)
-        text = F.one_hot(text, num_classes=31)
-        text = text.to(self.device, dtype=self.model.asr_decoder.output_layer.weight.dtype)
-        text = torch.nn.functional.linear(text, self.model.asr_decoder.output_layer.weight.T)
+        if self.model.tts.skip_text_encoder:
+            text = F.pad(text, [0, 1], "constant", self.model.eos)
+            # text = text.unsqueeze(0)
+            text = F.one_hot(text, num_classes=31)
+            text = text.to(self.device, dtype=self.model.asr_decoder.output_layer.weight.dtype)
+            text = torch.nn.functional.linear(text, self.model.asr_decoder.output_layer.weight.T)
         batch = dict(text=text)
         if speech is not None:
             batch.update(speech=speech)
