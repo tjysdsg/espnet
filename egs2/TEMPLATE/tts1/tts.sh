@@ -1513,7 +1513,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && [ ${use_multidecoder} ]; t
         log "Decoding started... log: '${_logdir}/tts_inference.*.log'"
         # shellcheck disable=SC2046,SC2086
         ${_cmd} --gpu "${_ngpu}" JOB=1:"${_nj}" "${_logdir}"/tts_inference.JOB.log \
-            ${python} -m "espnet2.bin.${tts_task}_inference" \
+            ${python} -m "espnet2.bin.cyclic_${tts_task}_inference" \
                 --ngpu "${_ngpu}" \
                 --data_path_and_name_and_type "${_data}/text,text,text" \
                 --data_path_and_name_and_type ${_speech_data}/${_scp},speech,${_type} \

@@ -721,3 +721,51 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         )
         y_ctc_pred_pad = pad_list(seq_hat_total, self.ignore_id)
         return y_ctc_pred_pad, seq_hat_total_lens
+
+    def tts_inference(
+        self,
+        text: torch.Tensor,
+        speech: Optional[torch.Tensor] = None,
+        spembs: Optional[torch.Tensor] = None,
+        sids: Optional[torch.Tensor] = None,
+        lids: Optional[torch.Tensor] = None,
+        durations: Optional[torch.Tensor] = None,
+        pitch: Optional[torch.Tensor] = None,
+        energy: Optional[torch.Tensor] = None,
+        **decode_config,
+    ) -> Dict[str, torch.Tensor]:
+        """Caclualte features and return them as a dict.
+
+        Args:
+            text (Tensor): Text index tensor (T_text).
+            speech (Tensor): Speech waveform tensor (T_wav).
+            spembs (Optional[Tensor]): Speaker embedding tensor (D,).
+            sids (Optional[Tensor]): Speaker ID tensor (1,).
+            lids (Optional[Tensor]): Language ID tensor (1,).
+            durations (Optional[Tensor): Duration tensor.
+            pitch (Optional[Tensor): Pitch tensor.
+            energy (Optional[Tensor): Energy tensor.
+
+        Returns:
+            Dict[str, Tensor]: Dict of outputs.
+
+        """
+        input_dict = dict(text=text)
+
+        if spembs is not None:
+            input_dict.update(spembs=spembs)
+        if sids is not None:
+            input_dict.update(sids=sids)
+        if lids is not None:
+            input_dict.update(lids=lids)
+
+        output_dict = self.tts.inference(**input_dict, **decode_config)
+
+        if self.normalize is not None and output_dict.get("feat_gen") is not None:
+            # NOTE: normalize.inverse is in-place operation
+            feat_gen_denorm = self.normalize.inverse(
+                output_dict["feat_gen"].clone()[None]
+            )[0][0]
+            output_dict.update(feat_gen_denorm=feat_gen_denorm)
+
+        return output_dict
