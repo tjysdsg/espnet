@@ -20,6 +20,7 @@ from typeguard import check_argument_types
 from espnet2.fileio.npy_scp import NpyScpWriter
 from espnet2.gan_tts.vits import VITS
 from espnet2.tasks.tts import TTSTask
+from espnet2.tasks.gan_tts import GANTTSTask
 from espnet2.torch_utils.device_funcs import to_device
 from espnet2.torch_utils.set_all_random_seed import set_all_random_seed
 from espnet2.tts.fastspeech import FastSpeech
@@ -90,7 +91,7 @@ class Text2Speech:
         assert check_argument_types()
 
         # setup model
-        model, train_args = TTSTask.build_model_from_file(
+        model, train_args = GANTTSTask.build_model_from_file(
             train_config, model_file, device
         )
         model.to(dtype=getattr(torch, dtype)).eval()
@@ -102,14 +103,14 @@ class Text2Speech:
         self.normalize = model.normalize
         self.feats_extract = model.feats_extract
         self.duration_calculator = DurationCalculator()
-        self.preprocess_fn = TTSTask.build_preprocess_fn(train_args, False)
+        self.preprocess_fn = GANTTSTask.build_preprocess_fn(train_args, False)
         self.use_teacher_forcing = use_teacher_forcing
         self.seed = seed
         self.always_fix_seed = always_fix_seed
         self.vocoder = None
         self.prefer_normalized_feats = prefer_normalized_feats
         if self.tts.require_vocoder:
-            vocoder = TTSTask.build_vocoder_from_file(
+            vocoder = GANTTSTask.build_vocoder_from_file(
                 vocoder_config, vocoder_file, model, device
             )
             if isinstance(vocoder, torch.nn.Module):
@@ -170,13 +171,13 @@ class Text2Speech:
             raise RuntimeError("Missing required argument: 'spembs'")
 
         # prepare batch
-        if isinstance(text, str):
-            text = self.preprocess_fn("<dummy>", dict(text=text))["text"]
-        text = F.pad(text, [0, 1], "constant", self.model.eos)
-        text = text.unsqueeze(0)
-        text = F.one_hot(text, num_classes=31)
-        text = text.to("cuda", dtype=self.model.asr_decoder.output_layer.weight.dtype)
-        text = torch.nn.functional.linear(text, self.model.asr_decoder.output_layer.weight.T)
+        # if isinstance(text, str):
+        #     text = self.preprocess_fn("<dummy>", dict(text=text))["text"]
+        # text = F.pad(text, [0, 1], "constant", self.model.eos)
+        # text = text.unsqueeze(0)
+        # text = F.one_hot(text, num_classes=31)
+        # text = text.to("cuda", dtype=self.model.asr_decoder.output_layer.weight.dtype)
+        # text = torch.nn.functional.linear(text, self.model.asr_decoder.output_layer.weight.T)
         batch = dict(text=text)
         if speech is not None:
             batch.update(speech=speech)
@@ -392,14 +393,14 @@ def inference(
         data_path_and_name_and_type = list(
             filter(lambda x: x[1] != "speech", data_path_and_name_and_type)
         )
-    loader = TTSTask.build_streaming_iterator(
+    loader = GANTTSTask.build_streaming_iterator(
         data_path_and_name_and_type,
         dtype=dtype,
         batch_size=batch_size,
         key_file=key_file,
         num_workers=num_workers,
-        preprocess_fn=TTSTask.build_preprocess_fn(text2speech.train_args, False),
-        collate_fn=TTSTask.build_collate_fn(text2speech.train_args, False),
+        preprocess_fn=GANTTSTask.build_preprocess_fn(text2speech.train_args, False),
+        collate_fn=GANTTSTask.build_collate_fn(text2speech.train_args, False),
         allow_variable_data_keys=allow_variable_data_keys,
         inference=True,
     )
