@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#SBATCH --job-name=see_me_rolling
+#SBATCH --partition=RM-shared
+#SBATCH --time=1-00:00:00
+#SBATCH --cpus-per-task=8
 
 . ./path.sh
 
