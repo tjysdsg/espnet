@@ -17,7 +17,7 @@ train_set="train_clean_360"
 valid_set="dev_clean"
 test_sets="dev_clean test_clean dev_other test_other"
 
-train_config=conf/tuning/train_vits_char_xvector_md_unpaired.yaml
+train_config=conf/tuning/train_vits_unpaired_freeze_discriminator.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
