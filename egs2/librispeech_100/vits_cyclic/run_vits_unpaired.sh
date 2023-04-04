@@ -15,7 +15,7 @@ tag="vits_unpaired_360_sudo"
 
 train_set="train_clean_360"
 valid_set="dev_clean"
-test_sets="dev_clean test_clean dev_other test_other"
+test_sets="dev_clean test_clean test_other"
 
 train_config=conf/tuning/train_vits_unpaired_freeze_discriminator.yaml
 inference_config=conf/decode.yaml
@@ -26,7 +26,7 @@ inference_asr_config=conf/decode_asr.yaml
     --ngpu 1 \
     --stage 6 \
     --stop_stage 6 \
-    --inference_model valid.loss.ave.pth \
+    --inference_model valid.loss.best.pth \
     --inference_nj 32 \
     --use_multidecoder true \
     --lang en \
@@ -39,8 +39,6 @@ inference_asr_config=conf/decode_asr.yaml
     --token_type char \
     --cleaner none \
     --tag "${tag}" \
-    --dumpdir dump \
-    --expdir exp/vits_unpaired_360 \
     --tts_task gan_tts \
     --train_config "${train_config}" \
     --g2p none \
