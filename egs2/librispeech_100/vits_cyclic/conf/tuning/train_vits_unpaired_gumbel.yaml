@@ -222,7 +222,7 @@ best_model_criterion:
     - min
   - - valid
     - acc_asr
-    - min
+    - max
   - - train
     - loss
     - min
