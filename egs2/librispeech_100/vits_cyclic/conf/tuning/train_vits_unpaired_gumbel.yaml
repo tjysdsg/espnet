@@ -169,23 +169,25 @@ tts_conf:
 ##########################################################
 optim: adam
 optim_conf:
-  lr: 0.2
+  lr: 0.0001
 scheduler: warmuplr
 scheduler_conf:
   warmup_steps: 30000
 # optimizer setting for discriminator
 optim2: adam
 optim2_conf:
-  lr: 0.2
+  lr: 0.0001
 scheduler2: warmuplr
 scheduler2_conf:
   warmup_steps: 30000
 generator_first: false
 
+no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
+
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 0.75
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true 
@@ -242,4 +244,5 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
+    "tts.discriminator",
 ]
