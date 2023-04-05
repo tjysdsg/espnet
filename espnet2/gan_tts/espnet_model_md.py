@@ -290,10 +290,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             loss_asr_ctc, cer_asr_ctc = 0, None
 
         if self.use_unpaired:
-            if self.gumbel_softmax:
-                dec_asr_lengths = seq_hat_total_lens + 1
-            else:
-                dec_asr_lengths = sudo_text_lengths + 1
+            dec_asr_lengths = sudo_text_lengths + 1
         else:
             dec_asr_lengths = text_lengths + 1
 
