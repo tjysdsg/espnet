@@ -83,12 +83,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
         teacher_student: bool = False,  # not used right now
-        use_asr_decoder_loss: bool = True,
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
         assert 0.0 <= mt_weight < 1.0, "mt_weight should be [0.0, 1.0)"
-        assert 0.0 <= mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
+        assert 0.0 <= mtlalpha <= 1.0, "mtlalpha should be [0.0, 1.0]"
 
         super().__init__()
         # note that eos is the same as sos (equivalent ID)
@@ -134,7 +133,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.asr_decoder = asr_decoder
 
         self.use_unpaired = use_unpaired
-        self.use_asr_decoder_loss = use_asr_decoder_loss
         self.idx_blank = self.token_list.index(sym_blank)
         self.idx_space = self.token_list.index(sym_space)
 
@@ -377,14 +375,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
-        if asr_ctc_weight == 0.0:
-            loss_asr = loss_asr_att
-        elif self.use_asr_decoder_loss:
-            loss_asr = (
-                asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
-            )
-        else:
-            loss_asr = loss_asr_ctc
+        loss_asr = (
+            asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
+        )
 
         loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
         # import pdb;pdb.set_trace()
