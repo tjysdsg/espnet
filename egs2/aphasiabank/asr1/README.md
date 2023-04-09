@@ -1,5 +1,17 @@
 # AphasiaBank English ASR recipe
 
+## How to Evaluate
+
+- [local/score_cleaned.sh](local/score_cleaned.sh) is used to calculate CER/WER per Aphasia subset.
+  It doesn't require the input hypothesis file to contain language or Aph tags.
+  But if the input does contain, it will automatically remove them.
+- [local/score_per_severity.sh](local/score_per_severity.sh) is similar, but it calculates CER/WER per Aphasia severity.
+  But if the input does contain, it will automatically remove them.
+- [local/score_interctc_aux.sh](local/score_interctc_aux.sh) is used to calculate InterCTC-based Aphasia
+  detection accuracy.
+- [local/score_aphasia_detection.py](local/score_aphasia_detection.py) is used to calculate Aphasia
+  detection accuracy from input in Kaldi text format.
+
 ## Environments
 
 - date: `Sun Jan  8 19:23:29 EST 2023`
