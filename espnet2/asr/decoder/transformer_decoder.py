@@ -2,12 +2,11 @@
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 """Decoder definition."""
-from typing import Any, List, Sequence, Tuple, Optional
+from typing import Any, List, Sequence, Tuple
 
 import torch
 from typeguard import check_argument_types
 
-from espnet2.asr.ctc import CTC
 from espnet2.asr.decoder.abs_decoder import AbsDecoder
 from espnet.nets.pytorch_backend.nets_utils import make_pad_mask
 from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention
@@ -58,8 +57,6 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
         use_output_layer: bool = True,
         pos_enc_class=PositionalEncoding,
         normalize_before: bool = True,
-        interctc_layer_idx: Optional[List[int]] = None,
-        interctc_use_conditioning: bool = False,
     ):
         assert check_argument_types()
         super().__init__()
@@ -92,26 +89,12 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
         # Must set by the inheritance
         self.decoders = None
 
-        if interctc_layer_idx is None:
-            interctc_layer_idx = []
-            self.interctc_linear = None
-        else:
-            # layer used before interctc
-            self.interctc_linear = torch.nn.Linear(
-                attention_dim, attention_dim
-            )
-
-        self.interctc_layer_idx: List[int] = interctc_layer_idx
-        self.interctc_use_conditioning = interctc_use_conditioning
-        self.conditioning_layer = None
-
     def forward(
         self,
         hs_pad: torch.Tensor,
         hlens: torch.Tensor,
         ys_in_pad: torch.Tensor,
         ys_in_lens: torch.Tensor,
-        ctc: CTC = None,  # interctc
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward decoder.
 
@@ -150,31 +133,15 @@ class BaseTransformerDecoder(AbsDecoder, BatchScorerInterface):
             )
 
         x = self.embed(tgt)
-
-        intermediate_outs = []
-        if len(self.interctc_layer_idx) == 0:
-            x, tgt_mask, memory, memory_mask = self.decoders(
-                x, tgt_mask, memory, memory_mask
-            )
-        else:  # interctc
-            for layer_idx, decoder_layer in enumerate(self.decoders):
-                x, tgt_mask, memory, memory_mask = decoder_layer(x, tgt_mask, memory, memory_mask)
-
-                if layer_idx + 1 in self.interctc_layer_idx:
-                    intermediate_outs.append((layer_idx + 1, x))
-
-                    if self.interctc_use_conditioning:
-                        ctc_out = ctc.softmax(self.interctc_linear(x))
-                        x = x + self.conditioning_layer(ctc_out)
-
+        x, tgt_mask, memory, memory_mask = self.decoders(
+            x, tgt_mask, memory, memory_mask
+        )
         if self.normalize_before:
             x = self.after_norm(x)
         if self.output_layer is not None:
             x = self.output_layer(x)
 
         olens = tgt_mask.sum(1)
-        if len(intermediate_outs) > 0:
-            return (x, intermediate_outs), olens
         return x, olens
 
     def forward_one_step(
@@ -280,14 +247,8 @@ class TransformerDecoder(BaseTransformerDecoder):
         normalize_before: bool = True,
         concat_after: bool = False,
         layer_drop_rate: float = 0.0,
-        interctc_layer_idx: Optional[List[int]] = None,
-        interctc_use_conditioning: bool = False,
     ):
         assert check_argument_types()
-
-        if interctc_layer_idx is not None and len(interctc_layer_idx) > 0:
-            assert 0 < min(interctc_layer_idx) and max(interctc_layer_idx) < num_blocks
-
         super().__init__(
             vocab_size=vocab_size,
             encoder_output_size=encoder_output_size,
@@ -297,8 +258,6 @@ class TransformerDecoder(BaseTransformerDecoder):
             use_output_layer=use_output_layer,
             pos_enc_class=pos_enc_class,
             normalize_before=normalize_before,
-            interctc_layer_idx=interctc_layer_idx,
-            interctc_use_conditioning=interctc_use_conditioning,
         )
 
         attention_dim = encoder_output_size
