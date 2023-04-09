@@ -19,7 +19,7 @@ asr_model_file=/ocean/projects/cis210027p/jtang1/espnet/egs2/aphasiabank/asr1/ex
 
 for second in ${second_all}; do
     python local/profile_encoder.py \
-        --second ${second} \
+        --second "${second}" \
         --fs ${fs} \
         --model_file "${asr_model_file}"
 done

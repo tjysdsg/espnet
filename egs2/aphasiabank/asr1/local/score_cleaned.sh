@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+
+# ASR scoring, with [APH]/[NONAPH] tags removed, outputs overall CER/WER and CER/WER for APH and NONAPH subsets
+
 set -e
 set -u
 set -o pipefail

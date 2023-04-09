@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+
+# Aphasia English E-Branchformer experiment
+
 set -e
 set -u
 set -o pipefail

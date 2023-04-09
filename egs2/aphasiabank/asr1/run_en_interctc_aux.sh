@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+
+# Aphasia English recognition + detection experiment
+#   - E-Branchformer
+#   - WavLM
+#   - InterCTC-6
+
 set -e
 set -u
 set -o pipefail
 
 asr_tag="ebranchformer_wavlm_interctc6"
-
 train_set="train"
 valid_set="val"
 test_sets="test"
@@ -14,13 +17,12 @@ include_control=true
 include_lang_id=false
 
 asr_config=conf/tuning/train_asr_ebranchformer_small_wavlm_large1_interctc6.yaml
+inference_config=conf/decode.yaml
 
 feats_normalize=global_mvn
 if [[ ${asr_config} == *"hubert"* ]] || [[ ${asr_config} == *"wavlm"* ]]; then
   feats_normalize=utt_mvn # https://github.com/espnet/espnet/issues/4006#issuecomment-1047898558
 fi
-
-inference_config=conf/decode.yaml
 
 ./asr.sh \
   --asr_tag "${asr_tag}" \

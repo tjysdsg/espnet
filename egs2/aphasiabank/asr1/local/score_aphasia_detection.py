@@ -1,3 +1,7 @@
+"""
+Calculate sentence-level and speaker-level Aphasia detection accuracy
+"""
+
 import argparse
 from collections import Counter
 

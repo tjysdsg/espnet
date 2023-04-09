@@ -1,4 +1,8 @@
-# Adapted from https://github.com/espnet/espnet/blob/master/egs2/fleurs/asr1/local/create_lids.py
+"""
+Adapted from https://github.com/espnet/espnet/blob/master/egs2/fleurs/asr1/local/create_lids.py
+
+Create a file with the aphasia label for each utterance, used by InterCTC-based Aphasia detection models
+"""
 
 import argparse
 from config import utt2spk, spk2aphasia_label

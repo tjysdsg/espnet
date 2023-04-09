@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
+
+# Calculate accuracy of InterCTC-based Aphasia detection
+
 set -e
 set -u
 set -o pipefail
@@ -17,6 +18,12 @@ log() {
 stage=1
 stop_stage=100
 decode_dir=
+layer_idx=
+
+if [ -z "${decode_dir}" ] || [ -z "${layer_idx}" ]; then
+  log "Specify --decode_dir and --layer_idx"
+  exit 2
+fi
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -37,9 +44,6 @@ if [ -z "${decode_dir}" ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  cat "${decode_dir}"/logdir/output.*/1best_recog/encoder_interctc_layer6.txt >"${decode_dir}"/interctc.txt
-fi
-
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-  python local/score_interctc_aux.py "${decode_dir}"/interctc.txt
+  cat "${decode_dir}"/logdir/output.*/1best_recog/"encoder_interctc_layer${layer_idx}.txt" >"${decode_dir}"/interctc.txt
+  python local/score_aphasia_detection.py "${decode_dir}"/interctc.txt
 fi
