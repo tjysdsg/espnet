@@ -10,7 +10,7 @@ Reference:
 """
 
 import logging
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 from typeguard import check_argument_types
@@ -208,7 +208,7 @@ class EBranchformerEncoder(AbsEncoder):
         linear_units: int = 2048,
         positionwise_layer_type: str = "linear",
         merge_conv_kernel: int = 3,
-        interctc_layer_idx: List[int] = [],
+        interctc_layer_idx=None,
         interctc_use_conditioning: bool = False,
     ):
         assert check_argument_types()
@@ -381,6 +381,8 @@ class EBranchformerEncoder(AbsEncoder):
         )
         self.after_norm = LayerNorm(output_size)
 
+        if interctc_layer_idx is None:
+            interctc_layer_idx = []
         self.interctc_layer_idx = interctc_layer_idx
         if len(interctc_layer_idx) > 0:
             assert 0 < min(interctc_layer_idx) and max(interctc_layer_idx) < num_blocks
@@ -396,7 +398,7 @@ class EBranchformerEncoder(AbsEncoder):
         ilens: torch.Tensor,
         prev_states: torch.Tensor = None,
         ctc: CTC = None,
-        layer: int = None,
+        max_layer: int = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Calculate forward propagation.
 
@@ -404,6 +406,8 @@ class EBranchformerEncoder(AbsEncoder):
             xs_pad (torch.Tensor): Input tensor (#batch, L, input_size).
             ilens (torch.Tensor): Input length (#batch).
             prev_states (torch.Tensor): Not to be used now.
+            ctc (CTC): Intermediate CTC module.
+            max_layer (int): Layer depth below which InterCTC is applied.
         Returns:
             torch.Tensor: Output tensor (#batch, L, output_size).
             torch.Tensor: Output length (#batch).
@@ -433,10 +437,10 @@ class EBranchformerEncoder(AbsEncoder):
 
         intermediate_outs = []
         if len(self.interctc_layer_idx) == 0:
-            if layer is not None and (layer >= 0 and layer < len(self.encoders)):
+            if max_layer is not None and 0 <= max_layer < len(self.encoders):
                 for layer_idx, encoder_layer in enumerate(self.encoders):
                     xs_pad, masks = encoder_layer(xs_pad, masks)
-                    if layer_idx >= layer:
+                    if layer_idx >= max_layer:
                         break
             else:
                 xs_pad, masks = self.encoders(xs_pad, masks)
@@ -445,7 +449,6 @@ class EBranchformerEncoder(AbsEncoder):
                 xs_pad, masks = encoder_layer(xs_pad, masks)
 
                 if layer_idx + 1 in self.interctc_layer_idx:
-
                     encoder_out = xs_pad
 
                     if isinstance(encoder_out, tuple):
