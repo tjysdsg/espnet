@@ -83,6 +83,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         create_KL_copy: bool = False,
         intermediate_supervision: bool = False,
         teacher_student: bool = False,  # not used right now
+        text_embed_loss_scale: float = 0.0,
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
@@ -182,6 +183,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
+
+        self.text_embed_loss_scale = text_embed_loss_scale
 
     def forward(
         self,
@@ -292,7 +295,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         else:
             dec_asr_lengths = text_lengths + 1
 
-        # 2a. ASR Decoder
+        # 2c. ASR Decoder
         if self.use_unpaired:
             (
                 loss_asr_att,
@@ -352,6 +355,15 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
             # if self.energy_normalize is not None:
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
+
+        # 2d. MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
+        text_embed_loss = self.calc_text_embed_loss(
+            y_pred,
+            sudo_text if self.use_unpaired else text,
+            sudo_text_lengths if self.use_unpaired else text_lengths,
+        )
+
+        # 2e. TTS
         batch = dict(
             text=y_pred,
             text_lengths=dec_asr_lengths,
@@ -379,7 +391,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
         )
 
-        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
+        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr + text_embed_loss
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # FIXME: loss = 0.95 * loss + 0.05 * mse_loss
@@ -393,6 +405,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
+                text_embed_loss=text_embed_loss.detach(),
                 tts_generator_adv_loss=tts_stats["generator_adv_loss"],
                 tts_generator_dur_loss=tts_stats["generator_dur_loss"],
                 tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
@@ -542,6 +555,14 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
         return feats, feats_lengths
+
+    def calc_text_embed_loss(self, x: torch.Tensor, text: torch.Tensor, text_lengths: torch.Tensor):
+        if self.text_embed_loss_scale == 0:
+            return 0.0
+
+        embed, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
+        embed.masked_fill_(pad_mask, 0.0)
+        return self.text_embed_loss_scale * F.mse_loss(x[:, :-1, :].masked_fill(pad_mask, 0.0), embed)
 
     def _calc_asr_att_loss(
         self,
