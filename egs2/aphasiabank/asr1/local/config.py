@@ -1,13 +1,7 @@
 """
-All configurations of AphasiaBank data in one place
+All configurations of AphasiaBank data in one place.
+We hardcode everything to make it easier to debug and reproduce results.
 """
-
-# ======================
-#      Data splits
-#   train  val  test
-#    56%   19%  25%
-# ======================
-
 
 train_english_pwa = [
     # no severity info: 31
@@ -891,20 +885,6 @@ control_spks = (
 # ======================
 
 
-# aphasia_type2label = {
-#     "": "NONAPH",
-#     "control": "NONAPH",
-#     "notaphasicbywab": "APH",
-#     "conduction": "APH",
-#     "anomic": "APH",
-#     "global": "APH",
-#     "transsensory": "APH",
-#     "transmotor": "APH",
-#     "broca": "APH",
-#     "aphasia": "APH",
-#     "wernicke": "APH",
-# }
-
 lang2label = {
     "English": "EN",
     "French": "FR",
@@ -979,16 +959,6 @@ aph2spks = {}
 for spk, aph in spk2aphasia_label.items():
     aph2spks.setdefault(aph, []).append(spk)
 
-# speaker to severity level
-# spk2severity = {}
-# with open('local/spk_info.txt', encoding='utf-8') as f:
-#     for line in f:
-#         spk, _, severity, aph_type = line.rstrip('\n').split()
-#         if aph_type == 'control':
-#             continue
-#         elif severity != 'none':
-#             spk2severity[spk] = severity
-# print(spk2severity)
 spk2severity = {
     'ACWT01a': 'moderate', 'ACWT02a': 'moderate', 'ACWT03a': 'moderate', 'ACWT04a': 'mild',
     'ACWT05a': 'moderate', 'ACWT07a': 'mild', 'ACWT08a': 'severe', 'ACWT09a': 'mild', 'ACWT10a': 'moderate',

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Set bash to 'debug' mode, it will exit on :
-# -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',
 set -e
 set -u
 set -o pipefail
@@ -17,9 +15,20 @@ help_message=$(
   cat <<EOF
 Usage: $0
 
+Prepare train, val, and test sets from AphasiaBank English and French subset.
+However, French data is not included in experiments of this recipe due to its limited size.
+
 Options:
     --include_control (bool): Whether to include control group data
-    --include_aphasia_type (bool): Whether to include aphasia type in the beginning of each sentence ("[wernicke]")
+    --include_lang_id (bool): Whether to include language id in text ("[EN]" or "[FR]")
+    --tag_insertion ("prepend", "append", or "both"): Whether to include Aphasia tag in text ("[APH]" or "[NONAPH]")
+
+Things to manually prepare before calling this script:
+- Download AphasiaBank data from https://aphasia.talkbank.org/
+- Set ${APHASIABANK} to the path to data root (which contains "English", "French", "Greek" etc.) in db.sh
+- Download transcripts from https://aphasia.talkbank.org/data/
+- Unzip and copy all *.cha files into ${APHASIABANK}/<lang>/transcripts
+
 EOF
 )
 SECONDS=0
@@ -31,8 +40,6 @@ include_lang_id=false
 languages="English French"
 asr_data_dir=  # see asr.sh stage 4
 tag_insertion=none
-dataset=AphasiaBank
-include_investigators=false
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -49,21 +56,6 @@ fi
 
 tmp=data/local
 mkdir -p $tmp
-
-if [ "${dataset}" = "DementiaBank" ]; then
-  ./local/dementia/data.sh --stage ${stage} --stop_stage ${stop_stage} \
-    --tag_insertion ${tag_insertion} \
-    --asr_data_dir "${asr_data_dir}" \
-    --include_investigators "${include_investigators}"
-
-  exit 0
-fi
-
-# Things to manually prepare:
-# - Download AphasiaBank data from https://aphasia.talkbank.org/
-# - Set ${APHASIABANK} to the path to data root (which contains "English", "French", "Greek" etc.) in db.sh
-# - Download transcripts from https://aphasia.talkbank.org/data/
-# - Unzip and copy all *.cha files into ${APHASIABANK}/<lang>/transcripts
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   log "Converting *.mp4 and *.mp3 files into .wav"

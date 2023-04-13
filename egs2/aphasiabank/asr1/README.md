@@ -1,6 +1,11 @@
 # AphasiaBank English ASR recipe
 
-## How to Evaluate
+## Data preparation
+
+1. Download AphasiaBank from https://aphasia.talkbank.org
+2. See [data.sh](local/data.sh) for instructions
+
+## Evaluation
 
 - [local/score_cleaned.sh](local/score_cleaned.sh) is used to calculate CER/WER per Aphasia subset.
   It doesn't require the input hypothesis file to contain language or Aph tags.

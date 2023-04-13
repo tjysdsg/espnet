@@ -1,3 +1,5 @@
+# Based on librispeech_100 conformer config, but layer sizes are adjusted to match
+# E-Branchformer's number of trainable parameters.
 encoder: conformer
 encoder_conf:
   output_size: 256

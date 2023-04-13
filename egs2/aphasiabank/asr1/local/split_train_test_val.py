@@ -1,7 +1,9 @@
+"""
+Split AphasiaBank into train, test and val sets, according to config.py
+"""
 import os
 from argparse import ArgumentParser
 from config import train_spks, val_spks, test_spks, utt2spk
-
 import numpy as np
 
 

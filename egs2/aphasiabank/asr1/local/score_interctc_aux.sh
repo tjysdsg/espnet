@@ -35,6 +35,7 @@ Usage: $0
 Options:
     --decode_dir (string): Path to decoded results.
       For example, --decode_dir=exp/asr_train_asr_conformer_raw_en_char_sp/decode_asr_model_valid.acc.ave/test"
+    --layer_idx (int): Index of the layer to be used for InterCTC-based Aphasia detection.
 EOF
 )
 
