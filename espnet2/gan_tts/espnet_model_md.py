@@ -405,7 +405,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
-                text_embed_loss=text_embed_loss.detach(),
+                text_embed_loss=text_embed_loss.detach() if type(text_embed_loss) is not float else text_embed_loss,
                 tts_generator_adv_loss=tts_stats["generator_adv_loss"],
                 tts_generator_dur_loss=tts_stats["generator_dur_loss"],
                 tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],

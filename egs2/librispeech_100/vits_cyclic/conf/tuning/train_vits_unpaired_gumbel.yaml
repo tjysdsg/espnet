@@ -185,7 +185,7 @@ generator_first: false
 no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
-  mtlalpha: 0.3
+  mtlalpha: 1.0
   mt_weight: 0.0
   asr_weight: 0.75
   lsm_weight: 0.1
@@ -244,5 +244,5 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "tts.discriminator",
+    "tts",
 ]
