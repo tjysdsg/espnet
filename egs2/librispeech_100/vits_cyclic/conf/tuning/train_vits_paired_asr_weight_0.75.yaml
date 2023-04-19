@@ -189,7 +189,7 @@ model_conf:
   mt_weight: 0.0
   asr_weight: 0.75
   lsm_weight: 0.1
-  length_normalized_loss: false
+  length_normalized_loss: true
   use_unpaired: false
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
