@@ -187,11 +187,10 @@ no_discriminator_backprop: true # <---------------------------------------------
 model_conf:
   mtlalpha: 1.0
   mt_weight: 0.0
-  asr_weight: 0.75
+  asr_weight: 0.5
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true 
-  intermediate_supervision: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: true
 

@@ -182,7 +182,6 @@ model_conf:
   lsm_weight: 0.1
   length_normalized_loss: false
   use_unpaired: true 
-  intermediate_supervision: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
 

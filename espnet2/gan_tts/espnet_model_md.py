@@ -81,7 +81,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         asr_normalize:bool = False,
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
-        intermediate_supervision: bool = False,
         teacher_student: bool = False,  # not used right now
         text_embed_loss_scale: float = 0.0,
     ):
@@ -127,9 +126,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.frontend = frontend
         self.asr_encoder = asr_encoder
         self.create_KL_copy = create_KL_copy
-        self.intermediate_supervision = intermediate_supervision
         self.teacher_student = teacher_student
-        if self.create_KL_copy or self.intermediate_supervision:
+        if self.create_KL_copy:
             self.asr_encoder_copy = copy.deepcopy(asr_encoder)
         self.asr_decoder = asr_decoder
 
@@ -160,8 +158,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # ), "Missing src_token_list, cannot add asr module to st model"
         if self.mtlalpha > 0.0:
             self.ctc = ctc
-            if self.intermediate_supervision:
-                self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
         self.asr_decoder.gumbel_softmax = self.gumbel_softmax
@@ -237,12 +233,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
-        # if self.intermediate_supervision:
-        #     # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
-        #     y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
-        #         speech, speech_lengths
-        #     )
-        # elif self.create_KL_copy:
         if self.create_KL_copy:
             encoder_out, encoder_out_lens, mse_loss = self.encode(
                 speech, speech_lengths
@@ -254,7 +244,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # If not given:
         #     - use canonical text during validation for calculating loss
         #     - use reference encoder's output during training
-        if self.intermediate_supervision and sudo_text is None:
+        if self.use_unpaired and sudo_text is None:
             if self.training:
                 assert False  # assume we always have sudo text during unpaired training
                 # sudo_text = y_ctc_gold
@@ -265,24 +255,14 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         # 2b. CTC branch
         if self.use_unpaired:
-            if self.intermediate_supervision:
-                (
-                    y_ctc_pred_pad,
-                    seq_hat_total_lens,
-                    loss_asr_ctc,
-                    cer_asr_ctc,
-                ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
-                )
-            else:
-                (
-                    y_ctc_pred_pad,
-                    seq_hat_total_lens,
-                    loss_asr_ctc,
-                    cer_asr_ctc,
-                ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
-                )
+            (
+                y_ctc_pred_pad,
+                seq_hat_total_lens,
+                loss_asr_ctc,
+                cer_asr_ctc,
+            ) = self._calc_ctc_loss(
+                encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
+            )
         elif self.mtlalpha > 0:
             loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
                 encoder_out, encoder_out_lens, text, text_lengths
@@ -494,16 +474,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # -> encoder_out: (Batch, Length2, Dim2)
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
 
-        if self.intermediate_supervision:
-            pass
-            # encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
-            #     feats, feats_lengths
-            # )
-            # y_ctc_gold, y_ctc_gold_lens = self._calc_ctc_output(
-            #     encoder_out_copy, encoder_out_copy_lens
-            # )
-            # import pdb;pdb.set_trace()
-        elif self.create_KL_copy:
+        if self.create_KL_copy:
             # import pdb;pdb.set_trace()
             mse_criterion = torch.nn.MSELoss(reduction="mean")
             encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
@@ -526,12 +497,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             encoder_out_lens.max(),
         )
 
-        # if self.intermediate_supervision:
-        #     return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
-        # elif self.create_KL_copy:
-        #     return encoder_out, encoder_out_lens, mse_loss
-        # else:
-        #     return encoder_out, encoder_out_lens
         if self.create_KL_copy:
             return encoder_out, encoder_out_lens, mse_loss
         else:
