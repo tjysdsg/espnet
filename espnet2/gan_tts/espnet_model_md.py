@@ -600,7 +600,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
         if self.gumbel_softmax:
-            y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=0.5, hard=True, dim=-1)
+            y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=1.0, hard=True, dim=-1)
             return loss_att, acc_att, cer_att, wer_att, y_pred_gumbel
         else:
             return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
