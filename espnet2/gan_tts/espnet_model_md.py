@@ -83,6 +83,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         create_KL_copy: bool = False,
         teacher_student: bool = False,  # not used right now
         text_embed_loss_scale: float = 0.0,
+        text_embed_loss: str = "mse",
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
@@ -181,6 +182,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
 
         self.text_embed_loss_scale = text_embed_loss_scale
+        self.text_embed_loss = text_embed_loss
+        assert self.text_embed_loss == 'mse' or self.text_embed_loss == 'kl'
 
     def forward(
         self,
@@ -525,9 +528,17 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         if self.text_embed_loss_scale == 0:
             return 0.0
 
-        embed, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
-        embed.masked_fill_(pad_mask, 0.0)
-        return self.text_embed_loss_scale * F.mse_loss(x[:, :-1, :].masked_fill(pad_mask, 0.0), embed)
+        tgt, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
+        tgt.masked_fill_(pad_mask, 0.0)
+
+        x = x[:, :-1, :].masked_fill(pad_mask, 0.0)
+
+        if self.text_embed_loss == "mse":
+            loss = F.mse_loss(x, tgt)
+        else:
+            loss = F.kl_div(F.log_softmax(x, dim=-1), F.softmax(tgt, dim=-1), reduction="batchmean")
+
+        return self.text_embed_loss_scale * loss
 
     def _calc_asr_att_loss(
         self,
