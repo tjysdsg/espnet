@@ -1,4 +1,7 @@
-# Unpaired training using VITS with discriminator frozen and reduced learning rate
+# Unpaired + sudo text
+# Freeze TTS
+# No supervision on ASR decoder
+# Align text embedding using KL
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -185,7 +188,7 @@ generator_first: false
 no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
-  mtlalpha: 0.3
+  mtlalpha: 1.0
   mt_weight: 0.0
   asr_weight: 0.75
   lsm_weight: 0.1
