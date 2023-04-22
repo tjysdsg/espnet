@@ -83,7 +83,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         create_KL_copy: bool = False,
         teacher_student: bool = False,  # not used right now
         text_embed_loss_scale: float = 0.0,
-        text_embed_loss: str = "mse",
+        text_embed_loss_method: str = "mse",
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
@@ -180,10 +180,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
+        self.linear_layer_y_pred = None
 
         self.text_embed_loss_scale = text_embed_loss_scale
-        self.text_embed_loss = text_embed_loss
-        assert self.text_embed_loss == 'mse' or self.text_embed_loss == 'kl'
+        self.text_embed_loss_method = text_embed_loss_method
+        assert self.text_embed_loss_method == 'mse' or self.text_embed_loss_method == 'kl'
 
     def forward(
         self,
@@ -340,6 +341,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
 
         # 2d. MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
+        feats_dim = y_pred.shape[-1]
+        if not self.linear_layer_y_pred:
+            self.linear_layer_y_pred = torch.nn.Linear(in_features=feats_dim, out_features=feats_dim).to(feats.device)
+
+
         text_embed_loss = self.calc_text_embed_loss(
             y_pred,
             sudo_text if self.use_unpaired else text,
@@ -526,14 +532,18 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
     def calc_text_embed_loss(self, x: torch.Tensor, text: torch.Tensor, text_lengths: torch.Tensor):
         if self.text_embed_loss_scale == 0:
-            return 0.0
+            # return 0
+            return torch.tensor(0.0).to(x.device)
+
+        # apply linear layer
+        x = self.linear_layer_y_pred(x)
 
         tgt, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
         tgt.masked_fill_(pad_mask, 0.0)
 
         x = x[:, :-1, :].masked_fill(pad_mask, 0.0)
 
-        if self.text_embed_loss == "mse":
+        if self.text_embed_loss_method == "mse":
             loss = F.mse_loss(x, tgt)
         else:
             loss = F.kl_div(F.log_softmax(x, dim=-1), F.softmax(tgt, dim=-1), reduction="batchmean")
