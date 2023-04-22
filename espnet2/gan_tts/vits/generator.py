@@ -267,6 +267,7 @@ class VITSGenerator(torch.nn.Module):
         sids: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
+        random_segment: bool = True,
     ) -> Tuple[
         torch.Tensor,
         torch.Tensor,
@@ -392,11 +393,14 @@ class VITSGenerator(torch.nn.Module):
         logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
         # get random segments
-        z_segments, z_start_idxs = get_random_segments(
-            z,
-            feats_lengths,
-            self.segment_size,
-        )
+        if random_segment:
+            z_segments, z_start_idxs = get_random_segments(
+                z,
+                feats_lengths,
+                self.segment_size,
+            )
+        else:
+            z_segments, z_start_idxs = z, torch.zeros(z.size(0), dtype=torch.long, device=z.device)
 
         # forward decoder with random segments
         wav = self.decoder(z_segments, g=g)

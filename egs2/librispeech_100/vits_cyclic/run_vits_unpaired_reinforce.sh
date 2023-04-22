@@ -11,13 +11,13 @@ n_fft=1024
 n_shift=256
 win_length=null
 
-tag="vits_unpaired_360_sudo_asr_0_3_lr_1e_4"
+tag="vits_unpaired_460_reinforce"
 
-train_set="train_clean_360"
+train_set="train_clean_460"
 valid_set="dev_clean"
 test_sets="dev_clean test_other test_clean"
 
-train_config=conf/tuning/train_vits_char_unpaired.yaml
+train_config=conf/tuning/train_vits_unpaired_reinforce.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
@@ -49,5 +49,5 @@ inference_asr_config=conf/decode_asr.yaml
     --valid_set "${valid_set}" \
     --test_sets "${test_sets}" \
     --srctexts "data/${train_set}/text" \
-    --sudo_text "decode_train_clean_360/text" \
+    --sudo_text "dump/raw/train_clean_460/sudo_text" \
     --audio_format "wav" "$@"

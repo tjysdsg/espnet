@@ -228,8 +228,6 @@ class VITS(AbsGANTTS):
             #   the input acoustic feature dimension.
             generator_params.update(vocabs=idim, aux_channels=odim)
 
-        if use_md and not skip_text_encoder:
-            assert gumbel_softmax_input
         self.generator = generator_class(
             skip_text_encoder=skip_text_encoder,
             **generator_params,
@@ -297,6 +295,7 @@ class VITS(AbsGANTTS):
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
         forward_generator: bool = True,
+        full: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -311,6 +310,7 @@ class VITS(AbsGANTTS):
             spembs (Optional[Tensor]): Speaker embedding tensor (B, spk_embed_dim).
             lids (Optional[Tensor]): Language index tensor (B,) or (B, 1).
             forward_generator (bool): Whether to forward generator.
+            full (bool): Don't use random segment sampling if True.
 
         Returns:
             Dict[str, Any]:
@@ -320,7 +320,6 @@ class VITS(AbsGANTTS):
                 - optim_idx (int): Optimizer index (0 for G and 1 for D).
 
         """
-        # FIXME: add use_md in both
         if forward_generator:
             return self._forward_generator(
                 text=text,
@@ -332,6 +331,7 @@ class VITS(AbsGANTTS):
                 sids=sids,
                 spembs=spembs,
                 lids=lids,
+                full=full,
             )
         else:
             return self._forward_discrminator(
@@ -357,6 +357,7 @@ class VITS(AbsGANTTS):
         sids: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
+        full: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -370,6 +371,7 @@ class VITS(AbsGANTTS):
             sids (Optional[Tensor]): Speaker index tensor (B,) or (B, 1).
             spembs (Optional[Tensor]): Speaker embedding tensor (B, spk_embed_dim).
             lids (Optional[Tensor]): Language index tensor (B,) or (B, 1).
+            full (bool): Don't use random segment sampling if True.
 
         Returns:
             Dict[str, Any]:
@@ -385,33 +387,54 @@ class VITS(AbsGANTTS):
         speech = speech.unsqueeze(1)
 
         # calculate generator outputs
-        reuse_cache = True
-        if not self.cache_generator_outputs or self._cache is None:
-            reuse_cache = False
-            outs = self.generator(
-                text=text,
-                text_lengths=text_lengths,
-                feats=feats,
-                feats_lengths=feats_lengths,
-                sids=sids,
-                spembs=spembs,
-                lids=lids,
-            )
-        else:
-            outs = self._cache
 
-        # store cache
-        if self.training and self.cache_generator_outputs and not reuse_cache:
-            self._cache = outs
+        # NOTE(jiyang): I disabled the cache because it will cause left-over values to be used in the next iteration
+        #               if we skip the discriminator turn to speed up training
+        # FIXME: reuse_cache = True
+        #   if not self.cache_generator_outputs or self._cache is None:
+        #       reuse_cache = False
+        #       outs = self.generator(
+        #           text=text,
+        #           text_lengths=text_lengths,
+        #           feats=feats,
+        #           feats_lengths=feats_lengths,
+        #           sids=sids,
+        #           spembs=spembs,
+        #           lids=lids,
+        #           random_segment=not full,
+        #       )
+        #   else:
+        #       outs = self._cache
+        #   # store cache
+        #   if self.training and self.cache_generator_outputs and not reuse_cache:
+        #       self._cache = outs
+
+        outs = self.generator(
+            text=text,
+            text_lengths=text_lengths,
+            feats=feats,
+            feats_lengths=feats_lengths,
+            sids=sids,
+            spembs=spembs,
+            lids=lids,
+            random_segment=not full,
+        )
 
         # parse outputs
         speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
         _, z_p, m_p, logs_p, _, logs_q = outs_
-        speech_ = get_segments(
-            x=speech,
-            start_idxs=start_idxs * self.generator.upsample_factor,
-            segment_size=self.generator.segment_size * self.generator.upsample_factor,
-        )
+
+        if full:  # use the entire audio to calculate losses
+            speech_ = speech
+            speech_len = min(speech_.size(2), speech_hat_.size(2))
+            speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
+            speech_hat_ = speech_hat_[:, :, :speech_len]
+        else:
+            speech_ = get_segments(
+                x=speech,
+                start_idxs=start_idxs * self.generator.upsample_factor,
+                segment_size=self.generator.segment_size * self.generator.upsample_factor,
+            )
 
         # calculate discriminator outputs
         p_hat = self.discriminator(speech_hat_)
@@ -445,9 +468,9 @@ class VITS(AbsGANTTS):
 
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 
-        # reset cache
-        if reuse_cache or not self.training:
-            self._cache = None
+        # FIXME: reset cache
+        #   if reuse_cache or not self.training:
+        #       self._cache = None
 
         return {
             "loss": loss,
@@ -633,3 +656,86 @@ class VITS(AbsGANTTS):
                 max_len=max_len,
             )
         return dict(wav=wav.view(-1), att_w=att_w[0], duration=dur[0])
+
+    def forward_reinforce(
+        self,
+        text: torch.Tensor,
+        text_lengths: torch.Tensor,
+        feats: torch.Tensor,
+        feats_lengths: torch.Tensor,
+        speech: torch.Tensor,
+        speech_lengths: torch.Tensor,
+        sids: Optional[torch.Tensor] = None,
+        spembs: Optional[torch.Tensor] = None,
+        lids: Optional[torch.Tensor] = None,
+        **kwargs,
+    ):
+        """
+        Same as _forward_generator but without adversarial losses.
+        """
+        # setup
+        batch_size = text.size(0)
+        feats = feats.transpose(1, 2)
+        speech = speech.unsqueeze(1)
+
+        # calculate generator outputs
+        reuse_cache = True
+        if not self.cache_generator_outputs or self._cache is None:
+            reuse_cache = False
+            outs = self.generator(
+                text=text,
+                text_lengths=text_lengths,
+                feats=feats,
+                feats_lengths=feats_lengths,
+                sids=sids,
+                spembs=spembs,
+                lids=lids,
+                random_segment=False,
+            )
+        else:
+            outs = self._cache
+
+        # store cache
+        if self.training and self.cache_generator_outputs and not reuse_cache:
+            self._cache = outs
+
+        # parse outputs
+        speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
+        _, z_p, m_p, logs_p, _, logs_q = outs_
+
+        # use the entire audio to calculate losses in REINFORCE mode
+        speech_ = speech
+        speech_len = min(speech_.size(2), speech_hat_.size(2))
+        speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
+        speech_hat_ = speech_hat_[:, :, :speech_len]
+
+        # calculate losses
+        with autocast(enabled=False):
+            mel_loss = self.mel_loss(speech_hat_, speech_)
+            kl_loss = self.kl_loss(z_p, logs_q, m_p, logs_p, z_mask)
+            dur_loss = torch.sum(dur_nll.float())
+
+            mel_loss = mel_loss * self.lambda_mel
+            kl_loss = kl_loss * self.lambda_kl
+            dur_loss = dur_loss * self.lambda_dur
+            loss = mel_loss + kl_loss + dur_loss
+
+        stats = dict(
+            generator_loss=loss.item(),
+            generator_mel_loss=mel_loss.item(),
+            generator_kl_loss=kl_loss.item(),
+            generator_dur_loss=dur_loss.item(),
+        )
+
+        loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+
+        # reset cache
+        if reuse_cache or not self.training:
+            self._cache = None
+
+        return {
+            "loss": loss,
+            "stats": stats,
+            "weight": weight,
+            "optim_idx": 0,  # needed for trainer
+        }
