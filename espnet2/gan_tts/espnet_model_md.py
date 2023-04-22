@@ -200,7 +200,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
-        self.linear_layer_y_pred = None
+        self.feats_dim = 256
+        self.linear_layer_y_pred = torch.nn.Linear(in_features=self.feats_dim, out_features=self.feats_dim).to("cuda:0") # fixme: hardcoding device for now.
 
         self.text_embed_loss_scale = text_embed_loss_scale
         self.text_embed_loss_method = text_embed_loss
@@ -356,10 +357,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         # 2d. ASR losses
         loss_asr = self.mtlalpha * loss_asr_ctc + (1 - self.mtlalpha) * loss_asr_att
-
-        feats_dim = y_pred.shape[-1]
-        if not self.linear_layer_y_pred:
-            self.linear_layer_y_pred = torch.nn.Linear(in_features=feats_dim, out_features=feats_dim).to(y_pred.device)
 
         # MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
         text_embed_loss = self.calc_text_embed_loss(
