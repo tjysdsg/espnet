@@ -47,6 +47,7 @@ class GANTrainerOptions(TrainerOptions):
     """Trainer option dataclass for GANTrainer."""
 
     generator_first: bool
+    no_discriminator_backprop: bool
 
 
 class GANTrainer(Trainer):
@@ -71,6 +72,12 @@ class GANTrainer(Trainer):
             type=str2bool,
             default=False,
             help="Whether to update generator first.",
+        )
+        parser.add_argument(
+            "--no_discriminator_backprop",
+            type=str2bool,
+            default=False,
+            help="Whether discriminator is frozen.",
         )
 
     @classmethod
@@ -99,6 +106,8 @@ class GANTrainer(Trainer):
         use_wandb = options.use_wandb
         generator_first = options.generator_first
         distributed = distributed_option.distributed
+        no_discriminator_backprop = options.no_discriminator_backprop
+        logging.info(f"no_discriminator_backprop = {no_discriminator_backprop}")
 
         # Check unavailable options
         # TODO(kan-bayashi): Support the use of these options
@@ -202,8 +211,9 @@ class GANTrainer(Trainer):
                 reporter.register(stats, weight)
 
                 with reporter.measure_time(f"{turn}_backward_time"):
-                    # FIXME: should we backprop discriminator loss
-                    if turn != 'discriminator':
+                    # NOTE(Jiyang): we can't backprop discriminator if it's frozen
+                    # See also build_optimizers() in gan_tts.py
+                    if turn != 'discriminator' or not no_discriminator_backprop:
                         if scaler is not None:
                             # Scales loss.  Calls backward() on scaled loss
                             # to create scaled gradients.
@@ -216,6 +226,15 @@ class GANTrainer(Trainer):
                             # print(retval)
                             # loss.backward(retain_graph=True)
                             loss.backward()
+
+                            # print(model.tts.generator.decoder.input_conv.weight.grad)
+                            # print("flow:", model.tts.generator.flow.flows[0].proj.weight.grad)
+                            # print("generator block", model.tts.generator.decoder.blocks[-1].convs1[0][1].weight.grad)
+                            # print("text encoder:",
+                            #       model.tts.generator.text_encoder.encoder.encoders[0].feed_forward.w_2.weight.grad)
+
+                # print(model.tts.discriminator.msd.discriminators[0].layers[0][0].weight.grad)
+                # import pdb; pdb.set_trace()
 
                 if scaler is not None:
                     # Unscales the gradients of optimizer's assigned params in-place

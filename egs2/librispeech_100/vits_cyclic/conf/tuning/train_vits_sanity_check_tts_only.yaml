@@ -158,7 +158,7 @@ tts_conf:
   lambda_kl: 1.0         # loss scaling coefficient for KL divergence loss
   # others
   sampling_rate: 16000          # needed in the inference for saving wav
-  cache_generator_outputs: true # whether to cache generator outputs in the training
+  cache_generator_outputs: false # whether to cache generator outputs in the training
 
   use_md: true
   skip_text_encoder: false
@@ -166,31 +166,36 @@ tts_conf:
 
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
+#              (Original VITS configs)                   #
 ##########################################################
-optim: adam
+optim: adamw
 optim_conf:
-  lr: 0.0001
-scheduler: warmuplr
+  lr: 1.0e-3
+  betas: [0.8, 0.99]
+  eps: 1.0e-9
+  weight_decay: 0.0
+scheduler: exponentiallr
 scheduler_conf:
-  warmup_steps: 30000
+  gamma: 0.999875
 # optimizer setting for discriminator
-optim2: adam
+optim2: adamw
 optim2_conf:
-  lr: 0.0001
-scheduler2: warmuplr
+  lr: 1.0e-3
+  betas: [0.8, 0.99]
+  eps: 1.0e-9
+  weight_decay: 0.0
+scheduler2: exponentiallr
 scheduler2_conf:
-  warmup_steps: 30000
+  gamma: 0.999875
 generator_first: false
 
-no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
-
 model_conf:
-  mtlalpha: 1.0
+  mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.5
+  asr_weight: 0.0
   lsm_weight: 0.1
   length_normalized_loss: true
-  use_unpaired: true 
+  use_unpaired: false
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: true
 
@@ -202,7 +207,7 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 200              # number of epochs
+max_epoch: 200               # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
@@ -243,5 +248,7 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "tts",
+    "asr_encoder",
+    "asr_decoder",
+    "ctc",
 ]

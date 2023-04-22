@@ -1,4 +1,7 @@
-# Sanity check using VITS
+# Unpaired + sudo text
+# Freeze TTS
+# No supervision on ASR decoder
+# Align text embedding using KL
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -169,28 +172,32 @@ tts_conf:
 ##########################################################
 optim: adam
 optim_conf:
-  lr: 0.001  # ASR-only model requires a smaller learning rate
+  lr: 0.0001
 scheduler: warmuplr
 scheduler_conf:
   warmup_steps: 30000
 # optimizer setting for discriminator
 optim2: adam
 optim2_conf:
-  lr: 0.001
+  lr: 0.0001
 scheduler2: warmuplr
 scheduler2_conf:
   warmup_steps: 30000
 generator_first: false
 
+no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
+
 model_conf:
-  mtlalpha: 0.3
+  mtlalpha: 1.0
   mt_weight: 0.0
-  asr_weight: 1.0
+  asr_weight: 0.75
   lsm_weight: 0.1
-  length_normalized_loss: false
-  use_unpaired: false
+  length_normalized_loss: true
+  use_unpaired: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
+  text_embed_loss_scale: 1
+  text_embed_loss: kl
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -200,7 +207,7 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 10               # number of epochs
+max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
@@ -221,7 +228,7 @@ best_model_criterion:
     - min
   - - valid
     - acc_asr
-    - min
+    - max
   - - train
     - loss
     - min

@@ -1,4 +1,4 @@
-# Sanity check using VITS
+# Unpaired training using VITS with discriminator frozen and reduced learning rate
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -161,8 +161,8 @@ tts_conf:
   cache_generator_outputs: true # whether to cache generator outputs in the training
 
   use_md: true
-  skip_text_encoder: false
-  gumbel_softmax_input: true
+  # skip_text_encoder: false
+  # gumbel_softmax_input: true
 
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
@@ -185,14 +185,15 @@ generator_first: false
 no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
-  mtlalpha: 1.0
+  mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.5
+  asr_weight: 0.75
   lsm_weight: 0.1
   length_normalized_loss: true
-  use_unpaired: true 
+  use_unpaired: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
-  gumbel_softmax: true
+  gumbel_softmax: false
+  text_embed_loss_scale: 10
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #

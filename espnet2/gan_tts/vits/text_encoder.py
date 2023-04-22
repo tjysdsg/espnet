@@ -13,7 +13,7 @@ from typing import Tuple
 import torch
 
 from espnet.nets.pytorch_backend.conformer.encoder import Encoder
-from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
+from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask, make_pad_mask
 
 
 class TextEncoder(torch.nn.Module):
@@ -127,7 +127,6 @@ class TextEncoder(torch.nn.Module):
                 x = torch.matmul(x, self.emb.weight) * math.sqrt(self.attention_dim)
             else:
                 x = self.emb(x) * math.sqrt(self.attention_dim)
-        # import pdb; pdb.set_trace()
         x_mask = (
             make_non_pad_mask(x_lengths)
             .to(
@@ -147,3 +146,11 @@ class TextEncoder(torch.nn.Module):
         m, logs = stats.split(stats.size(1) // 2, dim=1)
 
         return x, m, logs, x_mask
+
+    def encode(self, x: torch.Tensor, x_lengths: torch.Tensor):
+        x = self.emb(x) * math.sqrt(self.attention_dim)
+
+        x_mask = make_pad_mask(x_lengths).to(device=x.device)
+        x_mask = x_mask.unsqueeze(2).repeat(1, 1, x.size(2))
+
+        return x, x_mask

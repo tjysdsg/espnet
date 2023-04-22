@@ -547,6 +547,9 @@ class GANTTSTask(AbsTask):
         assert hasattr(model.tts, "generator")
         assert hasattr(model.tts, "discriminator")
 
+        generator_params = list(model.asr_encoder.parameters()) + list(model.asr_decoder.parameters()) \
+                           + list(model.ctc.parameters()) + list(model.tts.generator.parameters())
+
         # define generator optimizer
         optim_g_class = optim_classes.get(args.optim)
         if optim_g_class is None:
@@ -557,13 +560,13 @@ class GANTTSTask(AbsTask):
             except ImportError:
                 raise RuntimeError("Requiring fairscale. Do 'pip install fairscale'")
             optim_g = fairscale.optim.oss.OSS(
-                params=model.parameters(),
+                params=generator_params,
                 optim=optim_g_class,
                 **args.optim_conf,
             )
         else:
             optim_g = optim_g_class(
-                model.parameters(),
+                generator_params,  # NOTE(Jiyang): We backprop ASR sub-module using generator's optimizer
                 **args.optim_conf,
             )
         optimizers = [optim_g]

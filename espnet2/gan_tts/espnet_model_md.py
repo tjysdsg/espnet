@@ -81,14 +81,14 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         asr_normalize:bool = False,
         gumbel_softmax: bool = False,
         create_KL_copy: bool = False,
-        intermediate_supervision: bool = False,
         teacher_student: bool = False,  # not used right now
-        use_asr_decoder_loss: bool = True,
+        text_embed_loss_scale: float = 0.0,
+        text_embed_loss: str = "mse",
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
         assert 0.0 <= mt_weight < 1.0, "mt_weight should be [0.0, 1.0)"
-        assert 0.0 <= mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
+        assert 0.0 <= mtlalpha <= 1.0, "mtlalpha should be [0.0, 1.0]"
 
         super().__init__()
         # note that eos is the same as sos (equivalent ID)
@@ -127,21 +127,17 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.frontend = frontend
         self.asr_encoder = asr_encoder
         self.create_KL_copy = create_KL_copy
-        self.intermediate_supervision = intermediate_supervision
         self.teacher_student = teacher_student
-        if self.create_KL_copy or self.intermediate_supervision:
+        if self.create_KL_copy:
             self.asr_encoder_copy = copy.deepcopy(asr_encoder)
         self.asr_decoder = asr_decoder
 
         self.use_unpaired = use_unpaired
-        self.use_asr_decoder_loss = use_asr_decoder_loss
-        self.gumbel_softmax = False
-        if self.use_unpaired:
-            self.idx_blank = self.token_list.index(sym_blank)
-            self.idx_space = self.token_list.index(sym_space)
-            self.gumbel_softmax = gumbel_softmax
+        self.idx_blank = self.token_list.index(sym_blank)
+        self.idx_space = self.token_list.index(sym_space)
 
         # decoder's output -> gumbel softmax -> TTS text encoder -> TTS encoder
+        self.gumbel_softmax = gumbel_softmax
         if self.gumbel_softmax:
             assert not self.tts.skip_text_encoder
             assert self.tts.gumbel_softmax_input
@@ -163,11 +159,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # ), "Missing src_token_list, cannot add asr module to st model"
         if self.mtlalpha > 0.0:
             self.ctc = ctc
-            if self.intermediate_supervision:
-                self.ctc_copy = copy.deepcopy(self.ctc)
         # import pdb;pdb.set_trace()
         self.asr_decoder = asr_decoder
-        # self.asr_decoder.gumbel_softmax = self.gumbel_softmax
+        self.asr_decoder.gumbel_softmax = self.gumbel_softmax
 
         # MT error calculator
         if report_bleu:
@@ -186,6 +180,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
+
+        self.text_embed_loss_scale = text_embed_loss_scale
+        self.text_embed_loss = text_embed_loss
+        assert self.text_embed_loss == 'mse' or self.text_embed_loss == 'kl'
 
     def forward(
         self,
@@ -238,12 +236,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             sudo_text = sudo_text[:, : sudo_text_lengths.max()]
 
         # 1. Encoder
-        # if self.intermediate_supervision:
-        #     # y_ctc_gold is the CTC output of the pretrained encoder self.asr_encoder_copy
-        #     y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens = self.encode(
-        #         speech, speech_lengths
-        #     )
-        # elif self.create_KL_copy:
         if self.create_KL_copy:
             encoder_out, encoder_out_lens, mse_loss = self.encode(
                 speech, speech_lengths
@@ -255,7 +247,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # If not given:
         #     - use canonical text during validation for calculating loss
         #     - use reference encoder's output during training
-        if self.intermediate_supervision and sudo_text is None:
+        if self.use_unpaired and sudo_text is None:
             if self.training:
                 assert False  # assume we always have sudo text during unpaired training
                 # sudo_text = y_ctc_gold
@@ -266,24 +258,14 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         # 2b. CTC branch
         if self.use_unpaired:
-            if self.intermediate_supervision:
-                (
-                    y_ctc_pred_pad,
-                    seq_hat_total_lens,
-                    loss_asr_ctc,
-                    cer_asr_ctc,
-                ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
-                )
-            else:
-                (
-                    y_ctc_pred_pad,
-                    seq_hat_total_lens,
-                    loss_asr_ctc,
-                    cer_asr_ctc,
-                ) = self._calc_ctc_loss(
-                    encoder_out, encoder_out_lens, text, text_lengths
-                )
+            (
+                y_ctc_pred_pad,
+                seq_hat_total_lens,
+                loss_asr_ctc,
+                cer_asr_ctc,
+            ) = self._calc_ctc_loss(
+                encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
+            )
         elif self.mtlalpha > 0:
             loss_asr_ctc, cer_asr_ctc = self._calc_ctc_loss(
                 encoder_out, encoder_out_lens, text, text_lengths
@@ -292,14 +274,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             loss_asr_ctc, cer_asr_ctc = 0, None
 
         if self.use_unpaired:
-            # if self.gumbel_softmax:
-            #     dec_asr_lengths = seq_hat_total_lens + 1
-            # else:
             dec_asr_lengths = sudo_text_lengths + 1
         else:
             dec_asr_lengths = text_lengths + 1
 
-        # 2a. ASR Decoder
+        # 2c. ASR Decoder
         if self.use_unpaired:
             (
                 loss_asr_att,
@@ -310,8 +289,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             ) = self._calc_asr_att_loss(
                 encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
             )
-            # if self.gumbel_softmax:
-            #     dec_asr_lengths = dec_asr_lengths.to(dtype=int)
+            if self.gumbel_softmax:
+                dec_asr_lengths = dec_asr_lengths.to(dtype=int)
         else:
             (
                 loss_asr_att,
@@ -359,6 +338,15 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
             # if self.energy_normalize is not None:
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
+
+        # 2d. MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
+        text_embed_loss = self.calc_text_embed_loss(
+            y_pred,
+            sudo_text if self.use_unpaired else text,
+            sudo_text_lengths if self.use_unpaired else text_lengths,
+        )
+
+        # 2e. TTS
         batch = dict(
             text=y_pred,
             text_lengths=dec_asr_lengths,
@@ -382,19 +370,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         # 3. Loss computation
         asr_ctc_weight = self.mtlalpha
-        if asr_ctc_weight == 0.0:
-            loss_asr = loss_asr_att
-        elif self.use_asr_decoder_loss:
-            loss_asr = (
-                asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
-            )
-        else:
-            loss_asr = loss_asr_ctc
+        loss_asr = (
+            asr_ctc_weight * loss_asr_ctc + (1 - asr_ctc_weight) * loss_asr_att
+        )
 
-        if self.asr_weight == 1.0:
-            loss = loss_asr
-        else:
-            loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr
+        loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr + text_embed_loss
         # import pdb;pdb.set_trace()
         if self.create_KL_copy:
             # FIXME: loss = 0.95 * loss + 0.05 * mse_loss
@@ -402,13 +382,13 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         if not is_discriminator:  # generator
             stats = dict(
-                # loss = loss.detach(),
-                # asr 
+                loss=loss.detach(),
                 loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
                 acc_asr=acc_asr_att,
                 cer_ctc=cer_asr_ctc,
                 cer=cer_asr_att,
                 wer=wer_asr_att,
+                text_embed_loss=text_embed_loss.detach() if type(text_embed_loss) is not float else text_embed_loss,
                 tts_generator_adv_loss=tts_stats["generator_adv_loss"],
                 tts_generator_dur_loss=tts_stats["generator_dur_loss"],
                 tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
@@ -428,19 +408,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         else:  # discriminator
             # import pdb;pdb.set_trace()
             stats = dict(
-                # loss is independently registered, so ignore in stats
-                # loss = loss.detach(),
-                # # asr 
-                # loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                # acc_asr=acc_asr_att,
-                # cer_ctc=cer_asr_ctc,
-                # cer=cer_asr_att,
-                # wer=wer_asr_att,
                 # tts
-                tts_loss=tts_loss.detach(),
                 tts_discriminator_loss=tts_stats.get("discriminator_loss", 0),
-                tts_discriminator_fake_loss = tts_stats.get("discriminator_fake_loss", 0),
-                tts_discriminator_real_loss = tts_stats.get("discriminator_real_loss", 0),
+                tts_discriminator_fake_loss=tts_stats.get("discriminator_fake_loss", 0),
+                tts_discriminator_real_loss= tts_stats.get("discriminator_real_loss", 0),
             )
             # FIXME, TODO [DONE]: update vits_dict with new loss and stats
             # force_gatherable: to-device and to-tensor if scalar for DataParallel
@@ -506,16 +477,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # -> encoder_out: (Batch, Length2, Dim2)
         encoder_out, encoder_out_lens, _ = self.asr_encoder(feats, feats_lengths)
 
-        if self.intermediate_supervision:
-            pass
-            # encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
-            #     feats, feats_lengths
-            # )
-            # y_ctc_gold, y_ctc_gold_lens = self._calc_ctc_output(
-            #     encoder_out_copy, encoder_out_copy_lens
-            # )
-            # import pdb;pdb.set_trace()
-        elif self.create_KL_copy:
+        if self.create_KL_copy:
             # import pdb;pdb.set_trace()
             mse_criterion = torch.nn.MSELoss(reduction="mean")
             encoder_out_copy, encoder_out_copy_lens, _ = self.asr_encoder_copy(
@@ -538,12 +500,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             encoder_out_lens.max(),
         )
 
-        # if self.intermediate_supervision:
-        #     return y_ctc_gold, y_ctc_gold_lens, encoder_out, encoder_out_lens
-        # elif self.create_KL_copy:
-        #     return encoder_out, encoder_out_lens, mse_loss
-        # else:
-        #     return encoder_out, encoder_out_lens
         if self.create_KL_copy:
             return encoder_out, encoder_out_lens, mse_loss
         else:
@@ -568,6 +524,22 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             feats, feats_lengths = speech, speech_lengths
         return feats, feats_lengths
 
+    def calc_text_embed_loss(self, x: torch.Tensor, text: torch.Tensor, text_lengths: torch.Tensor):
+        if self.text_embed_loss_scale == 0:
+            return 0.0
+
+        tgt, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
+        tgt.masked_fill_(pad_mask, 0.0)
+
+        x = x[:, :-1, :].masked_fill(pad_mask, 0.0)
+
+        if self.text_embed_loss == "mse":
+            loss = F.mse_loss(x, tgt)
+        else:
+            loss = F.kl_div(F.log_softmax(x, dim=-1), F.softmax(tgt, dim=-1), reduction="batchmean")
+
+        return self.text_embed_loss_scale * loss
+
     def _calc_asr_att_loss(
         self,
         encoder_out: torch.Tensor,
@@ -576,19 +548,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         ys_pad_lens: torch.Tensor,
         ground_truth: torch.Tensor = None,  # only used to compute CER, fallback to ys_pad if None
     ):
-        # if self.gumbel_softmax:
-        #     # ys_pad is gumbel softmax of the encoder output
-        #     gumbel_idx = torch.arange(ys_pad.shape[-1]).to(
-        #         ys_pad.device, dtype=ys_pad.dtype
-        #     )
-        #     ys_gumbel = torch.matmul(ys_pad, gumbel_idx).to(dtype=int)
-        #     _, ys_out_pad = add_sos_eos(ys_gumbel, self.sos, self.eos, self.ignore_id)
-        #     ys_in_pad = torch.zeros(ys_pad.shape[-1], device=ys_pad.device, dtype=ys_pad.dtype)
-        #     ys_in_pad[self.sos] = 1
-        #     ys_in_pad = ys_in_pad.unsqueeze(0)
-        #     # import pdb;pdb.set_trace()
-        #     ys_in_pad = torch.stack([torch.cat([ys_in_pad, y], dim=0) for y in ys_pad])
-        # else:
         ys_in_pad, ys_out_pad = add_sos_eos(
             ys_pad, self.sos, self.eos, self.ignore_id
         )
@@ -617,7 +576,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
         if self.gumbel_softmax:
-            y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=1, hard=True, dim=-1)
+            y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=1.0, hard=True, dim=-1)
             return loss_att, acc_att, cer_att, wer_att, y_pred_gumbel
         else:
             return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
@@ -634,8 +593,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
 
         # Calc ys_hat
-        # if self.use_unpaired and self.gumbel_softmax:
-        #     ys_one_hot_hat, ys_hat = self.ctc.gumbel_softmax(encoder_out)
         ys_hat = self.ctc.argmax(encoder_out).data
 
         # Calc CER using CTC
@@ -646,36 +603,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             cer_ctc = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu(), is_ctc=True)
 
         if self.use_unpaired:
-            # if self.gumbel_softmax:
-            #     seq_hat_total = []
-            #     for i, y in enumerate(ys_hat):
-            #         y_hat = [x[0] for x in groupby(y)]
-            #         y_hat_sum = [sum(1 for _ in x[1]) for x in groupby(y)]
-            #         seq_hat = []
-            #         idx_index = 0
-            #         # import pdb;pdb.set_trace()
-            #         for idx_len in range(len(y_hat)):
-            #             idx = int(y_hat[idx_len])
-            #             if idx != -1 and idx != self.idx_blank:
-            #                 seq_hat.append(ys_one_hot_hat[i][idx_index])
-            #             idx_index += y_hat_sum[idx_len]
-            #         # import pdb;pdb.set_trace()
-            #         seq_hat_total.append(
-            #             torch.stack(seq_hat).to(ys_hat.device, dtype=ys_hat.dtype)
-            #         )
-            #     seq_hat_total_lens = torch.Tensor([len(k) for k in seq_hat_total]).to(
-            #         ys_hat.device, dtype=ys_hat.dtype
-            #     )
-            #     n_batch = len(seq_hat_total)
-            #     max_len = max(x.size(0) for x in seq_hat_total)
-            #     xs = seq_hat_total
-            #     pad = xs[0].new_zeros(n_batch, max_len, *xs[0].size()[1:])
-            #     pad[:, :, 0] = 1.0
-            #     for i in range(n_batch):
-            #         pad[i, : xs[i].size(0)] = xs[i]
-            #     # import pdb;pdb.set_trace()
-            #     y_ctc_pred_pad = pad
-            # else:
             seq_hat_total = []
             # import pdb;pdb.set_trace()
             for i, y in enumerate(ys_hat):
