@@ -387,25 +387,38 @@ class VITS(AbsGANTTS):
         speech = speech.unsqueeze(1)
 
         # calculate generator outputs
-        reuse_cache = True
-        if not self.cache_generator_outputs or self._cache is None:
-            reuse_cache = False
-            outs = self.generator(
-                text=text,
-                text_lengths=text_lengths,
-                feats=feats,
-                feats_lengths=feats_lengths,
-                sids=sids,
-                spembs=spembs,
-                lids=lids,
-                random_segment=not full,
-            )
-        else:
-            outs = self._cache
 
-        # store cache
-        if self.training and self.cache_generator_outputs and not reuse_cache:
-            self._cache = outs
+        # NOTE(jiyang): I disabled the cache because it will cause left-over values to be used in the next iteration
+        #               if we skip the discriminator turn to speed up training
+        # FIXME: reuse_cache = True
+        #   if not self.cache_generator_outputs or self._cache is None:
+        #       reuse_cache = False
+        #       outs = self.generator(
+        #           text=text,
+        #           text_lengths=text_lengths,
+        #           feats=feats,
+        #           feats_lengths=feats_lengths,
+        #           sids=sids,
+        #           spembs=spembs,
+        #           lids=lids,
+        #           random_segment=not full,
+        #       )
+        #   else:
+        #       outs = self._cache
+        #   # store cache
+        #   if self.training and self.cache_generator_outputs and not reuse_cache:
+        #       self._cache = outs
+
+        outs = self.generator(
+            text=text,
+            text_lengths=text_lengths,
+            feats=feats,
+            feats_lengths=feats_lengths,
+            sids=sids,
+            spembs=spembs,
+            lids=lids,
+            random_segment=not full,
+        )
 
         # parse outputs
         speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
@@ -455,9 +468,9 @@ class VITS(AbsGANTTS):
 
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 
-        # reset cache
-        if reuse_cache or not self.training:
-            self._cache = None
+        # FIXME: reset cache
+        #   if reuse_cache or not self.training:
+        #       self._cache = None
 
         return {
             "loss": loss,
