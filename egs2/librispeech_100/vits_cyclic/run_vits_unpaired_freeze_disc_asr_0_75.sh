@@ -8,7 +8,7 @@ n_fft=1024
 n_shift=256
 win_length=null
 
-tag="vits_unpaired_freeze_tts_asr_0_75_lr_1e_4_mse_full_wav"
+tag="vits_unpaired_freeze_tts_asr_0_75_lr_1e_4_kl_full_wav"
 
 train_set="train_clean_460"
 valid_set="dev_clean"
