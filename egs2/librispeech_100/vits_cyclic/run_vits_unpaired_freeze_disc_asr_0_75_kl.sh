@@ -14,7 +14,7 @@ train_set="train_clean_460"
 valid_set="dev_clean"
 test_sets="dev_clean test_clean"
 
-train_config=conf/tuning/train_vits_char_unpaired_freeze_disc_460h_asr0_75.yaml
+train_config=conf/tuning/train_vits_char_unpaired_freeze_disc_460h_asr0_75_kl.yaml
 inference_tts_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 

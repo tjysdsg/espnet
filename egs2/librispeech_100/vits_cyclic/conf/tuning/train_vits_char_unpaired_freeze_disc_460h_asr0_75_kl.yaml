@@ -188,7 +188,7 @@ generator_first: false
 no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
-  mtlalpha: 1.0
+  mtlalpha: 0.3
   mt_weight: 0.0
   asr_weight: 0.75
   lsm_weight: 0.1
@@ -197,7 +197,7 @@ model_conf:
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
   text_embed_loss_scale: 1
-  # text_embed_loss_method: kl
+  text_embed_loss: kl
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -211,7 +211,7 @@ max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
-batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+batch_bins: 1800000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
