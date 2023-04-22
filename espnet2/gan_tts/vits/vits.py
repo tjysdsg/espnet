@@ -295,7 +295,7 @@ class VITS(AbsGANTTS):
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
         forward_generator: bool = True,
-        reinforce: bool = False,
+        full: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -310,6 +310,7 @@ class VITS(AbsGANTTS):
             spembs (Optional[Tensor]): Speaker embedding tensor (B, spk_embed_dim).
             lids (Optional[Tensor]): Language index tensor (B,) or (B, 1).
             forward_generator (bool): Whether to forward generator.
+            full (bool): Don't use random segment sampling if True.
 
         Returns:
             Dict[str, Any]:
@@ -330,7 +331,7 @@ class VITS(AbsGANTTS):
                 sids=sids,
                 spembs=spembs,
                 lids=lids,
-                reinforce=reinforce,
+                full=full,
             )
         else:
             return self._forward_discrminator(
@@ -356,7 +357,7 @@ class VITS(AbsGANTTS):
         sids: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
-        reinforce: bool = False,
+        full: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -370,6 +371,7 @@ class VITS(AbsGANTTS):
             sids (Optional[Tensor]): Speaker index tensor (B,) or (B, 1).
             spembs (Optional[Tensor]): Speaker embedding tensor (B, spk_embed_dim).
             lids (Optional[Tensor]): Language index tensor (B,) or (B, 1).
+            full (bool): Don't use random segment sampling if True.
 
         Returns:
             Dict[str, Any]:
@@ -396,7 +398,7 @@ class VITS(AbsGANTTS):
                 sids=sids,
                 spembs=spembs,
                 lids=lids,
-                random_segment=not reinforce,
+                random_segment=not full,
             )
         else:
             outs = self._cache
@@ -409,7 +411,7 @@ class VITS(AbsGANTTS):
         speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
         _, z_p, m_p, logs_p, _, logs_q = outs_
 
-        if reinforce:  # use the entire audio to calculate losses in REINFORCE mode
+        if full:  # use the entire audio to calculate losses
             speech_ = speech
             speech_len = min(speech_.size(2), speech_hat_.size(2))
             speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames

@@ -463,7 +463,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     batch.update(spembs=spembs[[i]])
                     with torch.no_grad():
                         vits_dict = self.tts.forward_reinforce(**batch)
-                        # vits_dict = self.tts(**batch, reinforce=True)
+                        # vits_dict = self.tts(**batch, full=True)
                         rewards.append(-vits_dict['loss'].item())
 
                 rewards = torch.as_tensor(rewards, device=log_probs.device)
@@ -494,7 +494,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             return vits_dict
 
         else:  # Normal TTS
-            vits_dict = self.tts(**batch)
+            vits_dict = self.tts(**batch, full=True)
             tts_loss = vits_dict['loss']
             tts_stats = vits_dict['stats']
             # tts_weight = vits_dict['weight']
