@@ -168,6 +168,7 @@ tts_conf:
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
 # (Ziang: since plan is to froze tts part, I leave this part unchanged)
+# optimizer setting for generator
 optim: adam             # optimizer type
 optim_conf: # keyword arguments for selected optimizer
   lr: 0.2             # learning rate
@@ -202,7 +203,7 @@ batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mel
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
-num_workers: 1              # number of workers of data loader
+num_workers: 4              # number of workers of data loader
 train_dtype: float32        # dtype in training
 log_interval: 50            # log interval in iterations
 keep_nbest_models: 5        # number of models to keep

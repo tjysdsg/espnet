@@ -200,11 +200,11 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 10               # number of epochs
+max_epoch: 500              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
-batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+batch_bins: 1800000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
@@ -241,10 +241,11 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "encoder",
-    "decoder",
-    "ctc",
-    "frontend",
-    "normalize",
-    "discriminator"
+    "asr_encoder",
+    "asr_decoder",
+    # "ctc",
+    # "frontend",
+    # # "normalize",
+    # "asr_normalize",
+    "tts.discriminator"
 ]
