@@ -641,3 +641,86 @@ class VITS(AbsGANTTS):
                 max_len=max_len,
             )
         return dict(wav=wav.view(-1), att_w=att_w[0], duration=dur[0])
+
+    def forward_reinforce(
+        self,
+        text: torch.Tensor,
+        text_lengths: torch.Tensor,
+        feats: torch.Tensor,
+        feats_lengths: torch.Tensor,
+        speech: torch.Tensor,
+        speech_lengths: torch.Tensor,
+        sids: Optional[torch.Tensor] = None,
+        spembs: Optional[torch.Tensor] = None,
+        lids: Optional[torch.Tensor] = None,
+        **kwargs,
+    ):
+        """
+        Same as _forward_generator but without adversarial losses.
+        """
+        # setup
+        batch_size = text.size(0)
+        feats = feats.transpose(1, 2)
+        speech = speech.unsqueeze(1)
+
+        # calculate generator outputs
+        reuse_cache = True
+        if not self.cache_generator_outputs or self._cache is None:
+            reuse_cache = False
+            outs = self.generator(
+                text=text,
+                text_lengths=text_lengths,
+                feats=feats,
+                feats_lengths=feats_lengths,
+                sids=sids,
+                spembs=spembs,
+                lids=lids,
+                random_segment=False,
+            )
+        else:
+            outs = self._cache
+
+        # store cache
+        if self.training and self.cache_generator_outputs and not reuse_cache:
+            self._cache = outs
+
+        # parse outputs
+        speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
+        _, z_p, m_p, logs_p, _, logs_q = outs_
+
+        # use the entire audio to calculate losses in REINFORCE mode
+        speech_ = speech
+        speech_len = min(speech_.size(2), speech_hat_.size(2))
+        speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
+        speech_hat_ = speech_hat_[:, :, :speech_len]
+
+        # calculate losses
+        with autocast(enabled=False):
+            mel_loss = self.mel_loss(speech_hat_, speech_)
+            kl_loss = self.kl_loss(z_p, logs_q, m_p, logs_p, z_mask)
+            dur_loss = torch.sum(dur_nll.float())
+
+            mel_loss = mel_loss * self.lambda_mel
+            kl_loss = kl_loss * self.lambda_kl
+            dur_loss = dur_loss * self.lambda_dur
+            loss = mel_loss + kl_loss + dur_loss
+
+        stats = dict(
+            generator_loss=loss.item(),
+            generator_mel_loss=mel_loss.item(),
+            generator_kl_loss=kl_loss.item(),
+            generator_dur_loss=dur_loss.item(),
+        )
+
+        loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+
+        # reset cache
+        if reuse_cache or not self.training:
+            self._cache = None
+
+        return {
+            "loss": loss,
+            "stats": stats,
+            "weight": weight,
+            "optim_idx": 0,  # needed for trainer
+        }
