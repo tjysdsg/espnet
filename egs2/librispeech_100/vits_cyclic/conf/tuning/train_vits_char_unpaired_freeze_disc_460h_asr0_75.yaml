@@ -1,4 +1,7 @@
-# Sanity check using VITS
+# Unpaired + sudo text
+# Freeze TTS
+# No supervision on ASR decoder
+# Align text embedding using KL
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -167,7 +170,6 @@ tts_conf:
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
-# optimizer setting for generator
 optim: adam
 optim_conf:
   lr: 0.0001
@@ -181,17 +183,21 @@ optim2_conf:
 scheduler2: warmuplr
 scheduler2_conf:
   warmup_steps: 30000
-generator_first: false # whether to start updating generator first
+generator_first: false
+
+no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
-  mtlalpha: 0.3
+  mtlalpha: 1.0
   mt_weight: 0.0
   asr_weight: 0.75
   lsm_weight: 0.1
   length_normalized_loss: true
-  use_unpaired: true 
+  use_unpaired: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
+  text_embed_loss_scale: 1
+  # text_embed_loss_method: kl
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -222,7 +228,7 @@ best_model_criterion:
     - min
   - - valid
     - acc_asr
-    - min
+    - max
   - - train
     - loss
     - min
@@ -242,5 +248,5 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "tts.discriminator"
+    "tts",
 ]
