@@ -203,7 +203,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.linear_layer_y_pred = None
 
         self.text_embed_loss_scale = text_embed_loss_scale
-        self.text_embed_loss_method = text_embed_loss_method
+        self.text_embed_loss_method = text_embed_loss
         assert self.text_embed_loss_method == 'mse' or self.text_embed_loss_method == 'kl'
 
         # ASR beam search if REINFORCE is enabled
@@ -357,6 +357,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # 2d. ASR losses
         loss_asr = self.mtlalpha * loss_asr_ctc + (1 - self.mtlalpha) * loss_asr_att
 
+        feats_dim = y_pred.shape[-1]
+        if not self.linear_layer_y_pred:
+            self.linear_layer_y_pred = torch.nn.Linear(in_features=feats_dim, out_features=feats_dim).to(y_pred.device)
+
         # MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
         text_embed_loss = self.calc_text_embed_loss(
             y_pred,
@@ -401,18 +405,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             #     pitch, pitch_lengths = self.pitch_normalize(pitch, pitch_lengths)
             # if self.energy_normalize is not None:
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
-
-        # 2d. MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
-        feats_dim = y_pred.shape[-1]
-        if not self.linear_layer_y_pred:
-            self.linear_layer_y_pred = torch.nn.Linear(in_features=feats_dim, out_features=feats_dim).to(feats.device)
-
-
-        text_embed_loss = self.calc_text_embed_loss(
-            y_pred,
-            sudo_text if self.use_unpaired else text,
-            sudo_text_lengths if self.use_unpaired else text_lengths,
-        )
 
         # 2e. TTS
         batch = dict(
