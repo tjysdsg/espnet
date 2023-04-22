@@ -228,8 +228,6 @@ class VITS(AbsGANTTS):
             #   the input acoustic feature dimension.
             generator_params.update(vocabs=idim, aux_channels=odim)
 
-        if use_md and not skip_text_encoder:
-            assert gumbel_softmax_input
         self.generator = generator_class(
             skip_text_encoder=skip_text_encoder,
             **generator_params,
@@ -297,6 +295,7 @@ class VITS(AbsGANTTS):
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
         forward_generator: bool = True,
+        reinforce: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -320,7 +319,6 @@ class VITS(AbsGANTTS):
                 - optim_idx (int): Optimizer index (0 for G and 1 for D).
 
         """
-        # FIXME: add use_md in both
         if forward_generator:
             return self._forward_generator(
                 text=text,
@@ -332,6 +330,7 @@ class VITS(AbsGANTTS):
                 sids=sids,
                 spembs=spembs,
                 lids=lids,
+                reinforce=reinforce,
             )
         else:
             return self._forward_discrminator(
@@ -357,6 +356,7 @@ class VITS(AbsGANTTS):
         sids: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
+        reinforce: bool = False,
     ) -> Dict[str, Any]:
         """Perform generator forward.
 
@@ -396,6 +396,7 @@ class VITS(AbsGANTTS):
                 sids=sids,
                 spembs=spembs,
                 lids=lids,
+                random_segment=not reinforce,
             )
         else:
             outs = self._cache
@@ -407,11 +408,18 @@ class VITS(AbsGANTTS):
         # parse outputs
         speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
         _, z_p, m_p, logs_p, _, logs_q = outs_
-        speech_ = get_segments(
-            x=speech,
-            start_idxs=start_idxs * self.generator.upsample_factor,
-            segment_size=self.generator.segment_size * self.generator.upsample_factor,
-        )
+
+        if reinforce:  # use the entire audio to calculate losses in REINFORCE mode
+            speech_ = speech
+            speech_len = min(speech_.size(2), speech_hat_.size(2))
+            speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
+            speech_hat_ = speech_hat_[:, :, :speech_len]
+        else:
+            speech_ = get_segments(
+                x=speech,
+                start_idxs=start_idxs * self.generator.upsample_factor,
+                segment_size=self.generator.segment_size * self.generator.upsample_factor,
+            )
 
         # calculate discriminator outputs
         p_hat = self.discriminator(speech_hat_)

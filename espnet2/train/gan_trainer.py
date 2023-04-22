@@ -154,6 +154,10 @@ class GANTrainer(Trainer):
             else:
                 turns = ["discriminator", "generator"]
             for turn in turns:
+                # NOTE(Jiyang): skip discriminator turn if no_discriminator_backprop is true
+                #             : this speeds up training, the downside is that discriminator stats become unavailable
+                if turn == 'discriminator' and no_discriminator_backprop:
+                    continue
                 with autocast(scaler is not None):
                     with reporter.measure_time(f"{turn}_forward_time"):
                         retval = model(forward_generator=turn == "generator", **batch)
@@ -345,6 +349,7 @@ class GANTrainer(Trainer):
         no_forward_run = options.no_forward_run
         distributed = distributed_option.distributed
         generator_first = options.generator_first
+        no_discriminator_backprop = options.no_discriminator_backprop
 
         model.eval()
 
@@ -367,6 +372,10 @@ class GANTrainer(Trainer):
             else:
                 turns = ["discriminator", "generator"]
             for turn in turns:
+                # NOTE(Jiyang): skip discriminator turn if no_discriminator_backprop is true
+                #             : this speeds up training, the downside is that discriminator stats become unavailable
+                if turn == 'discriminator' and no_discriminator_backprop:
+                    continue
                 retval = model(forward_generator=turn == "generator", **batch)
                 if isinstance(retval, dict):
                     stats = retval["stats"]
