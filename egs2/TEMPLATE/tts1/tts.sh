@@ -710,17 +710,17 @@ if ! "${skip_train}"; then
         <"${tts_stats_dir}/valid/text_shape" \
             awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
             >"${tts_stats_dir}/valid/text_shape.${token_type}"
+    fi
 
-        # sudo_text
+
+    if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+        # Regenerate sudo_text
         if [ -n "${sudo_text}" ]; then
             <"${tts_stats_dir}/train/sudo_text_shape" \
                 awk -v N="$(<${token_list} wc -l)" '{ print $0 "," N }' \
                 >"${tts_stats_dir}/train/sudo_text_shape.${token_type}"
         fi
-    fi
 
-
-    if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
         _train_dir="${data_feats}/${train_set}"
         _valid_dir="${data_feats}/${valid_set}"
         log "Stage 6: TTS Training: train_set=${_train_dir}, valid_set=${_valid_dir}"
