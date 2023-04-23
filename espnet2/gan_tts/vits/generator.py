@@ -463,7 +463,7 @@ class VITSGenerator(torch.nn.Module):
             g = self.global_emb(sids.view(-1)).unsqueeze(-1)
         if self.spk_embed_dim is not None:
             # (B, global_channels, 1)
-            g_ = self.spemb_proj(F.normalize(spembs.unsqueeze(0))).unsqueeze(-1)
+            g_ = self.spemb_proj(F.normalize(spembs)).unsqueeze(-1)
             if g is None:
                 g = g_
             else:

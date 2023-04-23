@@ -469,7 +469,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     batch.update(feats=feats[[i], :feats_lengths[i]], feats_lengths=feats_lengths[[i]])
                     batch.update(spembs=spembs[[i]])
                     with torch.no_grad():
-                        vits_dict = self.tts.forward_reinforce(**batch)
+                        vits_dict = self.tts.generate(**batch)
                         # vits_dict = self.tts(**batch, full=True)
                         rewards.append(-vits_dict['loss'].item())
                     # with torch.no_grad():
@@ -478,7 +478,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     #     print(wav.shape, speech[[i], :speech_lengths[i]].shape)
                     #     r = self.tts.mel_loss(wav.reshape(1, 1, -1), speech[[i], :speech_lengths[i]].unsqueeze(1))
                     #     rewards.append(r)
-                print(f"Sampled VITS losses:", rewards)
 
                 """
                     import soundfile as sf
@@ -488,6 +487,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                         16000,
                         "PCM_16",
                     )
+                print(f"Sampled VITS losses:", rewards)
 
                 best_hyp_reward = []
                 for i in range(best_hyps.shape[0]):
@@ -497,7 +497,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     batch.update(feats=feats[[idx], :feats_lengths[idx]], feats_lengths=feats_lengths[[idx]])
                     batch.update(spembs=spembs[[idx]])
                     with torch.no_grad():
-                        vits_dict = self.tts.forward_reinforce(**batch)
+                        vits_dict = self.tts.generate(**batch)
                         # vits_dict = self.tts(**batch, full=True)
                         best_hyp_reward.append(-vits_dict['loss'].item())
 

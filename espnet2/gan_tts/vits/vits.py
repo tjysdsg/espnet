@@ -657,52 +657,39 @@ class VITS(AbsGANTTS):
             )
         return dict(wav=wav.view(-1), att_w=att_w[0], duration=dur[0])
 
-    def forward_reinforce(
+    def generate(
         self,
         text: torch.Tensor,
         text_lengths: torch.Tensor,
-        feats: torch.Tensor,
-        feats_lengths: torch.Tensor,
         speech: torch.Tensor,
         speech_lengths: torch.Tensor,
-        sids: Optional[torch.Tensor] = None,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
         **kwargs,
     ):
-        """
-        Same as _forward_generator but without adversarial losses.
-        """
         # setup
         batch_size = text.size(0)
-        feats = feats.transpose(1, 2)
-        speech = speech.unsqueeze(1)
 
         # calculate generator outputs
-        outs = self.generator(
+        speech_hat_, _, _ = self.generator.inference(
             text=text,
             text_lengths=text_lengths,
-            feats=feats,
-            feats_lengths=feats_lengths,
-            sids=sids,
             spembs=spembs,
             lids=lids,
-            random_segment=False,
+            use_teacher_forcing=False,
         )
 
-        # parse outputs
-        speech_hat_, dur_nll, _, start_idxs, _, z_mask, outs_ = outs
-        _, z_p, m_p, logs_p, _, logs_q = outs_
+        speech_hat_ = speech_hat_.unsqueeze(1)
+        speech = speech.unsqueeze(1)
 
-        # use the entire audio to calculate losses in REINFORCE mode
-        speech_ = speech
-        speech_len = min(speech_.size(2), speech_hat_.size(2))
-        speech_ = speech_[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
+        # use the entire audio to calculate losses
+        speech_len = min(speech.size(2), speech_hat_.size(2))
+        speech = speech[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
         speech_hat_ = speech_hat_[:, :, :speech_len]
 
         # calculate losses
         with autocast(enabled=False):
-            mel_loss = self.mel_loss(speech_hat_, speech_)
+            mel_loss = self.mel_loss(speech_hat_, speech)
             mel_loss = mel_loss * self.lambda_mel
             loss = mel_loss
 
