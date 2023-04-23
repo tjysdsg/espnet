@@ -665,6 +665,7 @@ class VITS(AbsGANTTS):
         speech_lengths: torch.Tensor,
         spembs: Optional[torch.Tensor] = None,
         lids: Optional[torch.Tensor] = None,
+        include_adv_losses: bool = False,
         **kwargs,
     ):
         # setup
@@ -687,16 +688,39 @@ class VITS(AbsGANTTS):
         speech = speech[:, :, :speech_len]  # make sure the lengths are the same by discarding trailing frames
         speech_hat_ = speech_hat_[:, :, :speech_len]
 
+        # calculate discriminator outputs
+        p_hat = None
+        p = None
+        if include_adv_losses:
+            p_hat = self.discriminator(speech_hat_)
+            with torch.no_grad():
+                # do not store discriminator gradient in generator turn
+                p = self.discriminator(speech)
+
         # calculate losses
         with autocast(enabled=False):
             mel_loss = self.mel_loss(speech_hat_, speech)
             mel_loss = mel_loss * self.lambda_mel
             loss = mel_loss
 
+            if include_adv_losses:
+                adv_loss = self.generator_adv_loss(p_hat)
+                feat_match_loss = self.feat_match_loss(p_hat, p)
+
+                adv_loss = adv_loss * self.lambda_adv
+                feat_match_loss = feat_match_loss * self.lambda_feat_match
+                loss = loss + adv_loss + feat_match_loss
+
         stats = dict(
             generator_loss=loss.item(),
             generator_mel_loss=mel_loss.item(),
         )
+
+        if include_adv_losses:
+            stats.update(
+                generator_adv_loss=adv_loss.item(),
+                generator_feat_match_loss=feat_match_loss.item(),
+            )
 
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
 

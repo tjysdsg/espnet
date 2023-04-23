@@ -543,7 +543,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             return vits_dict
 
         else:  # Normal TTS
-            vits_dict = self.tts(**batch, full=True)
+            vits_dict = self.tts.generate(**batch, include_adv_losses=True)
             tts_loss = vits_dict['loss']
             tts_stats = vits_dict['stats']
             # tts_weight = vits_dict['weight']
@@ -561,9 +561,9 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     wer=wer_asr_att,
                     text_embed_loss=text_embed_loss.detach(),
                     tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-                    tts_generator_dur_loss=tts_stats["generator_dur_loss"],
+                    # tts_generator_dur_loss=tts_stats["generator_dur_loss"],
                     tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-                    tts_generator_kl_loss=tts_stats["generator_kl_loss"],
+                    # tts_generator_kl_loss=tts_stats["generator_kl_loss"],
                     tts_generator_loss=tts_stats["generator_loss"],
                     tts_generator_mel_loss=tts_stats["generator_mel_loss"],
                 )
@@ -573,6 +573,16 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 vits_dict['loss'] = gathered_loss
                 vits_dict['stats'] = gathered_stats
                 vits_dict['weight'] = weight
+
+                # wavs = vits_dict["wav"]
+                # import soundfile as sf
+                # for i in range(wavs.shape[0]):
+                #     sf.write(
+                #         f"{i}.wav",
+                #         wavs[i].squeeze().cpu().detach().numpy(),
+                #         16000,
+                #         "PCM_16",
+                #     )
 
                 return vits_dict
 
