@@ -678,6 +678,8 @@ class VITS(AbsGANTTS):
             spembs=spembs,
             lids=lids,
             use_teacher_forcing=False,
+            noise_scale=0, noise_scale_dur=0,  # keep the generated speech close to training data
+            alpha=1.0,
         )
 
         speech_hat_ = speech_hat_.unsqueeze(1)
