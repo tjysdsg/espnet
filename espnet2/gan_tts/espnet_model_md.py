@@ -219,6 +219,21 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.use_reinforce = use_reinforce
         self.reinforce_sample_size = reinforce_sample_size
 
+        # from espnet2.bin.tts_inference import Text2Speech
+        # self.tacotron2 = Text2Speech.from_pretrained(
+        #     model_tag='kan-bayashi/ljspeech_tacotron2',
+        #     vocoder_tag='parallel_wavegan/ljspeech_parallel_wavegan.v1',
+        #     device='cuda',
+        #     # Only for Tacotron 2 & Transformer
+        #     threshold=0.5,
+        #     # Only for Tacotron 2
+        #     minlenratio=0.0,
+        #     maxlenratio=10.0,
+        #     use_att_constraint=False,
+        #     backward_window=1,
+        #     forward_window=3,
+        # )
+
     def forward(
         self,
         speech: torch.Tensor,
@@ -457,7 +472,13 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                         vits_dict = self.tts.forward_reinforce(**batch)
                         # vits_dict = self.tts(**batch, full=True)
                         rewards.append(-vits_dict['loss'].item())
-                # print(f"Sampled VITS losses:", rewards)
+                    # with torch.no_grad():
+                    #     res = self.tacotron2(token_seq_to_text(sampled_text[i], self.token_list), spembs=spembs[i])
+                    #     wav = res['wav'].to(device=speech.device)
+                    #     print(wav.shape, speech[[i], :speech_lengths[i]].shape)
+                    #     r = self.tts.mel_loss(wav.reshape(1, 1, -1), speech[[i], :speech_lengths[i]].unsqueeze(1))
+                    #     rewards.append(r)
+                print(f"Sampled VITS losses:", rewards)
 
                 """
                     import soundfile as sf
