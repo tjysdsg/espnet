@@ -211,12 +211,12 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
-        self.feats_dim = 256
-        self.linear_layer_y_pred = torch.nn.Linear(in_features=self.feats_dim, out_features=self.feats_dim).to("cuda:0") # fixme: hardcoding device for now.
 
         self.text_embed_loss_scale = text_embed_loss_scale
         self.text_embed_loss_method = text_embed_loss
         assert self.text_embed_loss_method == 'mse' or self.text_embed_loss_method == 'kl'
+        self.feats_dim = self.asr_encoder.output_size()
+        self.text_embed_linear = torch.nn.Linear(in_features=self.feats_dim, out_features=self.feats_dim)
 
         self.use_reinforce = use_reinforce
         self.reinforce_sample_size = reinforce_sample_size
@@ -559,7 +559,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     cer_ctc=cer_asr_ctc,
                     cer=cer_asr_att,
                     wer=wer_asr_att,
-                    text_embed_loss=text_embed_loss.detach() if type(text_embed_loss) is not float else text_embed_loss,
+                    text_embed_loss=text_embed_loss.detach(),
                     tts_generator_adv_loss=tts_stats["generator_adv_loss"],
                     tts_generator_dur_loss=tts_stats["generator_dur_loss"],
                     tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
@@ -696,11 +696,10 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
     def calc_text_embed_loss(self, x: torch.Tensor, text: torch.Tensor, text_lengths: torch.Tensor):
         if self.text_embed_loss_scale == 0:
-            # return 0
             return torch.tensor(0.0).to(x.device)
 
         # apply linear layer
-        x = self.linear_layer_y_pred(x)
+        x = self.text_embed_linear(x)
 
         tgt, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
         tgt.masked_fill_(pad_mask, 0.0)
