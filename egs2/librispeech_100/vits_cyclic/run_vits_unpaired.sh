@@ -11,14 +11,14 @@ n_fft=1024
 n_shift=256
 win_length=null
 
-tag="vits_unpaired_460_sudo_align_text_kl"
+tag="vits_unpaired_460_sudo_align_text"
 
 train_set="train_clean_460"
 valid_set="dev_clean"
 test_sets="dev_clean test_clean test_other"
 
-# train_config=conf/tuning/train_vits_unpaired_freeze_tts_align_text.yaml
-train_config=conf/tuning/train_vits_unpaired_freeze_tts_align_text_kl.yaml
+# train_config=conf/tuning/train_vits_unpaired_freeze_tts_align_text_kl.yaml
+train_config=conf/tuning/train_vits_unpaired_freeze_tts_align_text.yaml
 inference_config=conf/decode.yaml
 inference_asr_config=conf/decode_asr.yaml
 
