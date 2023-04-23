@@ -596,13 +596,20 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
                 # wavs = vits_dict["wav"]
                 # import soundfile as sf
-                # for i in range(wavs.shape[0]):
+                # for i in range(speech.shape[0]):
+                #     sf.write(
+                #         f"{i}gt.wav",
+                #         speech[i].squeeze().cpu().detach().numpy(),
+                #         16000,
+                #         "PCM_16",
+                #     )
                 #     sf.write(
                 #         f"{i}.wav",
                 #         wavs[i].squeeze().cpu().detach().numpy(),
                 #         16000,
                 #         "PCM_16",
                 #     )
+                # exit(1)
 
                 return vits_dict
 
