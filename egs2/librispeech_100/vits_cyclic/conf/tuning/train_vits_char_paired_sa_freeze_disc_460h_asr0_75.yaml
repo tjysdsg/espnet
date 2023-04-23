@@ -168,31 +168,25 @@ tts_conf:
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
 # optimizer setting for generator
-optim: adamw
+optim: adam
 optim_conf:
-    lr: 2.0e-4
-    betas: [0.8, 0.99]
-    eps: 1.0e-9
-    weight_decay: 0.0
-scheduler: exponentiallr
+  lr: 0.0001
+scheduler: warmuplr
 scheduler_conf:
-    gamma: 0.999875
+  warmup_steps: 30000
 # optimizer setting for discriminator
-optim2: adamw
+optim2: adam
 optim2_conf:
-    lr: 2.0e-4
-    betas: [0.8, 0.99]
-    eps: 1.0e-9
-    weight_decay: 0.0
-scheduler2: exponentiallr
+  lr: 0.0001
+scheduler2: warmuplr
 scheduler2_conf:
-    gamma: 0.999875
+  warmup_steps: 30000
 generator_first: false # whether to start updating generator first
 
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 0.75
   lsm_weight: 0.1
   length_normalized_loss: true
   use_unpaired: false
@@ -207,11 +201,11 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 500              # number of epochs
+max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
-batch_bins: 1800000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
+batch_bins: 2000000         # batch bins (for feats_type=raw, *= n_shift / n_mels)
 batch_type: numel           # how to make batch
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
@@ -228,7 +222,7 @@ best_model_criterion:
     - min
   - - valid
     - acc_asr
-    - max
+    - min
   - - train
     - loss
     - min

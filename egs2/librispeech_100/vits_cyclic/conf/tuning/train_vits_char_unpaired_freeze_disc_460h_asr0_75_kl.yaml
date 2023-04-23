@@ -1,4 +1,7 @@
-# Sanity check using VITS
+# Unpaired + sudo text
+# Freeze TTS
+# No supervision on ASR decoder
+# Align text embedding using KL
 
 ##########################################################
 #                  ASR MODEL SETTING                     #
@@ -167,37 +170,34 @@ tts_conf:
 ##########################################################
 #            OPTIMIZER & SCHEDULER SETTING               #
 ##########################################################
-# optimizer setting for generator
-optim: adamw
+optim: adam
 optim_conf:
-    lr: 2.0e-4
-    betas: [0.8, 0.99]
-    eps: 1.0e-9
-    weight_decay: 0.0
-scheduler: exponentiallr
+  lr: 0.0001
+scheduler: warmuplr
 scheduler_conf:
-    gamma: 0.999875
+  warmup_steps: 30000
 # optimizer setting for discriminator
-optim2: adamw
+optim2: adam
 optim2_conf:
-    lr: 2.0e-4
-    betas: [0.8, 0.99]
-    eps: 1.0e-9
-    weight_decay: 0.0
-scheduler2: exponentiallr
+  lr: 0.0001
+scheduler2: warmuplr
 scheduler2_conf:
-    gamma: 0.999875
-generator_first: false # whether to start updating generator first
+  warmup_steps: 30000
+generator_first: false
+
+no_discriminator_backprop: true # <--------------------------------------------------------------------------------------
 
 model_conf:
   mtlalpha: 0.3
   mt_weight: 0.0
-  asr_weight: 0.3
+  asr_weight: 0.75
   lsm_weight: 0.1
   length_normalized_loss: true
-  use_unpaired: false
+  use_unpaired: true
   asr_normalize: true # <--------------------------------------------------------------------------------------
   gumbel_softmax: false
+  text_embed_loss_scale: 1
+  text_embed_loss: kl
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #
@@ -207,7 +207,7 @@ cudnn_deterministic: false
 cudnn_benchmark: false
 
 num_iters_per_epoch: 1000   # number of iterations per epoch
-max_epoch: 500              # number of epochs
+max_epoch: 200              # number of epochs
 grad_clip: 1.0              # gradient clipping norm
 grad_noise: false           # whether to use gradient noise injection
 accum_grad: 1               # gradient accumulation
@@ -248,5 +248,5 @@ init_param: [
   "/ocean/projects/cis210027p/zzhou5/espnet/egs2/librispeech_100/tts_vits/exp/1024_mel_vits_char/tts_mel_1024_char_lib100_vits_tts_16k_xvector/train.total_count.best.pth:tts.mel_loss.wav_to_mel:tts.mel_loss.wav_to_mel",
 ]
 freeze_param: [
-    "tts.discriminator"
+    "tts",
 ]

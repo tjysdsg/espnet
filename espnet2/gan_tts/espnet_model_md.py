@@ -211,10 +211,12 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             self.asr_error_calculator = None
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
+        self.feats_dim = 256
+        self.linear_layer_y_pred = torch.nn.Linear(in_features=self.feats_dim, out_features=self.feats_dim).to("cuda:0") # fixme: hardcoding device for now.
 
         self.text_embed_loss_scale = text_embed_loss_scale
-        self.text_embed_loss = text_embed_loss
-        assert self.text_embed_loss == 'mse' or self.text_embed_loss == 'kl'
+        self.text_embed_loss_method = text_embed_loss
+        assert self.text_embed_loss_method == 'mse' or self.text_embed_loss_method == 'kl'
 
         self.use_reinforce = use_reinforce
         self.reinforce_sample_size = reinforce_sample_size
@@ -399,6 +401,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             # if self.energy_normalize is not None:
             #     energy, energy_lengths = self.energy_normalize(energy, energy_lengths)
 
+        # 2e. TTS
         batch = dict(
             text=y_pred,
             text_lengths=dec_asr_lengths,
@@ -693,14 +696,18 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
     def calc_text_embed_loss(self, x: torch.Tensor, text: torch.Tensor, text_lengths: torch.Tensor):
         if self.text_embed_loss_scale == 0:
-            return 0.0
+            # return 0
+            return torch.tensor(0.0).to(x.device)
+
+        # apply linear layer
+        x = self.linear_layer_y_pred(x)
 
         tgt, pad_mask = self.tts.generator.text_encoder.encode(text, text_lengths)
         tgt.masked_fill_(pad_mask, 0.0)
 
         x = x[:, :-1, :].masked_fill(pad_mask, 0.0)
 
-        if self.text_embed_loss == "mse":
+        if self.text_embed_loss_method == "mse":
             loss = F.mse_loss(x, tgt)
         else:
             loss = F.kl_div(F.log_softmax(x, dim=-1), F.softmax(tgt, dim=-1), reduction="batchmean")
