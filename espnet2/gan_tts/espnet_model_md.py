@@ -457,6 +457,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                         vits_dict = self.tts.forward_reinforce(**batch)
                         # vits_dict = self.tts(**batch, full=True)
                         rewards.append(-vits_dict['loss'].item())
+                # print(f"Sampled VITS losses:", rewards)
 
                 """
                     import soundfile as sf
@@ -466,7 +467,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                         16000,
                         "PCM_16",
                     )
-                print(f"Sampled VITS losses:", rewards)
 
                 best_hyp_reward = []
                 for i in range(best_hyps.shape[0]):
@@ -491,7 +491,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 """
 
                 rewards = torch.as_tensor(rewards, device=log_probs.device)
-                rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+                # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
                 # print('Reward after subtracting REINFORCE baseline:', rewards)
 
                 loss = log_probs * rewards

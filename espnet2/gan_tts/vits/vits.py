@@ -703,19 +703,12 @@ class VITS(AbsGANTTS):
         # calculate losses
         with autocast(enabled=False):
             mel_loss = self.mel_loss(speech_hat_, speech_)
-            kl_loss = self.kl_loss(z_p, logs_q, m_p, logs_p, z_mask)
-            dur_loss = torch.sum(dur_nll.float())
-
             mel_loss = mel_loss * self.lambda_mel
-            kl_loss = kl_loss * self.lambda_kl
-            dur_loss = dur_loss * self.lambda_dur
-            loss = mel_loss + kl_loss + dur_loss
+            loss = mel_loss
 
         stats = dict(
             generator_loss=loss.item(),
             generator_mel_loss=mel_loss.item(),
-            generator_kl_loss=kl_loss.item(),
-            generator_dur_loss=dur_loss.item(),
         )
 
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
