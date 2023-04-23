@@ -115,6 +115,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         text_embed_loss: str = "mse",
         use_reinforce: bool = False,
         reinforce_sample_size: int = 4,
+        pretrain_epochs: int = 0,
     ):
         assert check_argument_types()
         assert 0.0 <= asr_weight <= 1.0, "asr_weight should be [0.0, 1.0]"
@@ -137,6 +138,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             tts, "discriminator"
         ), "discriminator module must be registered as tts.discriminator"
 
+        self.epoch = 0  # see gan_trainer.py
         self.sos = vocab_size - 1
         self.eos = vocab_size - 1
         self.vocab_size = vocab_size
@@ -220,6 +222,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
 
         self.use_reinforce = use_reinforce
         self.reinforce_sample_size = reinforce_sample_size
+
+        self.pretrain_epochs = pretrain_epochs
 
         # from espnet2.bin.tts_inference import Text2Speech
         # self.tacotron2 = Text2Speech.from_pretrained(
@@ -543,6 +547,22 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
             return vits_dict
 
         else:  # Normal TTS
+            if self.epoch < self.pretrain_epochs:
+                loss = loss_asr + text_embed_loss
+                stats = dict(
+                    loss=loss.detach(),
+                    loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
+                    acc_asr=acc_asr_att,
+                    cer_ctc=cer_asr_ctc,
+                    cer=cer_asr_att,
+                    wer=wer_asr_att,
+                    text_embed_loss=text_embed_loss.detach(),
+                )
+                gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
+
+                # FIXME: optim_idx is hard-coded
+                return dict(loss=gathered_loss, stats=gathered_stats, weight=weight, optim_idx=0)
+
             vits_dict = self.tts.generate(**batch, include_adv_losses=True)
             tts_loss = vits_dict['loss']
             tts_stats = vits_dict['stats']

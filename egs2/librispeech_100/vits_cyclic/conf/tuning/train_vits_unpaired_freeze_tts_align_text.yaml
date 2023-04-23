@@ -195,6 +195,7 @@ model_conf:
   gumbel_softmax: false
   text_embed_loss_scale: 10
   text_embed_loss: mse
+  pretrain_epochs: 5  # first n epochs are used ONLY for text embedding layer training
 
 ##########################################################
 #                OTHER TRAINING SETTING                  #

@@ -92,6 +92,7 @@ class GANTrainer(Trainer):
         summary_writer,
         options: GANTrainerOptions,
         distributed_option: DistributedOption,
+        epoch: int,
     ) -> bool:
         """Train one epoch."""
         assert check_argument_types()
@@ -127,6 +128,7 @@ class GANTrainer(Trainer):
                 log_interval = 100
 
         model.train()
+        model.epoch = epoch
         all_steps_are_invalid = True
         # [For distributed] Because iteration counts are not always equals between
         # processes, send stop-flag to the other processes if iterator is finished

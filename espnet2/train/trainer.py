@@ -294,6 +294,7 @@ class Trainer:
                     summary_writer=train_summary_writer,
                     options=trainer_options,
                     distributed_option=distributed_option,
+                    epoch=iepoch,
                 )
 
             with reporter.observe("valid") as sub_reporter:
@@ -477,6 +478,7 @@ class Trainer:
         summary_writer,
         options: TrainerOptions,
         distributed_option: DistributedOption,
+        epoch: int,
     ) -> bool:
         assert check_argument_types()
 
