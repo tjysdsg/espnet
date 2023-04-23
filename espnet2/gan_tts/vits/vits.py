@@ -725,4 +725,5 @@ class VITS(AbsGANTTS):
             "stats": stats,
             "weight": weight,
             "optim_idx": 0,  # needed for trainer
+            "wav": speech_hat_,
         }

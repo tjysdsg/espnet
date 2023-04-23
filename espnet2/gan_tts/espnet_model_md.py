@@ -64,6 +64,17 @@ def repeat_samples_in_batch(xs, length, fill=0, times=1):
     return ret, new_length
 
 
+def token_seq_to_text(seq, token_list):
+    """
+    Args:
+        seq: List of token IDs
+        token_list: Token ID -> str
+    """
+    s = [token_list[x] for x in seq]
+    s = [x if x != "<space>" else " " for x in s if x != "<sos/eos>"]
+    return "".join(s)
+
+
 class ESPnetGANTTSMDModel(AbsESPnetModel):
     """CTC-attention hybrid GANTTS model"""
 
@@ -205,36 +216,8 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.text_embed_loss = text_embed_loss
         assert self.text_embed_loss == 'mse' or self.text_embed_loss == 'kl'
 
-        # ASR beam search if REINFORCE is enabled
         self.use_reinforce = use_reinforce
         self.reinforce_sample_size = reinforce_sample_size
-        if use_reinforce:
-            scorers = dict(
-                decoder=self.asr_decoder,
-                # ctc=CTCPrefixScorer(ctc=self.ctc, eos=self.eos),  # TODO: use CTC in beam search?
-            )
-
-            weights = dict(
-                decoder=1.0 - self.mtlalpha,
-                # ctc=self.mtlalpha,
-            )
-            token_list = self.token_list
-            self.beam_search = BatchBeamSearch(
-                beam_size=10,  # FIXME: hard-coded
-                weights=weights,
-                scorers=scorers,
-                sos=self.sos,
-                eos=self.eos,
-                vocab_size=len(token_list),
-                token_list=token_list,
-                pre_beam_score_key=None if self.mtlalpha == 1.0 else "full",
-            )
-
-            # beam_search.to(device=device, dtype=getattr(torch, dtype)).eval()
-            # for scorer in scorers.values():
-            #     if isinstance(scorer, torch.nn.Module):
-            #         scorer.to(device=device, dtype=getattr(torch, dtype)).eval()
-            # logging.info(f"Decoding device={device}, dtype={dtype}")
 
     def forward(
         self,
@@ -437,6 +420,16 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                     ]
                     sampled_text.append(token_ids)
                 sampled_text = torch.as_tensor(sampled_text, dtype=torch.long, device=tts_text.device)
+                batch_size = sampled_text.shape[0]
+
+                """
+                print('=================================')
+                best_hyps = torch.argmax(y_pred, dim=-1)
+                for i in range(y_pred.shape[0]):
+                    print(f'ASR best hyp {i}:', token_seq_to_text(best_hyps[i], self.token_list))
+                for i in range(batch_size):
+                    print(f'Sample {i}:', token_seq_to_text(sampled_text[i], self.token_list))
+                """
 
                 # update TTS input batch
                 speech, speech_lengths = repeat_samples_in_batch(
@@ -449,7 +442,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 if spembs is not None:
                     spembs = torch.repeat_interleave(spembs, self.reinforce_sample_size, dim=0)
 
-                batch_size = sampled_text.shape[0]
                 decoder_out = F.log_softmax(decoder_out, dim=-1)
                 log_probs = torch.stack([
                     F.nll_loss(decoder_out[i], sampled_text[i], reduction='sum') for i in range(batch_size)
@@ -466,8 +458,41 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                         # vits_dict = self.tts(**batch, full=True)
                         rewards.append(-vits_dict['loss'].item())
 
+                """
+                    import soundfile as sf
+                    sf.write(
+                        f"sampled_{i}.wav",
+                        vits_dict["wav"].squeeze().cpu().numpy(),
+                        16000,
+                        "PCM_16",
+                    )
+                print(f"Sampled VITS losses:", rewards)
+
+                best_hyp_reward = []
+                for i in range(best_hyps.shape[0]):
+                    idx = i * self.reinforce_sample_size
+                    batch.update(text=best_hyps[[i], :dec_asr_lengths[i]], text_lengths=dec_asr_lengths[[i]])
+                    batch.update(speech=speech[[idx], :speech_lengths[idx]], speech_lengths=speech_lengths[[idx]])
+                    batch.update(feats=feats[[idx], :feats_lengths[idx]], feats_lengths=feats_lengths[[idx]])
+                    batch.update(spembs=spembs[[idx]])
+                    with torch.no_grad():
+                        vits_dict = self.tts.forward_reinforce(**batch)
+                        # vits_dict = self.tts(**batch, full=True)
+                        best_hyp_reward.append(-vits_dict['loss'].item())
+
+                    import soundfile as sf
+                    sf.write(
+                        f"best_hyp_{i}.wav",
+                        vits_dict["wav"].squeeze().cpu().numpy(),
+                        16000,
+                        "PCM_16",
+                    )
+                print(f"Best hyp VITS losses:", best_hyp_reward)
+                """
+
                 rewards = torch.as_tensor(rewards, device=log_probs.device)
                 rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+                # print('Reward after subtracting REINFORCE baseline:', rewards)
 
                 loss = log_probs * rewards
                 loss = loss.mean()
