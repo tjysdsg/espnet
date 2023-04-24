@@ -1,40 +1,20 @@
 #!/usr/bin/env python3
-import argparse
 import logging
 from pathlib import Path
-import sys
 from typing import Any
 from typing import Optional
-from typing import Sequence
-from typing import Tuple
 from typing import Union
-
-import numpy as np
 import torch
 from typeguard import check_argument_types
-from typeguard import check_return_type
-from typing import List
-
 from espnet.nets.batch_beam_search import BatchBeamSearch
 from espnet.nets.beam_search import BeamSearch
-from espnet.nets.beam_search import Hypothesis
-from espnet.nets.pytorch_backend.transformer.subsampling import TooShortUttError
 from espnet.nets.scorer_interface import BatchScorerInterface
 from espnet.nets.scorers.length_bonus import LengthBonus
 from espnet.nets.scorers.ctc import CTCPrefixScorer
-from espnet2.tts.espnet_model_md import ESPnetTTSMDModel
-from espnet.utils.cli_utils import get_commandline_args
-from espnet2.utils.types import str2bool, str2triple_str, str_or_none
-from espnet2.fileio.datadir_writer import DatadirWriter
 from espnet2.tasks.lm import LMTask
-from espnet2.tasks.tts import TTSTask
 from espnet2.tasks.gan_tts import GANTTSTask
-from espnet2.tasks.asr import ASRTask
 from espnet2.text.build_tokenizer import build_tokenizer
 from espnet2.text.token_id_converter import TokenIDConverter
-from espnet2.torch_utils.device_funcs import to_device
-from espnet2.torch_utils.set_all_random_seed import set_all_random_seed
-from espnet2.utils import config_argparse
 
 
 class CyclicASRTTS:
@@ -173,91 +153,35 @@ class CyclicASRTTS:
 
     @torch.no_grad()
     def __call__(
-            self, speech: Union[torch.Tensor, np.ndarray], transcript: Optional[torch.Tensor] = None,
-    ) -> List[
-        Tuple[
-            Optional[str],
-            List[str],
-            List[int],
-            Hypothesis,
-        ]
-    ]:
-        """Inference
-        Args:
-            data: Input speech data
-        Returns:
-            text, token, token_int, hyp
-        """
-        assert check_argument_types()
+            self,
+            speech: torch.Tensor,
+            text: str,
+            sudo_text: str,
+            spembs: torch.Tensor,
+            reinforce=False,
+            reinforce_sample_size: int = 4,
+    ):
+        speech_lengths = torch.as_tensor([speech.shape[1]], dtype=torch.long, device=speech.device)
 
-        # Input as audio signal
-        if isinstance(speech, np.ndarray):
-            speech = torch.tensor(speech)
+        text = self.converter.tokens2ids(self.tokenizer.text2tokens(text))
+        text = torch.as_tensor([text], dtype=torch.long)
+        text_lengths = torch.as_tensor([text.shape[1]], dtype=torch.long, device=text.device)
 
-        # data: (Nsamples,) -> (1, Nsamples)
-        speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        # lengths: (1,)
-        lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
-        if transcript is None:
-            batch = {"speech": speech, "speech_lengths": lengths}
-        else:
-            transcript = transcript.unsqueeze(0).to(getattr(torch, self.dtype))
-            # lengths: (1,)
-            transcript_lengths = transcript.new_full(
-                [1], dtype=torch.long, fill_value=transcript.size(1)
-            )
-            # print(text)
-            # print(text_lengths)
-            batch = {
-                "speech": speech,
-                "speech_lengths": lengths,
-                "transcript_pad": transcript,
-                "transcript_pad_lens": transcript_lengths,
-            }
+        sudo_text = self.converter.tokens2ids(self.tokenizer.text2tokens(sudo_text))
+        sudo_text = torch.as_tensor([sudo_text], dtype=torch.long)
+        sudo_text_lengths = torch.as_tensor([sudo_text.shape[1]], dtype=torch.long, device=text.device)
 
-        # a. To device
-        batch = to_device(batch, device=self.device)
-
-        # b. Forward Encoder
-        # if self.cyclic_model.intermediate_supervision:
-        #     y_ctc_gold, y_ctc_gold_lens, enc, enc_lens = self.cyclic_model.encode(**batch)
-        # else:
-        enc, enc_lens = self.cyclic_model.encode(**batch)
-        if isinstance(enc, tuple):
-            enc = enc[0]
-        assert len(enc) == 1, len(enc)
-
-        # c. Passed the encoder result and the beam search
-        nbest_hyps = self.beam_search(
-            x=enc[0], maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
+        return self.cyclic_model(
+            speech=speech,
+            speech_lengths=speech_lengths,
+            text=text,
+            text_lengths=text_lengths,
+            sudo_text=sudo_text,
+            sudo_text_lengths=sudo_text_lengths,
+            spembs=spembs,
+            reinforce=reinforce,
+            reinforce_sample_size=reinforce_sample_size,
         )
-        nbest_hyps = nbest_hyps[: self.nbest]
-
-        results = []
-        for hyp in nbest_hyps:
-            assert isinstance(hyp, Hypothesis), type(hyp)
-
-            # remove sos/eos and get results
-            last_pos = -1
-            if isinstance(hyp.yseq, list):
-                token_int = hyp.yseq[1:last_pos]
-            else:
-                token_int = hyp.yseq[1:last_pos].tolist()
-
-            # remove blank symbol id, which is assumed to be 0
-            token_int = list(filter(lambda x: x != 0, token_int))
-
-            # Change integer-ids to tokens
-            token = self.converter.ids2tokens(token_int)
-
-            if self.tokenizer is not None:
-                text = self.tokenizer.tokens2text(token)
-            else:
-                text = None
-            results.append((text, token, token_int, hyp))
-
-        assert check_return_type(results)
-        return results
 
     @staticmethod
     def from_pretrained(
@@ -278,4 +202,3 @@ class CyclicASRTTS:
             kwargs.update(**d.download_and_unpack(model_tag))
 
         return CyclicASRTTS(**kwargs)
-

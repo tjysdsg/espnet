@@ -226,6 +226,170 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         self.pretrain_epochs = pretrain_epochs
 
     def forward(
+            self,
+            speech: torch.Tensor,
+            speech_lengths: torch.Tensor,
+            text: torch.Tensor,
+            text_lengths: torch.Tensor,
+            sudo_text: torch.Tensor,
+            sudo_text_lengths: torch.Tensor,
+            spembs: torch.Tensor,
+            reinforce: bool = False,
+            reinforce_sample_size: int = 4,
+    ):
+        self.use_reinforce = reinforce
+
+        asr_res = self.asr(
+            speech=speech,
+            speech_lengths=speech_lengths,
+            text=text,
+            text_lengths=text_lengths,
+            sudo_text=sudo_text,
+            sudo_text_lengths=sudo_text_lengths,
+        )
+
+        # Prepare TTS features
+        assert self.feats_extract is not None
+        with autocast(False):
+            feats, feats_lengths = self.feats_extract(speech, speech_lengths)
+
+        if reinforce:
+            tts_res = self.tts_reinforce(
+                speech=speech,
+                speech_lengths=speech_lengths,
+                spembs=spembs,
+                feats=feats,
+                feats_lengths=feats_lengths,
+                reinforce_sample_size=reinforce_sample_size,
+                **asr_res,
+            )
+        else:
+            tts_res = self.tts_normal(
+                speech=speech,
+                speech_lengths=speech_lengths,
+                spembs=spembs,
+                feats=feats,
+                feats_lengths=feats_lengths,
+                **asr_res,
+            )
+
+        asr_res.update(tts_res)
+        return asr_res
+
+    def tts_reinforce(
+            self,
+            speech: torch.Tensor,
+            speech_lengths: torch.Tensor,
+            spembs: torch.Tensor,
+            y_pred: torch.Tensor,
+            y_pred_lens: torch.Tensor,
+            feats: torch.Tensor,
+            feats_lengths: torch.Tensor,
+            reinforce_sample_size: int,
+            **kwargs,
+    ):
+        print(f'reinforce_sample_size: {reinforce_sample_size}')
+
+        decoder_out = y_pred
+        # Repeat text hypotheses and perform weighted random sampling
+        decoder_out, y_pred_lens = repeat_samples_in_batch(
+            decoder_out, y_pred_lens, fill=0, times=reinforce_sample_size
+        )
+        # text's last dim is softmax probs here, see self._calc_asr_att_loss
+        max_seq_len = decoder_out.shape[1]
+        sampled_text = []
+        tts_text = F.softmax(decoder_out, dim=-1)
+        for i, seq in enumerate(tts_text):
+            token_ids = [
+                torch.multinomial(seq[j], num_samples=1).item() if torch.sum(seq[j]) > 0 else 0
+                for j in range(max_seq_len)
+            ]
+            sampled_text.append(token_ids)
+        sampled_text = torch.as_tensor(sampled_text, dtype=torch.long, device=tts_text.device)
+        batch_size = sampled_text.shape[0]
+
+        best_hyps = torch.argmax(y_pred, dim=-1)
+        # for i in range(y_pred.shape[0]):
+        #     print(f'ASR best hyp {i}:', token_seq_to_text(best_hyps[i], self.token_list))
+        # for i in range(batch_size):
+        #     print(f'Sample {i}:', token_seq_to_text(sampled_text[i], self.token_list))
+
+        speech, speech_lengths = repeat_samples_in_batch(
+            speech, speech_lengths, fill=0, times=reinforce_sample_size
+        )
+        feats, feats_lengths = repeat_samples_in_batch(
+            feats, feats_lengths, fill=0, times=reinforce_sample_size
+        )
+        spembs = torch.repeat_interleave(spembs, reinforce_sample_size, dim=0)
+
+        decoder_out = F.log_softmax(decoder_out, dim=-1)
+        log_probs = torch.stack([
+            F.nll_loss(decoder_out[i], sampled_text[i], reduction='sum') for i in range(batch_size)
+        ])
+
+        rewards = []
+        wavs = []
+        for i in range(batch_size):
+            batch = dict(
+                text=sampled_text[[i], :y_pred_lens[i]], text_lengths=y_pred_lens[[i]],
+                speech=speech[[i], :speech_lengths[i]], speech_lengths=speech_lengths[[i]],
+                feats=feats[[i], :feats_lengths[i]], feats_lengths=feats_lengths[[i]],
+                spembs=spembs[[i]],
+            )
+            with torch.no_grad():
+                vits_dict = self.tts.generate(**batch)
+                rewards.append(-vits_dict['loss'].item())
+
+            wavs.append(vits_dict["wav"].squeeze().cpu().numpy())
+
+        rewards = torch.as_tensor(rewards, device=log_probs.device)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+        # print('Reward after subtracting REINFORCE baseline:', rewards)
+
+        loss = log_probs * rewards
+        loss = loss.mean()
+
+        return dict(
+            tts_loss=loss,
+            asr_hyps=best_hyps,
+            sampled_text=sampled_text,
+            rewards=rewards,
+            wavs=wavs,
+        )
+
+    def tts_normal(
+            self,
+            speech: torch.Tensor,
+            speech_lengths: torch.Tensor,
+            spembs: torch.Tensor,
+            y_pred: torch.Tensor,
+            y_pred_lens: torch.Tensor,
+            feats: torch.Tensor,
+            feats_lengths: torch.Tensor,
+            **kwargs,
+    ):
+        batch = dict(
+            speech=speech, speech_lengths=speech_lengths,
+            text=y_pred,
+            text_lengths=y_pred_lens,
+            feats=feats, feats_lengths=feats_lengths,
+            spembs=spembs,
+            forward_generator=True,
+        )
+
+        vits_dict = self.tts.generate(**batch, include_adv_losses=False)
+        tts_loss = vits_dict['loss']
+        tts_stats = vits_dict['stats']
+        is_discriminator = vits_dict['optim_idx']
+        assert not is_discriminator
+
+        return dict(
+            asr_hyps=y_pred.argmax(dim=-1),
+            tts_loss=tts_loss,
+            wav=vits_dict["wav"].squeeze().cpu().numpy(),
+        )
+
+    def asr(
         self,
         speech: torch.Tensor,
         speech_lengths: torch.Tensor,
@@ -233,33 +397,16 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         text_lengths: torch.Tensor,
         sudo_text: Optional[torch.Tensor] = None,
         sudo_text_lengths: Optional[torch.Tensor] = None,
-        spembs: Optional[torch.Tensor] = None,
-        forward_generator: bool=True,
         **kwargs,
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
-        """Frontend + Encoder + Decoder + Calc loss
-
-        Args:
-            speech: (Batch, Length, ...)
-            speech_lengths: (Batch,)
-            text: (Batch, Length)
-            text_lengths: (Batch,)
-            sudo_text: Pseudo-labels used for unpaired training, will use pretrained encoder ctc output if none
-            sudo_text_lengths: Pseudo-labels used for unpaired training
-            spembs:
-            kwargs: "utt_id" is among the input.
-        """
-        assert forward_generator
-
+    ):
         assert text_lengths.dim() == 1, text_lengths.shape
-        # Check that batch_size is unified
-        # print(text_lengths.shape)
         assert (
             speech.shape[0]
             == speech_lengths.shape[0]
             == text.shape[0]
             == text_lengths.shape[0]
         ), (speech.shape, speech_lengths.shape, text.shape, text_lengths.shape)
+        assert self.gumbel_softmax
 
         # additional checks with valid src_text
         if sudo_text is not None:
@@ -270,8 +417,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 sudo_text_lengths.shape,
             )
 
-        batch_size = speech.shape[0]
-
         # for data-parallel
         text = text[:, : text_lengths.max()]
         if sudo_text is not None:
@@ -280,18 +425,7 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         # 1. Encoder
         encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
 
-        # 2a. Pseudo-labels
-        # If not given:
-        #     - use canonical text during validation for calculating loss
-        #     - use reference encoder's output during training
-        if self.use_unpaired and sudo_text is None:
-            if self.training:
-                assert False  # assume we always have sudo text during unpaired training
-                # sudo_text = y_ctc_gold
-                # sudo_text_lengths = y_ctc_gold_lens
-            else:
-                sudo_text = text
-                sudo_text_lengths = text_lengths
+        assert self.use_unpaired
 
         # 2b. CTC branch
         (
@@ -302,8 +436,6 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         ) = self._calc_ctc_loss(
             encoder_out, encoder_out_lens, sudo_text, sudo_text_lengths, ground_truth=text,
         )
-
-        assert self.use_unpaired
         dec_asr_lengths = sudo_text_lengths + 1
 
         # 2c. ASR Decoder
@@ -323,185 +455,19 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
         loss_asr = self.mtlalpha * loss_asr_ctc + (1 - self.mtlalpha) * loss_asr_att
 
         # MSE loss between ASR decoder output embeddings and TTS encoder text embeddings
-        text_embed_loss = self.calc_text_embed_loss(
-            y_pred,
-            sudo_text if self.use_unpaired else text,
-            sudo_text_lengths if self.use_unpaired else text_lengths,
+        # text_embed_loss = self.calc_text_embed_loss(
+        #     y_pred,
+        #     sudo_text if self.use_unpaired else text,
+        #     sudo_text_lengths if self.use_unpaired else text_lengths,
+        # )
+
+        # print(token_seq_to_text(y_pred.argmax(dim=-1)[0], self.token_list))
+
+        return dict(
+            loss_asr=loss_asr,
+            y_pred=y_pred,
+            y_pred_lens=dec_asr_lengths,
         )
-
-        # 2e. Prepare TTS features
-        with autocast(False):
-            # Extract features
-            if self.feats_extract is not None:
-                feats, feats_lengths = self.feats_extract(speech, speech_lengths)
-            else:
-                # Use precalculated feats (feats_type != raw case)
-                feats, feats_lengths = speech, speech_lengths
-
-        print(token_seq_to_text(y_pred.argmax(dim=-1)[0], self.token_list))
-
-        # 2e. TTS
-        batch = dict(
-            text=y_pred,
-            text_lengths=dec_asr_lengths,
-            forward_generator=forward_generator,
-        )
-        if feats is not None:
-            batch.update(feats=feats, feats_lengths=feats_lengths)
-        if self.speech_attn:
-            batch.update(speech_embed=encoder_out)
-            batch.update(speech_embed_lengths=encoder_out_lens)
-            assert False  # FIXME: remove speech_attn code
-        if spembs is not None:
-            batch.update(spembs=spembs)
-        batch.update(speech=speech, speech_lengths=speech_lengths)
-
-        # 2f. TTS
-        if self.use_reinforce:  # REINFORCE, see also https://github.com/creatorscan/espnet-asrtts
-            assert forward_generator
-
-            decoder_out = y_pred
-            # Repeat text hypotheses and perform weighted random sampling
-            decoder_out, dec_asr_lengths = repeat_samples_in_batch(
-                decoder_out, dec_asr_lengths, fill=0, times=self.reinforce_sample_size
-            )
-            # text's last dim is softmax probs here, see self._calc_asr_att_loss
-            max_seq_len = decoder_out.shape[1]
-            sampled_text = []
-            tts_text = F.softmax(decoder_out, dim=-1)
-            for i, seq in enumerate(tts_text):
-                token_ids = [
-                    torch.multinomial(seq[j], num_samples=1).item() if torch.sum(seq[j]) > 0 else 0
-                    for j in range(max_seq_len)
-                ]
-                sampled_text.append(token_ids)
-            sampled_text = torch.as_tensor(sampled_text, dtype=torch.long, device=tts_text.device)
-            batch_size = sampled_text.shape[0]
-
-            print('=================================')
-            best_hyps = torch.argmax(y_pred, dim=-1)
-            for i in range(y_pred.shape[0]):
-                print(f'ASR best hyp {i}:', token_seq_to_text(best_hyps[i], self.token_list))
-            for i in range(batch_size):
-                print(f'Sample {i}:', token_seq_to_text(sampled_text[i], self.token_list))
-
-            # update TTS input batch
-            speech, speech_lengths = repeat_samples_in_batch(
-                speech, speech_lengths, fill=0, times=self.reinforce_sample_size
-            )
-            if feats is not None:
-                feats, feats_lengths = repeat_samples_in_batch(
-                    feats, feats_lengths, fill=0, times=self.reinforce_sample_size
-                )
-            if spembs is not None:
-                spembs = torch.repeat_interleave(spembs, self.reinforce_sample_size, dim=0)
-
-            decoder_out = F.log_softmax(decoder_out, dim=-1)
-            log_probs = torch.stack([
-                F.nll_loss(decoder_out[i], sampled_text[i], reduction='sum') for i in range(batch_size)
-            ])
-
-            rewards = []
-            for i in range(batch_size):
-                batch.update(text=sampled_text[[i], :dec_asr_lengths[i]], text_lengths=dec_asr_lengths[[i]])
-                batch.update(speech=speech[[i], :speech_lengths[i]], speech_lengths=speech_lengths[[i]])
-                batch.update(feats=feats[[i], :feats_lengths[i]], feats_lengths=feats_lengths[[i]])
-                batch.update(spembs=spembs[[i]])
-                with torch.no_grad():
-                    vits_dict = self.tts.generate(**batch)
-                    # vits_dict = self.tts(**batch, full=True)
-                    rewards.append(-vits_dict['loss'].item())
-
-                import soundfile as sf
-                sf.write(
-                    f"sampled_{i}.wav",
-                    vits_dict["wav"].squeeze().cpu().numpy(),
-                    16000,
-                    "PCM_16",
-                )
-            print(f"Sampled VITS losses:", rewards)
-
-            best_hyp_reward = []
-            for i in range(best_hyps.shape[0]):
-                idx = i * self.reinforce_sample_size
-                batch.update(text=best_hyps[[i], :dec_asr_lengths[i]], text_lengths=dec_asr_lengths[[i]])
-                batch.update(speech=speech[[idx], :speech_lengths[idx]], speech_lengths=speech_lengths[[idx]])
-                batch.update(feats=feats[[idx], :feats_lengths[idx]], feats_lengths=feats_lengths[[idx]])
-                batch.update(spembs=spembs[[idx]])
-                with torch.no_grad():
-                    vits_dict = self.tts.generate(**batch)
-                    # vits_dict = self.tts(**batch, full=True)
-                    best_hyp_reward.append(-vits_dict['loss'].item())
-
-                import soundfile as sf
-                sf.write(
-                    f"best_hyp_{i}.wav",
-                    vits_dict["wav"].squeeze().cpu().numpy(),
-                    16000,
-                    "PCM_16",
-                )
-            # print(f"Best hyp VITS losses:", best_hyp_reward)
-
-            rewards = torch.as_tensor(rewards, device=log_probs.device)
-            # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
-            # print('Reward after subtracting REINFORCE baseline:', rewards)
-
-            loss = log_probs * rewards
-            loss = loss.mean()
-            # self.asr_decoder.decoders[0].feed_forward.w_1.weight.grad
-            # self.asr_encoder.encoders[0].feed_forward.w_1.weight.grad
-
-            stats = dict(
-                loss=loss,
-                loss_asr=loss_asr,
-                acc_asr=acc_asr_att,
-                cer_ctc=cer_asr_ctc,
-                cer=cer_asr_att,
-                wer=wer_asr_att,
-            )
-            # force_gatherable: to-device and to-tensor if scalar for DataParallel
-            gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
-
-            vits_dict['loss'] = gathered_loss
-            vits_dict['stats'] = gathered_stats
-            vits_dict['weight'] = weight
-            return vits_dict
-
-        else:  # Normal TTS
-            vits_dict = self.tts.generate(**batch, include_adv_losses=False)
-            tts_loss = vits_dict['loss']
-            tts_stats = vits_dict['stats']
-            # tts_weight = vits_dict['weight']
-            is_discriminator = vits_dict['optim_idx']
-
-            loss = (1 - self.asr_weight) * tts_loss + self.asr_weight * loss_asr + text_embed_loss
-
-            assert not is_discriminator
-            stats = dict(
-                loss=loss.detach(),
-                loss_asr=loss_asr.detach() if type(loss_asr) is not float else loss_asr,
-                acc_asr=acc_asr_att,
-                cer_ctc=cer_asr_ctc,
-                cer=cer_asr_att,
-                wer=wer_asr_att,
-                text_embed_loss=text_embed_loss.detach(),
-                # tts_generator_adv_loss=tts_stats["generator_adv_loss"],
-                # tts_generator_dur_loss=tts_stats["generator_dur_loss"],
-                # tts_generator_feat_match_loss=tts_stats["generator_feat_match_loss"],
-                # tts_generator_kl_loss=tts_stats["generator_kl_loss"],
-                # tts_generator_loss=tts_stats["generator_loss"],
-                tts_generator_mel_loss=tts_stats["generator_mel_loss"],
-            )
-            # force_gatherable: to-device and to-tensor if scalar for DataParallel
-            gathered_loss, gathered_stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
-
-            vits_dict['loss'] = gathered_loss
-            vits_dict['stats'] = gathered_stats
-            vits_dict['weight'] = weight
-
-            vits_dict["gt"] = speech
-
-            return vits_dict
 
     def collect_feats(
         self,
@@ -658,11 +624,11 @@ class ESPnetGANTTSMDModel(AbsESPnetModel):
                 ground_truth = ys_pad
             cer_att, wer_att = self.asr_error_calculator(ys_hat.cpu(), ground_truth.cpu())
 
-        if self.gumbel_softmax:
+        if self.use_reinforce:
+            return loss_att, acc_att, cer_att, wer_att, decoder_out
+        elif self.gumbel_softmax:
             y_pred_gumbel = F.gumbel_softmax(decoder_out, tau=1.0, hard=True, dim=-1)
             return loss_att, acc_att, cer_att, wer_att, y_pred_gumbel
-        elif self.use_reinforce:
-            return loss_att, acc_att, cer_att, wer_att, decoder_out
         else:
             return loss_att, acc_att, cer_att, wer_att, hs_dec_asr
 
