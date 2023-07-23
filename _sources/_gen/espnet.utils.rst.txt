@@ -15,6 +15,28 @@ espnet.utils.spec_augment
     :show-inheritance:
 
 
+.. _espnet.utils.dataset:
+
+espnet.utils.dataset
+--------------------
+
+.. automodule:: espnet.utils.dataset
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. _espnet.utils.cli_writers:
+
+espnet.utils.cli_writers
+------------------------
+
+.. automodule:: espnet.utils.cli_writers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 .. _espnet.utils.cli_readers:
 
 espnet.utils.cli_readers
@@ -37,12 +59,12 @@ espnet.utils.check_kwargs
     :show-inheritance:
 
 
-.. _espnet.utils.dataset:
+.. _espnet.utils.cli_utils:
 
-espnet.utils.dataset
---------------------
+espnet.utils.cli_utils
+----------------------
 
-.. automodule:: espnet.utils.dataset
+.. automodule:: espnet.utils.cli_utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -59,23 +81,12 @@ espnet.utils.deterministic_utils
     :show-inheritance:
 
 
-.. _espnet.utils.cli_writers:
+.. _espnet.utils.io_utils:
 
-espnet.utils.cli_writers
-------------------------
+espnet.utils.io_utils
+---------------------
 
-.. automodule:: espnet.utils.cli_writers
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-.. _espnet.utils.cli_utils:
-
-espnet.utils.cli_utils
-----------------------
-
-.. automodule:: espnet.utils.cli_utils
+.. automodule:: espnet.utils.io_utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -114,17 +125,6 @@ espnet.utils.fill_missing_args
     :show-inheritance:
 
 
-.. _espnet.utils.io_utils:
-
-espnet.utils.io_utils
----------------------
-
-.. automodule:: espnet.utils.io_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 .. _espnet.utils.training.iterators:
 
 espnet.utils.training.iterators
@@ -136,34 +136,12 @@ espnet.utils.training.iterators
     :show-inheritance:
 
 
-.. _espnet.utils.training.evaluator:
+.. _espnet.utils.training.tensorboard_logger:
 
-espnet.utils.training.evaluator
--------------------------------
+espnet.utils.training.tensorboard_logger
+----------------------------------------
 
-.. automodule:: espnet.utils.training.evaluator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-.. _espnet.utils.training.__init__:
-
-espnet.utils.training.__init__
-------------------------------
-
-.. automodule:: espnet.utils.training.__init__
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-.. _espnet.utils.training.batchfy:
-
-espnet.utils.training.batchfy
------------------------------
-
-.. automodule:: espnet.utils.training.batchfy
+.. automodule:: espnet.utils.training.tensorboard_logger
     :members:
     :undoc-members:
     :show-inheritance:
@@ -180,12 +158,34 @@ espnet.utils.training.train_utils
     :show-inheritance:
 
 
-.. _espnet.utils.training.tensorboard_logger:
+.. _espnet.utils.training.evaluator:
 
-espnet.utils.training.tensorboard_logger
-----------------------------------------
+espnet.utils.training.evaluator
+-------------------------------
 
-.. automodule:: espnet.utils.training.tensorboard_logger
+.. automodule:: espnet.utils.training.evaluator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. _espnet.utils.training.batchfy:
+
+espnet.utils.training.batchfy
+-----------------------------
+
+.. automodule:: espnet.utils.training.batchfy
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+.. _espnet.utils.training.__init__:
+
+espnet.utils.training.__init__
+------------------------------
+
+.. automodule:: espnet.utils.training.__init__
     :members:
     :undoc-members:
     :show-inheritance:
