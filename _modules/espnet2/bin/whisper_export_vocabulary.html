@@ -169,6 +169,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.asr_transducer.html">espnet2.asr_transducer package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.gan_tts.html">espnet2.gan_tts package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.s2t.html">espnet2.s2t package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.s2st.html">espnet2.s2st package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.layers.html">espnet2.layers package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.st.html">espnet2.st package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../_gen/espnet2.hubert.html">espnet2.hubert package</a></li>
@@ -269,6 +270,8 @@
     <span class="n">vocab_size</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">vocab_size</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span>
         <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">get_added_vocab</span><span class="p">()</span>
     <span class="p">)</span>
+    <span class="k">if</span> <span class="n">whisper_model</span> <span class="o">==</span> <span class="s2">&quot;whisper_en&quot;</span><span class="p">:</span>
+        <span class="n">vocab_size</span> <span class="o">=</span> <span class="n">vocab_size</span> <span class="o">-</span> <span class="mi">1</span>
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">vocab_size</span><span class="p">):</span>
         <span class="c1"># take care of special char for &lt;space&gt;</span>
