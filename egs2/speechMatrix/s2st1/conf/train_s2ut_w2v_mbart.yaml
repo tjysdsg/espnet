@@ -78,7 +78,7 @@ scheduler_conf:
 
 # Batching
 batch_type: numel
-batch_bins: 12000000
+batch_bins: 10000000
 sort_in_batch: descending   # how to sort data in making batch
 sort_batch: descending      # how to sort created batches
 
@@ -86,7 +86,7 @@ sort_batch: descending      # how to sort created batches
 use_amp: true
 num_iters_per_epoch: 5000
 max_epoch: 120
-num_workers: 4
+num_workers: 2
 log_interval: null
 seed: 0
 num_att_plot: 0
