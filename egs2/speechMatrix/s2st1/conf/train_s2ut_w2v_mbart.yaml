@@ -66,7 +66,7 @@ losses:
 
 # Optimization
 optim: adamw
-accum_grad: 12
+accum_grad: 24
 grad_clip: 1.0
 grad_noise: false
 optim_conf:
