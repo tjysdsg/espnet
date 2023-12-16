@@ -72,6 +72,10 @@ class FairseqUnitBart(AbsSynthesizer, BatchScorerInterface):
 
         self.output_layer = nn.Linear(model.cfg.decoder_output_dim, odim)
 
+        self.spks = None
+        self.langs = None
+        self.spk_embed_dim = None
+
     def output_size(self) -> int:
         return self._output_size
 
@@ -149,12 +153,12 @@ class FairseqUnitBart(AbsSynthesizer, BatchScorerInterface):
 
     def score(self, ys, state, x):
         logp, _ = self.forward(
-            ys.unsqueeze(0),
-            None,
             x.unsqueeze(0),
             None,
+            ys.unsqueeze(0),
+            None,
         )
-        return logp.squeeze(0), None
+        return logp[0, -1], None
 
     def batch_score(
         self,
@@ -163,12 +167,12 @@ class FairseqUnitBart(AbsSynthesizer, BatchScorerInterface):
         xs: torch.Tensor,
     ) -> Tuple[torch.Tensor, List[Any]]:
         logp, _ = self.forward(
-            ys,
-            None,
             xs,
             None,
+            ys,
+            None,
         )
-        return logp, []
+        return logp[:, -1], None
 
     def inference(
         self, input_states: torch.Tensor, **kwargs
