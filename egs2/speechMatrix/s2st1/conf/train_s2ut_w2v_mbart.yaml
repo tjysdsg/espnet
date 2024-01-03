@@ -14,7 +14,7 @@ tgt_feats_extract: None
 
 # Encoder
 input_size: 1  # doesn't matter, we just need to force raw features
-encoder: wav2vec2
+encoder: wav2vec2_with_adaptor
 encoder_conf:
   w2v_url: https://huggingface.co/tjysdsg/speechmatrix_w2v_mbart/resolve/main/wav2vec2_transformer_base.es.pth?download=true
   w2v_dir_path: exp/wav2vec2

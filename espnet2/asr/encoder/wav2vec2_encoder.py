@@ -8,9 +8,13 @@ import logging
 import os
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
+from torch import nn
 from filelock import FileLock
 from typeguard import check_argument_types
+from fairseq.data.data_utils import lengths_to_padding_mask
+from fairseq import utils
 
 from espnet2.asr.encoder.abs_encoder import AbsEncoder
 from espnet.nets.pytorch_backend.nets_utils import make_pad_mask
@@ -114,8 +118,29 @@ class FairSeqWav2Vec2Encoder(AbsEncoder):
         Returns:
             position embedded tensor and mask
         """
-        from fairseq.data.data_utils import lengths_to_padding_mask
+        xs_pad, masks = self._forward(xs_pad, ilens)
 
+        bs = xs_pad.shape[0]
+        if masks is not None:  # (B, T)
+            olens = (~masks).sum(dim=1)  # (B)
+        else:
+            olens = torch.IntTensor([xs_pad.shape[1]]).repeat(bs).to(xs_pad.device)
+
+        if self.output_layer is not None:
+            xs_pad = self.output_layer(xs_pad)
+
+        if self.normalize_before:
+            xs_pad = self.after_norm(xs_pad)
+
+        if return_all_hs:
+            xs_pad = (xs_pad, None)
+        return xs_pad, olens, None
+
+    def _forward(
+            self,
+            xs_pad: torch.Tensor,
+            ilens: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # fairseq's version doesn't cause OOM
         masks = lengths_to_padding_mask(ilens)
 
@@ -135,27 +160,113 @@ class FairSeqWav2Vec2Encoder(AbsEncoder):
                     features_only=True,
                 )
 
-        xs_pad = enc_outputs["x"]  # (B,T,C),
-        bs = xs_pad.shape[0]
-        if enc_outputs["padding_mask"] is not None:
-            masks = enc_outputs["padding_mask"]  # (B, T)
-            olens = (~masks).sum(dim=1)  # (B)
-        else:
-            olens = torch.IntTensor([xs_pad.shape[1]]).repeat(bs).to(xs_pad.device)
-
-        if self.output_layer is not None:
-            xs_pad = self.output_layer(xs_pad)
-
-        if self.normalize_before:
-            xs_pad = self.after_norm(xs_pad)
-
-        if return_all_hs:
-            xs_pad = (xs_pad, None)
-        return xs_pad, olens, None
+        xs_pad = enc_outputs["x"]  # (B, T, C)
+        return xs_pad, enc_outputs["padding_mask"]
 
     def reload_pretrained_parameters(self):
         self.encoders.load_state_dict(self.pretrained_params)
         logging.info("Pretrained Wav2Vec model parameters reloaded!")
+
+
+class FairSeqWav2Vec2EncoderWithAdapter(FairSeqWav2Vec2Encoder):
+    def __init__(
+            self,
+            input_size: int,
+            w2v_url: str,
+            w2v_dir_path: str = "./",
+            output_size: int = 256,
+            normalize_before: bool = False,
+            freeze_finetune_updates: int = 0,
+            adaptor_n_layers: int = 1,
+            adaptor_kernel_size: int = 3,
+            adaptor_stride: int = 2,
+            adaptor_layerdrop: float = 0,
+            adaptor_layernorm: bool = False,
+    ):
+        super().__init__(
+            input_size,
+            w2v_url,
+            w2v_dir_path,
+            output_size,
+            normalize_before,
+            freeze_finetune_updates,
+        )
+        self.adaptor = Conv1dAdaptor(
+            self.encoders.cfg.encoder_embed_dim,
+            self.encoders.cfg.encoder_embed_dim,
+            n_layers=adaptor_n_layers,
+            kernel_size=adaptor_kernel_size,
+            stride=adaptor_stride,
+            layerdrop=adaptor_layerdrop,
+            layernorm=adaptor_layernorm,
+        )
+
+    def _forward(
+            self,
+            xs_pad: torch.Tensor,
+            ilens: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        x, padding_mask = super()._forward(xs_pad, ilens)
+        x, padding_mask = self.adaptor(x, padding_mask)
+        return x, padding_mask
+
+
+class Conv1dAdaptor(nn.Module):
+    def __init__(
+            self,
+            in_dim,
+            out_dim,
+            n_layers=3,
+            kernel_size=3,
+            stride=2,
+            layerdrop=0.0,
+            layernorm=False,
+    ):
+        super().__init__()
+
+        self.layers = nn.ModuleList(
+            nn.Conv1d(
+                in_dim if i == 0 else out_dim,
+                out_dim * 2,
+                kernel_size,
+                stride=stride,
+                padding=kernel_size // 2,
+                )
+            for i in range(n_layers)
+        )
+        self.stride = stride
+        self.layerdrop = layerdrop
+        self.layernorm = LayerNorm(in_dim) if layernorm else None
+
+    def forward(self, x, padding_mask: Optional[torch.Tensor]):
+        if self.layernorm is not None:
+            x = self.layernorm(x)
+
+        if padding_mask is not None:
+            x = utils.index_put(x, padding_mask, 0)
+
+        # B x T x C -> B x C x T
+        x = x.transpose(1, 2)
+        out_lens = None
+        if padding_mask is not None:
+            out_lens = (~padding_mask).sum(1).float()
+
+        for layer in self.layers:
+            layerdrop_prob = np.random.random()
+            if not self.training or (layerdrop_prob > self.layerdrop):
+                x = nn.functional.glu(layer(x), dim=1)
+                if padding_mask is not None:
+                    out_lens = ((out_lens - 1) / self.stride + 1).floor()
+
+        # B x C x T -> B x T x C
+        x = x.transpose(1, 2)
+
+        out_padding_mask = None
+        if padding_mask is not None:
+            out_padding_mask = lengths_to_padding_mask(out_lens.long())
+            x = utils.index_put(x, out_padding_mask, 0)
+
+        return x, out_padding_mask
 
 
 def download_w2v(model_url, dir_path):
