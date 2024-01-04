@@ -76,10 +76,12 @@ tgt_bpe_input_sentence_size=100000000 # Size of input sentence for BPE for targe
 tgt_bpe_nlsyms=         # non-linguistic symbols list, separated by a comma, for BPE for target language.
 tgt_bpe_char_cover=1.0  # character coverage when modeling BPE for target language.
 
-# Discrette unit-related
+# Discrete unit-related
 use_discrete_unit=false         # Whether to use discrete unit
+use_unit2unit=false             # Whether to use unit2unit
 clustering_stage=1              # clustering stage
-clustering_stop_stage=4         # clustering stop stage
+clustering_stop_stage=100       # clustering stop stage
+clustering_num_threads=20       # Number of threads used for kmeans clustering
 feature_dir="dump/feats"        # Feature directory for dumped feature
 km_tag=                         # KMeans tagging
 use_gpu_feat_extract=true       # Whether to use gpu for feature extraction
@@ -88,6 +90,8 @@ s3prl_upstream_name=hubert      # S3PRL upstream name for feature extraction
 feature_clustering_tool="sklearn" # Tool for feature clustering (sklearn or faiss or cuml)
 clustering_portion=0.1          # the portion of data used for clustering
 feature_num_clusters=500        # Number of feature clusters
+storage_save_mode=true          # Save storage on SSL feature extraction
+                                # If true, feature extraction and kmeans clustering on the fly
 
 
 # S2ST model related
@@ -217,6 +221,8 @@ Options:
     --s3prl_upstream_name      # S3PRL upstream name for feature extraction (default="${s3prl_upstream_name}")
     --feature_clustering_tool  # Tool to do feature clustering (default="${feature_clustering_tool}")
     --feature_num_clusters     # Number of clusters for feature clustering pooling (default="${feature_num_clusters}").
+    --storage_save_mode=true   # Save storage on SSL feature extraction
+                               # If true, feature extraction and kmeans clustering on the fly
 
 
     # S2ST model related
@@ -470,8 +476,7 @@ if ! "${skip_data_prep}"; then
             # If nothing is need, then format_wav_scp.sh does nothing:
             # i.e. the input file format and rate is same as the output.
 
-            # for dset in "${train_set}" "${valid_set}" ${test_sets}; do
-            for dset in ${test_sets}; do
+            for dset in "${train_set}" "${valid_set}" ${test_sets}; do
                 if [ "${dset}" = "${train_set}" ] || [ "${dset}" = "${valid_set}" ]; then
                     _suf="/org"
                 else
@@ -495,29 +500,40 @@ if ! "${skip_data_prep}"; then
                 done
 
                 rm -f ${data_feats}${_suf}/${dset}/{segments,wav.scp.${src_lang},wav.scp,wav.scp.${tgt_lang},reco2file_and_channel,reco2dur}
-                _opts=
-                if [ -e data/"${dset}"/segments ]; then
+
+                _src_opts=
+		_tgt_opts=
+                if [ -e data/"${dset}"/segments.${src_lang} ]; then
                     # "segments" is used for splitting wav files which are written in "wav".scp
                     # into utterances. The file format of segments:
                     #   <segment_id> <record_id> <start_time> <end_time>
                     #   "e.g. call-861225-A-0050-0065 call-861225-A 5.0 6.5"
                     # Where the time is written in seconds.
                     # Note(jiatong): we just consider the case for input speech only for now
-                    _opts+="--segments data/${dset}/segments "
+                    _src_opts+="--segments data/${dset}/segments.${src_lang} "
+                fi
+                if [ -e data/"${dset}"/segments.${tgt_lang} ]; then
+                    # "segments" is used for splitting wav files which are written in "wav".scp
+                    # into utterances. The file format of segments:
+                    #   <segment_id> <record_id> <start_time> <end_time>
+                    #   "e.g. call-861225-A-0050-0065 call-861225-A 5.0 6.5"
+                    # Where the time is written in seconds.
+                    # Note(jiatong): we just consider the case for input speech only for now
+                    _tgt_opts+="--segments data/${dset}/segments.${tgt_lang} "
                 fi
 
                 log "Format target wav.scp"
                 # shellcheck disable=SC2086
                 scripts/audio/format_wav_scp.sh --nj "${nj}" --cmd "${train_cmd}" \
                     --audio-format "${audio_format}" --fs "${fs}" --suffix ".${tgt_lang}" \
-                    --out_filename "wav.scp.${tgt_lang}" \
+                    --out_filename "wav.scp.${tgt_lang}" ${_tgt_opts} \
                     "data/${dset}/wav.scp.${tgt_lang}" "${data_feats}${_suf}/${dset}"
 
                 log "Format source wav.scp"
                 # shellcheck disable=SC2086
                 scripts/audio/format_wav_scp.sh --nj "${nj}" --cmd "${train_cmd}" \
                     --audio-format "${audio_format}" --fs "${fs}" --suffix ".${src_lang}" \
-                    --out_filename "wav.scp.${src_lang}" ${_opts} \
+		    --out_filename "wav.scp.${src_lang}" ${_src_opts} \
                     "data/${dset}/wav.scp.${src_lang}" "${data_feats}${_suf}/${dset}"
                 ln -sf "wav.scp.${src_lang}" "${data_feats}${_suf}/${dset}/wav.scp"
 
@@ -854,38 +870,73 @@ if ! "${skip_data_prep}"; then
 
     if "${use_discrete_unit}"; then
         if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-            log "Stage 5: S2ST discrete unit extraction"
+            log "Stage 5: S2ST discrete unit extraction for both source and target"
 
+            s3prl_conf="{upstream=${s3prl_upstream_name}}"
+            kmeans_feature_type=s3prl
+            kmeans_feature_conf="{type=${kmeans_feature_type},conf={s3prl_conf=${s3prl_conf},download_dir=ckpt,multilayer_feature=False,layer=${feature_layer}}}"
+
+            # Perform KMeans for both source and target
+            for lang in "${tgt_lang}"; do
+                # NOTE: Make new data dirs that contain only the specific language
+                kmeans_data_dir=${feature_dir}/tmp_${lang}
+                mkdir -p ${kmeans_data_dir}
+                for dset in ${train_set} ${valid_set} ${test_sets}; do
+                    _dir=${kmeans_data_dir}/${dset}
+                    mkdir -p ${_dir}
+                    cp ${data_feats}/${dset}/{feats_type,spk2utt,utt2spk} ${_dir}
+                    cp ${data_feats}/${dset}/text.${lang} ${_dir}/text
+                    cp ${data_feats}/${dset}/utt2num_samples.${lang} ${_dir}/utt2num_samples
+                    cp ${data_feats}/${dset}/wav.scp.${lang} ${_dir}/wav.scp
+                done
+
+                # Perform KMeans clustering
+            scripts/feats/perform_kmeans.sh \
             scripts/feats/perform_kmeans.sh \
                 --nj ${nj} \
-                --stage ${clustering_stage} \
-                --stop_stage ${clustering_stop_stage} \
-                --scp_suffix ".${tgt_lang}" \
-                --feature_type "s3prl" \
-                --train_set "${train_set}" \
-                --dev_set "${valid_set}" \
-                --test_sets "${test_sets}" \
-                --datadir "${data_feats}" \
-                --feat_dir "${feature_dir}" \
-                --km_dir "${km_dir}" \
-                --km_tag "${km_tag}" \
-                --s3prl_upstream_name "${s3prl_upstream_name}" \
-                --use_gpu "${use_gpu_feat_extract}" \
-                --layer "${feature_layer}" \
+                scripts/feats/perform_kmeans.sh \
+                --nj ${nj} \
+                    --stage ${clustering_stage} \
+                    --stop_stage ${clustering_stop_stage} \
+                    --train_set "${train_set}" \
+                    --dev_set "${valid_set}" \
+                    --other_sets "${test_sets}" \
+                    --datadir "${kmeans_data_dir}" \
+                    --featdir "${feature_dir}" \
+                    --audio_format "${audio_format}" \
+                    --feature_type ${kmeans_feature_type} \
+                    --layer "${feature_layer}" \
+                    --feature_conf "${kmeans_feature_conf}" \
+                    --km_dir "${km_dir}_${lang}" \
+                --portion "${clustering_portion}" \
                 --portion "${clustering_portion}" \
                 --clustering_method "${feature_clustering_tool}" \
-                --nclusters "${feature_num_clusters}" \
-                --dictdir "${unit_tokendir}"
+                    --portion "${clustering_portion}" \
+                --clustering_method "${feature_clustering_tool}" \
+                    --nclusters "${feature_num_clusters}" \
+                    --storage_save_mode ${storage_save_mode} \
+                    --use_gpu "${use_gpu_feat_extract}" \
+                    --nj 1 \
+                    --num_threads ${clustering_num_threads} \
+                    --cpu_cmd "${train_cmd}" \
+                    --cuda_cmd "${cuda_cmd}" \
+                    --dictdir "${unit_tokendir}_${lang}"
 
-            # NOTE(jiatong): use the pseudo label without unique to train the vocoder
-            log "Saving training pseudo_labels at ${data_feats}/${train_set}/text.km.${km_tag}.${tgt_lang}"
-            log "Saving dev pseudo_labels at ${data_feats}/${valid_set}/text.km.${km_tag}.${tgt_lang}"
+                # Copy generated pseudo labels to original dump dir
+                for dset in ${train_set} ${valid_set} ${test_sets}; do
+                    _out_dir=${feature_dir}/${kmeans_feature_type}/layer${feature_layer}/${dset}
+                    cp ${_out_dir}/pseudo_labels_km${feature_num_clusters}.txt \
+                        "${data_feats}/${dset}/text.km.${km_tag}.${lang}"
+                done
+            done
 
-            # NOTE(jiatong): use the pseudo label with unique to train s2st
-            for dset in ${train_set} ${valid_set}; do
-                python pyscripts/feats/unique_pseudo_labels.py \
-                    --input_label ${data_feats}/${dset}/text.km.${km_tag}.${tgt_lang} \
-                    --output_label ${data_feats}/${dset}/text.km.${km_tag}.${tgt_lang}.unique
+            # Prepare unique pseudo labels for training
+            for dset in ${train_set} ${valid_set} ${test_sets}; do
+                for lang in "${src_lang}" "${tgt_lang}"; do
+                    python pyscripts/feats/unique_pseudo_labels.py \
+                        --input_label ${data_feats}/${dset}/text.km.${km_tag}.${lang} \
+                        --output_label ${data_feats}/${dset}/text.km.${km_tag}.${lang}.unique
+                done
             done
         fi
     else
@@ -915,17 +966,22 @@ if ! "${skip_train}"; then
         _feats_type="$(<${_s2st_train_dir}/feats_type)"
         if [ "${_feats_type}" = raw ]; then
             # src related
-            _src_scp=wav.scp.${src_lang}
-            if [[ "${audio_format}" == *ark* ]]; then
-                _src_type=kaldi_ark
+            if "${use_discrete_unit}" || "${use_unit2unit}"; then
+                _src_scp=text.km.${km_tag}.${src_lang}.unique
+                _src_type=text_int
             else
-                # "sound" supports "wav", "flac", etc.
-                _src_type=sound
+                _src_scp=wav.scp.${src_lang}
+                if [[ "${audio_format}" == *ark* ]]; then
+                    _src_type=kaldi_ark
+                else
+                    # "sound" supports "wav", "flac", etc.
+                    _src_type=sound
+                fi
             fi
-            _opts+="--frontend_conf fs=${fs} "
 
             # tgt related
-            if "${use_discrete_unit}"; then
+            # if use discrete unit or unit2unit
+            if "${use_discrete_unit}" || "${use_unit2unit}"; then
                 _tgt_scp=text.km.${km_tag}.${tgt_lang}.unique
                 _tgt_type=text
             else
@@ -966,8 +1022,8 @@ if ! "${skip_train}"; then
         utils/split_scp.pl "${key_file}" ${split_scps}
 
         # 2. Generate run.sh
-        log "Generate '${s2st_stats_dir}/run.sh'. You can resume the process from stage 5 using this script"
-        mkdir -p "${s2st_stats_dir}"; echo "${run_args} --stage 5 \"\$@\"; exit \$?" > "${s2st_stats_dir}/run.sh"; chmod +x "${s2st_stats_dir}/run.sh"
+        log "Generate '${s2st_stats_dir}/run.sh'. You can resume the process from stage 6 using this script"
+        mkdir -p "${s2st_stats_dir}"; echo "${run_args} --stage 6 \"\$@\"; exit \$?" > "${s2st_stats_dir}/run.sh"; chmod +x "${s2st_stats_dir}/run.sh"
 
         # 3. Submit jobs
         log "S2ST collect-stats started... log: '${_logdir}/stats.*.log'"
@@ -1059,15 +1115,20 @@ if ! "${skip_train}"; then
 
         _feats_type="$(<${_s2st_train_dir}/feats_type)"
         if [ "${_feats_type}" = raw ]; then
+
             # src related
-            _src_scp=wav.scp.${src_lang}
-            if [[ "${audio_format}" == *ark* ]]; then
-                _src_type=kaldi_ark
+            if "${use_discrete_unit}"; then
+                _src_scp=text.km.${km_tag}.${src_lang}.unique
+                _src_type=text_int
             else
-                # "sound" supports "wav", "flac", etc.
-                _src_type=sound
+                _src_scp=wav.scp.${src_lang}
+                if [[ "${audio_format}" == *ark* ]]; then
+                    _src_type=kaldi_ark
+                else
+                    # "sound" supports "wav", "flac", etc.
+                    _src_type=sound
+                fi
             fi
-            _opts+="--frontend_conf fs=${fs} "
 
             # tgt related
             if "${use_discrete_unit}"; then
@@ -1205,6 +1266,14 @@ if ! "${skip_train}"; then
             _opts+="--unit_token_list ${unit_tokendir}/tokens.txt "
         fi
 
+        if [ $use_src_lang = true ]; then
+            _opts+="--src_token_list ${unit_tokendir}/tokens.txt "
+        fi
+        if [ $use_tgt_lang = true ]; then
+            _opts+="--tgt_token_list ${unit_tokendir}/tokens.txt "
+        fi
+
+
         # shellcheck disable=SC2086
         ${python} -m espnet2.bin.launch \
             --cmd "${cuda_cmd} --name ${jobname}" \
@@ -1275,8 +1344,8 @@ if ! "${skip_eval}"; then
         fi
 
         # 2. Generate run.sh
-        log "Generate '${s2st_exp}/${inference_tag}/run.sh'. You can resume the process from stage 7 using this script"
-        mkdir -p "${s2st_exp}/${inference_tag}"; echo "${run_args} --stage 7 \"\$@\"; exit \$?" > "${s2st_exp}/${inference_tag}/run.sh"; chmod +x "${s2st_exp}/${inference_tag}/run.sh"
+        log "Generate '${s2st_exp}/${inference_tag}/run.sh'. You can resume the process from stage 8 using this script"
+        mkdir -p "${s2st_exp}/${inference_tag}"; echo "${run_args} --stage 8 \"\$@\"; exit \$?" > "${s2st_exp}/${inference_tag}/run.sh"; chmod +x "${s2st_exp}/${inference_tag}/run.sh"
 
         for dset in ${test_sets}; do
             _data="${data_feats}/${dset}"
@@ -1632,6 +1701,8 @@ if ! "${skip_upload_hf}"; then
         espnet_task=S2ST
         # shellcheck disable=SC2034
         task_exp=${s2st_exp}
+        # shellcheck disable=SC2034
+        lang="${tgt_lang}"
         eval "echo \"$(cat scripts/utils/TEMPLATE_HF_Readme.md)\"" > "${dir_repo}"/README.md
 
         this_folder=${PWD}
