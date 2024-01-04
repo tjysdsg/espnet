@@ -10,7 +10,7 @@ src_lang=es # ar ca cy de et es fa fr id it ja lv mn nl pt ru sl sv ta tr zh
 version=c # c or t (please refer to cvss paper for details)
 
 # kmeans related
-clustering_portion=1
+clustering_portion=0.5
 clustering_num_clusters=500
 feature_layer=6
 
@@ -26,8 +26,8 @@ vocoder_file=
 score_asr_model_tag=
 
 ./s2st.sh \
-    --ngpu 2 \
-    --nj 64 \
+    --ngpu 1 \
+    --nj 32 \
     --inference_nj 64 \
     --use_discrete_unit true \
     --local_data_opts "--stage 0 --src_lang ${src_lang} --version ${version}" \
@@ -52,4 +52,5 @@ score_asr_model_tag=
     --score_asr_model_tag "${score_asr_model_tag}" \
     --train_set "${train_set}" \
     --valid_set "${train_dev}" \
+    --use_unit2unit true \
     --test_sets "${test_sets}" "$@"

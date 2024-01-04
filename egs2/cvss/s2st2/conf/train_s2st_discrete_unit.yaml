@@ -72,13 +72,13 @@ losses:
       conf:
         weight: 8.0
         smoothing: 0.2
-        padding_idx: -1
+        padding_idx: 502 # hard-coded
     - name: tgt_attn
       type: attention
       conf:
         weight: 8.0
         smoothing: 0.2
-        padding_idx: -1
+        padding_idx: 502 # hard-coded
     - name: st_ctc
       type: ctc
       conf:
@@ -88,7 +88,7 @@ losses:
       conf:
         weight: 1.6
         smoothing: 0.2
-        padding_idx: -1
+        padding_idx: 502 # hard-coded
 
 # Optimization
 optim: adamw
