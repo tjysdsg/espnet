@@ -78,7 +78,7 @@ tgt_bpe_char_cover=1.0  # character coverage when modeling BPE for target langua
 
 # Discrete unit-related
 use_discrete_unit=false         # Whether to use discrete unit
-use_unit2unit=false             # Whether to use unit2unit
+use_discrete_input=false        # Whether to use discrete unit as input
 clustering_stage=1              # clustering stage
 clustering_stop_stage=100       # clustering stop stage
 clustering_num_threads=20       # Number of threads used for kmeans clustering
@@ -870,15 +870,16 @@ if ! "${skip_data_prep}"; then
 
     if "${use_discrete_unit}"; then
         if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-            log "Stage 5: S2ST discrete unit extraction for both source and target"
+            log "Stage 5: S2ST discrete unit extraction"
 
             s3prl_conf="{upstream=${s3prl_upstream_name}}"
             kmeans_feature_type=s3prl
             kmeans_feature_conf="{type=${kmeans_feature_type},conf={s3prl_conf=${s3prl_conf},download_dir=ckpt,multilayer_feature=False,layer=${feature_layer}}}"
 
             # Perform KMeans for both source and target
-            for lang in "${tgt_lang}"; do
+            for lang in ${src_lang} ${tgt_lang}; do
                 # NOTE: Make new data dirs that contain only the specific language
+                # We're doing this cuz perform_kmeans.sh doesn't distinguish languages
                 kmeans_data_dir=${feature_dir}/tmp_${lang}
                 mkdir -p ${kmeans_data_dir}
                 for dset in ${train_set} ${valid_set} ${test_sets}; do
@@ -891,11 +892,7 @@ if ! "${skip_data_prep}"; then
                 done
 
                 # Perform KMeans clustering
-            scripts/feats/perform_kmeans.sh \
-            scripts/feats/perform_kmeans.sh \
-                --nj ${nj} \
                 scripts/feats/perform_kmeans.sh \
-                --nj ${nj} \
                     --stage ${clustering_stage} \
                     --stop_stage ${clustering_stop_stage} \
                     --train_set "${train_set}" \
@@ -907,12 +904,8 @@ if ! "${skip_data_prep}"; then
                     --feature_type ${kmeans_feature_type} \
                     --layer "${feature_layer}" \
                     --feature_conf "${kmeans_feature_conf}" \
-                    --km_dir "${km_dir}_${lang}" \
-                --portion "${clustering_portion}" \
-                --portion "${clustering_portion}" \
-                --clustering_method "${feature_clustering_tool}" \
+                    --km_dir "${km_dir}" \
                     --portion "${clustering_portion}" \
-                --clustering_method "${feature_clustering_tool}" \
                     --nclusters "${feature_num_clusters}" \
                     --storage_save_mode ${storage_save_mode} \
                     --use_gpu "${use_gpu_feat_extract}" \
@@ -930,7 +923,7 @@ if ! "${skip_data_prep}"; then
                 done
             done
 
-            # Prepare unique pseudo labels for training
+            # NOTE(jiatong): use unique pseudo label to train s2st
             for dset in ${train_set} ${valid_set} ${test_sets}; do
                 for lang in "${src_lang}" "${tgt_lang}"; do
                     python pyscripts/feats/unique_pseudo_labels.py \
@@ -966,7 +959,7 @@ if ! "${skip_train}"; then
         _feats_type="$(<${_s2st_train_dir}/feats_type)"
         if [ "${_feats_type}" = raw ]; then
             # src related
-            if "${use_discrete_unit}" || "${use_unit2unit}"; then
+            if "${use_discrete_input}"; then
                 _src_scp=text.km.${km_tag}.${src_lang}.unique
                 _src_type=text_int
             else
@@ -977,11 +970,11 @@ if ! "${skip_train}"; then
                     # "sound" supports "wav", "flac", etc.
                     _src_type=sound
                 fi
+                _opts+="--frontend_conf fs=${fs} "
             fi
 
             # tgt related
-            # if use discrete unit or unit2unit
-            if "${use_discrete_unit}" || "${use_unit2unit}"; then
+            if "${use_discrete_unit}"; then
                 _tgt_scp=text.km.${km_tag}.${tgt_lang}.unique
                 _tgt_type=text
             else
@@ -1128,6 +1121,7 @@ if ! "${skip_train}"; then
                     # "sound" supports "wav", "flac", etc.
                     _src_type=sound
                 fi
+                _opts+="--frontend_conf fs=${fs} "
             fi
 
             # tgt related
@@ -1266,13 +1260,13 @@ if ! "${skip_train}"; then
             _opts+="--unit_token_list ${unit_tokendir}/tokens.txt "
         fi
 
+        # FIXME
         if [ $use_src_lang = true ]; then
             _opts+="--src_token_list ${unit_tokendir}/tokens.txt "
         fi
         if [ $use_tgt_lang = true ]; then
             _opts+="--tgt_token_list ${unit_tokendir}/tokens.txt "
         fi
-
 
         # shellcheck disable=SC2086
         ${python} -m espnet2.bin.launch \
