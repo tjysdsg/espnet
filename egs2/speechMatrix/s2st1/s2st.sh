@@ -1,1 +1,0 @@
-../../TEMPLATE/s2st1/s2st.sh
