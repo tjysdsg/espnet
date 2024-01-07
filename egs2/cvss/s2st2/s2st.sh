@@ -904,7 +904,7 @@ if ! "${skip_data_prep}"; then
                     --feature_type ${kmeans_feature_type} \
                     --layer "${feature_layer}" \
                     --feature_conf "${kmeans_feature_conf}" \
-                    --km_dir "${km_dir}" \
+                    --km_dir "${km_dir}_${lang}" \
                     --portion "${clustering_portion}" \
                     --nclusters "${feature_num_clusters}" \
                     --storage_save_mode ${storage_save_mode} \
@@ -1108,7 +1108,6 @@ if ! "${skip_train}"; then
 
         _feats_type="$(<${_s2st_train_dir}/feats_type)"
         if [ "${_feats_type}" = raw ]; then
-
             # src related
             if "${use_discrete_unit}"; then
                 _src_scp=text.km.${km_tag}.${src_lang}.unique

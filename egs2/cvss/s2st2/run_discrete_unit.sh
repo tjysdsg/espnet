@@ -10,9 +10,10 @@ src_lang=es # ar ca cy de et es fa fr id it ja lv mn nl pt ru sl sv ta tr zh
 version=c # c or t (please refer to cvss paper for details)
 
 # kmeans related
-clustering_portion=0.5
-clustering_num_clusters=500
-feature_layer=6
+clustering_portion=0.1
+clustering_num_clusters=1000
+feature_layer=11
+s3prl_upstream_name="mhubert_base_vp_en_es_fr_it3"
 
 train_set=train_${src_lang}
 train_dev=dev_${src_lang}
@@ -30,6 +31,7 @@ score_asr_model_tag=
     --nj 32 \
     --inference_nj 64 \
     --use_discrete_unit true \
+    --use_discrete_input true \
     --local_data_opts "--stage 0 --src_lang ${src_lang} --version ${version}" \
     --feats_type raw \
     --audio_format "wav" \
@@ -39,9 +41,7 @@ score_asr_model_tag=
     --src_lang ${src_lang} \
     --tgt_lang en \
     --feature_layer ${feature_layer} \
-    --s3prl_upstream_name hubert \
-    --storage_save_mode false \
-    --clustering_num_threads 60 \
+    --s3prl_upstream_name ${s3prl_upstream_name} \
     --clustering_portion ${clustering_portion} \
     --feature_num_clusters ${clustering_num_clusters} \
     --src_token_type "char" \
@@ -52,5 +52,4 @@ score_asr_model_tag=
     --score_asr_model_tag "${score_asr_model_tag}" \
     --train_set "${train_set}" \
     --valid_set "${train_dev}" \
-    --use_unit2unit true \
     --test_sets "${test_sets}" "$@"
