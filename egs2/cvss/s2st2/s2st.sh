@@ -104,8 +104,6 @@ s2st_args=       # Arguments for s2st model training, e.g., "--max_epoch 10".
                # Note that it will overwrite args in s2st config.
 pretrained=                # Pretrained model to load
 ignore_init_mismatch=false # Ignore initial mismatch
-src_feats_normalize=global_mvn # Normalizaton layer type for source features.
-tgt_feats_normalize=global_mvn # Normalization layer type for target features.
 num_splits_s2st=1           # Number of splitting for s2st corpus.
 src_lang=es                # source language abbrev. id (e.g., es).
 tgt_lang=en                # target language abbrev. id (e.g., en).
@@ -236,8 +234,6 @@ Options:
                        # Note that it will overwrite args in s2st config.
     --pretrained=          # Pretrained model to load (default="${pretrained}").
     --ignore_init_mismatch=      # Ignore mismatch parameter init with pretrained model (default="${ignore_init_mismatch}").
-    --src_feats_normalize  # Normalizaton layer type for source features. (default="${src_feats_normalize}").
-    --tgt_feats_normalize # Normalization layer type for target features. (default="${tgt_feats_normalize}").
     --num_splits_s2st    # Number of splitting for s2st corpus.  (default="${num_splits_s2st}").
     --src_lang=        # source language abbrev. id (e.g., es). (default="${src_lang}").
     --tgt_lang=        # target language abbrev. id (e.g., en). (default="${tgt_lang}").
@@ -913,7 +909,8 @@ if ! "${skip_data_prep}"; then
                     --num_threads ${clustering_num_threads} \
                     --cpu_cmd "${train_cmd}" \
                     --cuda_cmd "${cuda_cmd}" \
-                    --dictdir "${unit_tokendir}_${lang}"
+                    --dictdir "${unit_tokendir}"  # NOTE(Jiyang): dictionary is overwritten but we don't care
+                                                  # as long as the number of tokens are the same for src and tgt langs
 
                 # Copy generated pseudo labels to original dump dir
                 for dset in ${train_set} ${valid_set} ${test_sets}; do
@@ -1081,7 +1078,6 @@ if ! "${skip_train}"; then
                 >"${s2st_stats_dir}/valid/tgt_text_shape.${tgt_token_type}"
         fi
 
-
         if [ ${use_src_lang} = true ]; then
             <${s2st_stats_dir}/train/src_text_shape \
                 awk -v N="$(<${src_token_list} wc -l)" '{ print $0 "," N }' \
@@ -1156,15 +1152,6 @@ if ! "${skip_train}"; then
         if "${use_lid}"; then
             _opts+="--train_data_path_and_name_and_type ${_train_dir}/utt2lid,lids,text_int "
             _opts+="--valid_data_path_and_name_and_type ${_valid_dir}/utt2lid,lids,text_int "
-        fi
-
-        if [ "${src_feats_normalize}" = global_mvn ]; then
-            # Default normalization is utterance_mvn and changes to global_mvn
-            _opts+="--src_normalize=global_mvn --src_normalize_conf stats_file=${s2st_stats_dir}/train/src_feats_stats.npz "
-        fi
-        if [ "${tgt_feats_normalize}" = global_mvn ] && [ ${use_discrete_unit} = false ]; then
-            # Default normalization is utterance_mvn and changes to global_mvn
-            _opts+="--tgt_normalize=global_mvn --tgt_normalize_conf stats_file=${s2st_stats_dir}/train/tgt_feats_stats.npz "
         fi
 
         _num_splits_opts=
@@ -1255,11 +1242,10 @@ if ! "${skip_train}"; then
             _opts+="--valid_shape_file ${s2st_stats_dir}/valid/src_text_shape.${src_token_type} "
             _opts+="--fold_length ${s2st_text_fold_length} "
         fi
-        if [ $use_discrete_unit = true ]; then
+        if [ $use_discrete_unit = true ] || [ $use_discrete_input = true ]; then
             _opts+="--unit_token_list ${unit_tokendir}/tokens.txt "
         fi
 
-        # FIXME
         if [ $use_src_lang = true ]; then
             _opts+="--src_token_list ${unit_tokendir}/tokens.txt "
         fi
@@ -1572,12 +1558,6 @@ if ! "${skip_upload}"; then
         log "Stage 10: Pack model: ${packed_model}"
 
         _opts=
-        if [ "${src_feats_normalize}" = global_mvn ]; then
-            _opts+="--option ${s2st_stats_dir}/train/src_feats_stats.npz "
-        fi
-        if [ "${tgt_feats_normalize}" = global_mvn ] && [ ${use_discrete_unit} = false ]; then
-            _opts+="--option ${s2st_stats_dir}/train/tgt_feats_stats.npz "
-        fi
         if [ "${tgt_token_type}" = bpe ]; then
             _opts+="--option ${tgt_bpemodel} "
         fi

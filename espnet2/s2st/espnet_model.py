@@ -128,10 +128,14 @@ class ESPnetS2STModel(AbsESPnetModel):
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
 
-        if self.s2st_type == "discrete_unit":
+        if self.s2st_type == "discrete_unit" or self.s2st_type == "u2u":
             assert isinstance(self.encoder, ConformerEncoder) or isinstance(
                 self.encoder, TransformerEncoder
             ), "only support conformer or transformer-based encoder now"
+
+        self.discrete_input = False
+        if self.s2st_type == "u2u":
+            self.discrete_input = True
 
         # synthesizer
         assert (
@@ -209,7 +213,7 @@ class ESPnetS2STModel(AbsESPnetModel):
             tgt_feats, tgt_feats_lengths = tgt_speech, tgt_speech_lengths
 
         # 1. Encoder
-        if self.s2st_type == "discrete_unit":
+        if self.s2st_type == "discrete_unit" or self.s2st_type == "u2u":
             (encoder_out, inter_encoder_out), encoder_out_lens = self.encode(
                 src_speech, src_speech_lengths, return_all_hs=True
             )
@@ -455,7 +459,7 @@ class ESPnetS2STModel(AbsESPnetModel):
         #########################
         # Discrete unit Forward #
         #########################
-        elif self.s2st_type == "discrete_unit":
+        elif self.s2st_type == "discrete_unit" or self.s2st_type == "u2u":
             # discrete unit-based synthesis
             # Reference: https://arxiv.org/pdf/2107.05604.pdf
 
@@ -796,7 +800,7 @@ class ESPnetS2STModel(AbsESPnetModel):
                 feats, feats_lengths = self.specaug(feats, feats_lengths)
 
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
-            if self.src_normalize is not None:
+            if not self.discrete_input and self.src_normalize is not None:
                 feats, feats_lengths = self.src_normalize(feats, feats_lengths)
 
         # Pre-encoder, e.g. used for raw input data
