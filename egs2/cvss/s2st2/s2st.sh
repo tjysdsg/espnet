@@ -1246,13 +1246,6 @@ if ! "${skip_train}"; then
             _opts+="--unit_token_list ${unit_tokendir}/tokens.txt "
         fi
 
-        if [ $use_src_lang = true ]; then
-            _opts+="--src_token_list ${unit_tokendir}/tokens.txt "
-        fi
-        if [ $use_tgt_lang = true ]; then
-            _opts+="--tgt_token_list ${unit_tokendir}/tokens.txt "
-        fi
-
         # shellcheck disable=SC2086
         ${python} -m espnet2.bin.launch \
             --cmd "${cuda_cmd} --name ${jobname}" \
