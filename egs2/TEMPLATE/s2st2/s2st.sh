@@ -958,7 +958,7 @@ if ! "${skip_train}"; then
             # src related
             if "${use_discrete_input}"; then
                 _src_scp=text.km.${km_tag}.${src_lang}.unique
-                _src_type=text_int
+                _src_type=text
             else
                 _src_scp=wav.scp.${src_lang}
                 if [[ "${audio_format}" == *ark* ]]; then
@@ -1107,7 +1107,7 @@ if ! "${skip_train}"; then
             # src related
             if "${use_discrete_unit}"; then
                 _src_scp=text.km.${km_tag}.${src_lang}.unique
-                _src_type=text_int
+                _src_type=text
             else
                 _src_scp=wav.scp.${src_lang}
                 if [[ "${audio_format}" == *ark* ]]; then

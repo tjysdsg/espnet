@@ -287,6 +287,7 @@ class S2STTask(STTask):
                 "translatotron2",
                 "discrete_unit",
                 "unity",
+                "u2u",
             ],
         )
         group.add_argument(
@@ -517,19 +518,36 @@ class S2STTask(STTask):
         #                unit sequence, otherwise the tgt_speech will left unchanged \
         #                for spectrogram.
 
+        speech_name = "src_speech"
+        token_types = [args.tgt_token_type, args.src_token_type, unit_token_type]
+        token_lists = [
+            args.tgt_token_list,
+            args.src_token_list,
+            args.unit_token_list,
+        ]
+        bpe_models = [args.tgt_bpemodel, args.src_bpemodel, None]
+        g2p_types = [args.tgt_g2p, args.src_g2p, None]
+        text_names = ["tgt_text", "src_text", "tgt_speech"]
+
+        # Treat input speech as text if using discrete unit input
+        if args.s2st_type == "u2u":
+            token_types.append(unit_token_type)
+            token_lists.append(args.unit_token_list)
+            bpe_models.append(None)
+            g2p_types.append(None)
+
+            text_names.append('src_speech')
+            speech_name = "__NOT_USED__"
+
         if args.use_preprocessor:
             retval = MutliTokenizerCommonPreprocessor(
                 train=train,
-                token_type=[args.tgt_token_type, args.src_token_type, unit_token_type],
-                token_list=[
-                    args.tgt_token_list,
-                    args.src_token_list,
-                    args.unit_token_list,
-                ],
-                bpemodel=[args.tgt_bpemodel, args.src_bpemodel, None],
+                token_type=token_types,
+                token_list=token_lists,
+                bpemodel=bpe_models,
                 non_linguistic_symbols=args.non_linguistic_symbols,
                 text_cleaner=args.cleaner,
-                g2p_type=[args.tgt_g2p, args.src_g2p, None],
+                g2p_type=g2p_types,
                 # NOTE(kamo): Check attribute existence for backward compatibility
                 rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
                 rir_apply_prob=args.rir_apply_prob
@@ -548,8 +566,8 @@ class S2STTask(STTask):
                 speech_volume_normalize=args.speech_volume_normalize
                 if hasattr(args, "speech_volume_normalize")
                 else None,
-                speech_name="src_speech",
-                text_name=["tgt_text", "src_text", "tgt_speech"],
+                speech_name=speech_name,
+                text_name=text_names,
             )
         else:
             retval = None
