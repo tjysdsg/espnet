@@ -517,6 +517,8 @@ class S2STTask(STTask):
         # NOTE(jiatong): if discrete unit is used, the tokenizer will parse discrete \
         #                unit sequence, otherwise the tgt_speech will left unchanged \
         #                for spectrogram.
+        # NOTE(jiyang): if unit-to-unit model is used, the src_speech is treated as \
+        #               a discrete unit sequence as well
 
         speech_name = "src_speech"
         token_types = [args.tgt_token_type, args.src_token_type, unit_token_type]
