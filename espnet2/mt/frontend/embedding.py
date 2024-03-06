@@ -3,7 +3,7 @@
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 """Embedding Frontend for text based inputs."""
-
+import logging
 from typing import Tuple
 
 import torch
@@ -22,6 +22,7 @@ class Embedding(AbsFrontend):
         embed_dim: int = 400,
         pos_enc_class=PositionalEncoding,
         positional_dropout_rate: float = 0.1,
+        padding_idx=-1,
     ):
         """Initialize.
 
@@ -33,8 +34,8 @@ class Embedding(AbsFrontend):
         """
         assert check_argument_types()
         super().__init__()
+        self.padding_idx = padding_idx
         self.embed_dim = embed_dim
-        # TODO(sdalmia): check for padding idx
         self.embed = torch.nn.Sequential(
             torch.nn.Embedding(input_size, embed_dim),
             pos_enc_class(embed_dim, positional_dropout_rate),
@@ -53,7 +54,11 @@ class Embedding(AbsFrontend):
             Tensor: Output with dimensions (B, T, D).
             Tensor: Output lengths within batch.
         """
+        padding_mask = input == self.padding_idx
+        input[padding_mask] = 0  # avoid index out of range
+
         x = self.embed(input)
+        x[padding_mask] = 0  # set padded elements to 0
 
         return x, input_lengths
 
