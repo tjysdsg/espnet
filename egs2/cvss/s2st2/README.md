@@ -21,6 +21,13 @@ Also checkout `espnet2/s2st/espnet_model.py` and search for `u2u` and `discrete_
 Pay attention to how the discrete unit dictionary is used for both the model input and the output during data loading.
 I did this because as I recall the paper uses a unified set of units.
 
+## CVSS s2st2 experiment
+
+I successfully ran a Spanish-to-English U2U experiment (`egs2/cvss/s2st2/run_discrete_unit.sh`).
+The exp folder is at `/ocean/projects/cis210027p/jtang1/s2st/egs2/cvss/s2st2/exp/u2u`.
+However, I didn't have a chance to train a vocoder and verify if the audio of generated discrete units sound natural.
+You might wanna do that to sanity check.
+
 ## Other
 
 Other than `s2st2`, I'd read `espnet2/s2st/espnet_model.py` carefully and compare the implementation with
